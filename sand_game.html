@@ -1,0 +1,2654 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sand Game Pro · Advanced Simulation v2.0</title>
+  <style>
+    :root {
+      --bg: #0a0a0c;
+      --panel: rgba(20, 20, 25, 0.85);
+      --accent: #4cc9f0;
+      --accent-hover: #3ab0d6;
+      --text: #e0e0e0;
+      --border: rgba(255, 255, 255, 0.1);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      user-select: none;
+    }
+    canvas {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      display: block;
+      background: #000;
+      image-rendering: pixelated;
+      cursor: crosshair;
+      touch-action: none;
+      z-index: 1;
+    }
+    .ui {
+      position: fixed;
+      left: 20px;
+      top: 20px;
+      z-index: 10;
+      width: 340px;
+      max-height: calc(100vh - 40px);
+      background: var(--panel);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 16px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+      overflow-y: auto;
+      transition: transform 0.3s ease, opacity 0.3s ease;
+    }
+    .ui.hidden {
+      transform: translateX(-380px);
+      opacity: 0;
+      pointer-events: none;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .title h1 { font-size: 18px; font-weight: 700; letter-spacing: -0.5px; }
+    .title p { font-size: 11px; color: #888; }
+    
+    .section-title {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #666;
+      margin: 10px 0 6px 0;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 4px;
+    }
+
+    .grid-mats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 4px;
+    }
+    button {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 5px 3px;
+      border-radius: 6px;
+      font-size: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    button:hover { background: rgba(255,255,255,0.1); }
+    button.active {
+      background: var(--accent);
+      color: #000;
+      border-color: var(--accent);
+      font-weight: 600;
+    }
+
+    .control-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+      font-size: 12px;
+    }
+    input[type="range"] {
+      flex: 1;
+      margin-left: 10px;
+      accent-color: var(--accent);
+    }
+
+    .actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-top: 10px;
+    }
+    .actions button { padding: 7px; font-size: 11px; }
+
+    .stats {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 10;
+      background: var(--panel);
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 11px;
+      color: #888;
+      backdrop-filter: blur(8px);
+      border: 1px solid var(--border);
+    }
+
+    .kbd-hint {
+      margin-top: 12px;
+      font-size: 10px;
+      color: #555;
+      line-height: 1.4;
+    }
+    .kbd {
+      background: #222;
+      padding: 1px 4px;
+      border-radius: 3px;
+      color: #aaa;
+    }
+
+    .info-panel {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      z-index: 10;
+      background: var(--panel);
+      padding: 8px 14px;
+      border-radius: 12px;
+      font-size: 11px;
+      color: #aaa;
+      backdrop-filter: blur(8px);
+      border: 1px solid var(--border);
+      max-width: 300px;
+      display: none;
+    }
+    .info-panel.visible { display: block; }
+
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  </style>
+</head>
+<body>
+
+<canvas id="c"></canvas>
+
+<div class="ui" id="ui">
+  <div class="header">
+    <div class="title">
+      <h1>Sand Pro v2.0</h1>
+      <p>Physik & Chemie Simulation</p>
+    </div>
+    <button id="toggleUI">Ausblenden</button>
+  </div>
+
+  <div class="section-title">Pulver</div>
+  <div class="grid-mats" id="matGridPowder"></div>
+  <div class="section-title">Flüssigkeiten</div>
+  <div class="grid-mats" id="matGridLiquid"></div>
+  <div class="section-title">Gase</div>
+  <div class="grid-mats" id="matGridGas"></div>
+  <div class="section-title">Feststoffe</div>
+  <div class="grid-mats" id="matGridSolid"></div>
+  <div class="section-title">Spezial</div>
+  <div class="grid-mats" id="matGridSpecial"></div>
+
+  <div class="section-title">Einstellungen</div>
+  <div class="control-row">
+    <label>Grid-Auflösung (Zellen/Breite)</label>
+    <input type="range" id="gridR" min="50" max="500" value="200">
+  </div>
+  <div class="control-row">
+    <label>Pinselgröße</label>
+    <input type="range" id="brushR" min="1" max="40" value="5">
+  </div>
+  <div class="control-row">
+    <label>Simulations-Ticks/Frames</label>
+    <input type="range" id="speedR" min="1" max="15" value="5">
+  </div>
+  <div class="control-row">
+    <label>Photosynthese-Aktivität</label>
+    <input type="range" id="photoR" min="0" max="100" value="70">
+  </div>
+
+  <div class="section-title">Aktionen</div>
+  <div class="actions">
+    <button id="pauseBtn">Pause</button>
+    <button id="clearBtn">Leeren</button>
+    <button id="rainBtn">Regen</button>
+    <button id="fireBtn">Feuerregen</button>
+    <button id="windBtn">Wind</button>
+    <button id="seedBtn">Ökosystem</button>
+  </div>
+
+  <div class="kbd-hint">
+    <span class="kbd">1-9</span> Material | <span class="kbd">Space</span> Pause | <span class="kbd">C</span> Leeren | <span class="kbd">H</span> UI | <span class="kbd">Rechtsklick</span> Radierer
+  </div>
+</div>
+
+<div class="stats" id="st">0 FPS | 0 Partikel</div>
+<div class="info-panel" id="info"></div>
+
+<script>
+"use strict";
+
+/**
+ * SAND GAME PRO v2.0 - Advanced Physics & Chemistry Simulation
+ * 
+ * Features:
+ * - Realistic particle physics (density, buoyancy, viscosity)
+ * - Plant growth with roots, branches, flowering, seasonal behavior
+ * - Chemical reactions (combustion, neutralization, oxidation, photosynthesis, electrolysis)
+ * - Thermal physics (heat capacity, conduction, phase transitions)
+ * - Fluid dynamics (surface tension, capillary action, diffusion)
+ * - pH system for acids and bases
+ * - Salt dissolution and brine physics
+ * - Electrical conductivity
+ */
+
+/** 
+ * CONSTANTS & TYPES
+ */
+const TYPE = { SOLID: 0, LIQUID: 1, GAS: 2, POWDER: 3, SPECIAL: 4, PLANT: 5, ORGANIC: 6 };
+
+// Material IDs - expanded list
+const EMPTY = 0, SAND = 1, WATER = 2, WALL = 3, WOOD = 4, FIRE = 5, SMOKE = 6, PLANT = 7, OIL = 8, LAVA = 9, STONE = 10, GLASS = 11, ACID = 12, OXYGEN = 13, METAL = 14, ICE = 15, STEAM = 16, ASH = 17, SALT = 18, TNT = 19, HYDROGEN = 20, COAL = 21, BLOOD = 22, EGGS = 23, CLONE = 24, SAND_DARK = 25, DIRT = 26, GRAVEL = 27, SPAN = 28, BACTERIA = 29, FIREBALL = 30, SODA = 31, BLOOD_ALKALI = 32, RUST = 33, CEMENT = 34, SULFUR = 35, PHOSPHORUS = 36, MERCURY = 37, BRASS = 38, BLOOD_ACID = 39, PLANT_FLOWER = 40, PLANT_DEAD = 41, SPORE = 42, MOLD = 43, HONEY = 44, ALCOHOL = 45, CHLORINE = 46, NITROGEN = 47, URANIUM = 48, RADIATION = 49, FIRE_EXTINGUISHER = 50, COOKED_EGG = 51, SAND_WET = 52;
+
+/**
+ * MATERIAL DEFINITIONS
+ * Enhanced with realistic properties
+ */
+const MATS = {
+  [EMPTY]:      { id: EMPTY,     name: "Radierer", type: TYPE.SPECIAL, color: [0,0,0], density: 0, melting: 0, boiling: 0, heatCapacity: 0, conductivity: 0, flammability: 0, ph: 7.0, electrical: 0, radioactivity: 0 },
+  
+  // Powders
+  [SAND]:       { id: SAND,      name: "Sand", type: TYPE.POWDER, color: [210,190,130], density: 35, melting: 1710, boiling: 2500, heatCapacity: 0.8, conductivity: 0.3, flammability: 0, ph: 7.0, electrical: 0, radioactivity: 0, capillary: 0.1 },
+  [SAND_DARK]:  { id: SAND_DARK, name: "Dunkler Sand", type: TYPE.POWDER, color: [80,70,60], density: 40, melting: 1500, boiling: 2400, heatCapacity: 0.9, conductivity: 0.4, flammability: 0, ph: 6.5, electrical: 0, radioactivity: 0, capillary: 0.1 },
+  [DIRT]:       { id: DIRT,      name: "Erde", type: TYPE.POWDER, color: [107,79,45], density: 30, melting: 800, boiling: 1200, heatCapacity: 1.2, conductivity: 0.2, flammability: 0.1, ph: 6.0, electrical: 0.1, radioactivity: 0, capillary: 0.6, nutrient: 0.5 },
+  [GRAVEL]:     { id: GRAVEL,    name: "Kies", type: TYPE.POWDER, color: [140,140,145], density: 50, melting: 1400, boiling: 2300, heatCapacity: 0.7, conductivity: 0.4, flammability: 0, ph: 7.5, electrical: 0, radioactivity: 0 },
+  [ASH]:        { id: ASH,       name: "Asche", type: TYPE.POWDER, color: [130,130,135], density: 8, melting: 600, boiling: 1200, heatCapacity: 1.0, conductivity: 0.1, flammability: 0.05, ph: 9.0, electrical: 0, radioactivity: 0, capillary: 0.8 },
+  [SALT]:       { id: SALT,      name: "Salz", type: TYPE.POWDER, color: [245,245,245], density: 40, melting: 801, boiling: 1413, heatCapacity: 0.9, conductivity: 0.05, flammability: 0, ph: 7.0, electrical: 0.2, radioactivity: 0, soluble: true },
+  [SULFUR]:     { id: SULFUR,    name: "Schwefel", type: TYPE.POWDER, color: [230,210,50], density: 30, melting: 115, boiling: 444, heatCapacity: 0.8, conductivity: 0.05, flammability: 0.9, ph: 4.0, electrical: 0, radioactivity: 0 },
+  [COAL]:       { id: COAL,      name: "Kohle", type: TYPE.POWDER, color: [35,35,35], density: 45, melting: 350, boiling: 700, heatCapacity: 1.2, conductivity: 0.3, flammability: 1.0, ph: 6.5, electrical: 0.5, radioactivity: 0 },
+  [SPAN]:       { id: SPAN,      name: "Späne", type: TYPE.POWDER, color: [170,175,185], density: 50, melting: 1300, boiling: 3000, heatCapacity: 0.5, conductivity: 1.5, flammability: 0.3, ph: 7.0, electrical: 1.5, radioactivity: 0 },
+  [CEMENT]:     { id: CEMENT,    name: "Zement", type: TYPE.POWDER, color: [160,160,165], density: 45, melting: 1500, boiling: 2500, heatCapacity: 0.8, conductivity: 0.4, flammability: 0, ph: 12.0, electrical: 0.1, radioactivity: 0, hygroscopic: true },
+  [PHOSPHORUS]: { id: PHOSPHORUS, name: "Phosphor", type: TYPE.POWDER, color: [255,255,220], density: 20, melting: 44, boiling: 280, heatCapacity: 0.8, conductivity: 0.05, flammability: 1.0, ph: 0, electrical: 0, radioactivity: 0, autoFlammable: true },
+  [RADIATION]:  { id: RADIATION, name: "Strahlung", type: TYPE.SPECIAL, color: [100,255,100], density: 0, melting: 0, boiling: 0, heatCapacity: 0, conductivity: 0, flammability: 0, ph: 0, electrical: 0, radioactivity: 100 },
+  
+  // Liquids
+  [WATER]:      { id: WATER,     name: "Wasser", type: TYPE.LIQUID, color: [64,140,238], density: 10, melting: 0, boiling: 100, heatCapacity: 4.18, conductivity: 0.6, flammability: 0, ph: 7.0, electrical: 0.3, radioactivity: 0, viscosity: 1.0, surfaceTension: 0.72 },
+  [OIL]:        { id: OIL,       name: "Öl", type: TYPE.LIQUID, color: [60,45,20], density: 7, melting: -10, boiling: 300, heatCapacity: 2.0, conductivity: 0.1, flammability: 1.0, ph: 5.5, electrical: 0, radioactivity: 0, viscosity: 3.0, surfaceTension: 0.3 },
+  [LAVA]:       { id: LAVA,      name: "Lava", type: TYPE.LIQUID, color: [255,80,0], density: 50, melting: 700, boiling: 2000, heatCapacity: 1.2, conductivity: 2.0, flammability: 0, ph: 6.5, electrical: 0.5, radioactivity: 0.1, viscosity: 50.0, surfaceTension: 0.5, temp: 800 },
+  [ACID]:       { id: ACID,      name: "Säure", type: TYPE.LIQUID, color: [180,255,50], density: 12, melting: -50, boiling: 120, heatCapacity: 3.5, conductivity: 0.8, flammability: 0, ph: 1.0, electrical: 0.8, radioactivity: 0, viscosity: 1.0, surfaceTension: 0.6 },
+  [BLOOD]:      { id: BLOOD,     name: "Blut", type: TYPE.LIQUID, color: [160,25,25], density: 10.5, melting: -5, boiling: 100, heatCapacity: 3.8, conductivity: 0.6, flammability: 0, ph: 7.4, electrical: 0.5, radioactivity: 0, viscosity: 1.5, surfaceTension: 0.65, organic: true },
+  [EGGS]:       { id: EGGS,      name: "Eier", type: TYPE.LIQUID, color: [245,245,230], density: 9, melting: 62, boiling: 100, heatCapacity: 3.5, conductivity: 0.4, flammability: 0, ph: 8.0, electrical: 0.2, radioactivity: 0, viscosity: 2.0, surfaceTension: 0.55, organic: true, coagulationTemp: 62, raw: true },
+  [BLOOD_ALKALI]: { id: BLOOD_ALKALI, name: "Lauge", type: TYPE.LIQUID, color: [180,100,200], density: 11, melting: -10, boiling: 110, heatCapacity: 3.8, conductivity: 0.9, flammability: 0, ph: 13.0, electrical: 0.7, radioactivity: 0, viscosity: 1.2, surfaceTension: 0.6 },
+  [HONEY]:      { id: HONEY,     name: "Honig", type: TYPE.LIQUID, color: [240,180,40], density: 1.4, melting: 50, boiling: 140, heatCapacity: 2.5, conductivity: 0.1, flammability: 0.2, ph: 3.9, electrical: 0.1, radioactivity: 0, viscosity: 10.0, surfaceTension: 0.5, organic: true, sugar: true },
+  [ALCOHOL]:    { id: ALCOHOL,   name: "Alkohol", type: TYPE.LIQUID, color: [200,220,255], density: 5, melting: -114, boiling: 78, heatCapacity: 2.5, conductivity: 0.1, flammability: 1.0, ph: 7.0, electrical: 0, radioactivity: 0, viscosity: 1.2, surfaceTension: 0.22 },
+  [MERCURY]:    { id: MERCURY,   name: "Quecksilber", type: TYPE.LIQUID, color: [180,190,200], density: 135, melting: -39, boiling: 357, heatCapacity: 0.14, conductivity: 1.5, flammability: 0, ph: 7.0, electrical: 3.0, radioactivity: 0, viscosity: 1.5, surfaceTension: 1.5 },
+  [SODA]:       { id: SODA,      name: "Natronlauge", type: TYPE.LIQUID, color: [200,255,200], density: 12, melting: -10, boiling: 140, heatCapacity: 3.5, conductivity: 1.0, flammability: 0, ph: 13.5, electrical: 1.0, radioactivity: 0, viscosity: 1.0, surfaceTension: 0.6 },
+  [FIRE_EXTINGUISHER]: { id: FIRE_EXTINGUISHER, name: "CO2-Schaum", type: TYPE.LIQUID, color: [230,240,255], density: 3, melting: -50, boiling: 0, heatCapacity: 2.0, conductivity: 0.1, flammability: 0, ph: 5.5, electrical: 0, radioactivity: 0, viscosity: 2.0, surfaceTension: 0.4, extinguish: true },
+  
+  // New materials
+  [COOKED_EGG]:   { id: COOKED_EGG,  name: "Koch Ei", type: TYPE.SOLID, color: [245,240,220], density: 30, melting: 80, boiling: 200, heatCapacity: 2.5, conductivity: 0.2, flammability: 0.1, ph: 8.5, electrical: 0.1, radioactivity: 0 },
+  [SAND_WET]:     { id: SAND_WET,    name: "Nasser Sand", type: TYPE.POWDER, color: [140,120,80], density: 40, melting: 1710, boiling: 2500, heatCapacity: 1.5, conductivity: 0.5, flammability: 0, ph: 7.0, electrical: 0.2, radioactivity: 0, capillary: 0.3 },
+  
+  // Gases
+  [OXYGEN]:     { id: OXYGEN,    name: "O₂", type: TYPE.GAS, color: [180,220,255], density: 1.4, melting: -219, boiling: -183, heatCapacity: 1.0, conductivity: 0.05, flammability: 0, ph: 7.0, electrical: 0, radioactivity: 0, buoyancy: -1 },
+  [HYDROGEN]:   { id: HYDROGEN,  name: "H₂", type: TYPE.GAS, color: [255,255,200], density: 0.09, melting: -259, boiling: -253, heatCapacity: 14.3, conductivity: 0.18, flammability: 1.0, ph: 7.0, electrical: 0, radioactivity: 0, buoyancy: -2 },
+  [STEAM]:      { id: STEAM,     name: "Dampf", type: TYPE.GAS, color: [220,225,235], density: 0.6, melting: 0, boiling: 100, heatCapacity: 2.0, conductivity: 0.05, flammability: 0, ph: 7.0, electrical: 0, radioactivity: 0, buoyancy: -1 },
+  [SMOKE]:      { id: SMOKE,     name: "Rauch", type: TYPE.GAS, color: [90,90,95], density: 1.2, melting: 0, boiling: 0, heatCapacity: 1.0, conductivity: 0.05, flammability: 0, ph: 5.5, electrical: 0, radioactivity: 0, buoyancy: -0.5, soot: true },
+  [CHLORINE]:   { id: CHLORINE,  name: "Cl₂", type: TYPE.GAS, color: [150,220,80], density: 3.2, melting: -101, boiling: -34, heatCapacity: 0.5, conductivity: 0.05, flammability: 0, ph: 4.0, electrical: 0, radioactivity: 0, buoyancy: 1, toxic: true },
+  [NITROGEN]:   { id: NITROGEN,  name: "N₂", type: TYPE.GAS, color: [200,210,230], density: 1.25, melting: -210, boiling: -196, heatCapacity: 1.0, conductivity: 0.05, flammability: 0, ph: 7.0, electrical: 0, radioactivity: 0, buoyancy: -0.5 },
+  
+  // Solids
+  [WALL]:       { id: WALL,      name: "Wand", type: TYPE.SOLID, color: [140,144,155], density: 100, melting: 2000, boiling: 5000, heatCapacity: 0.8, conductivity: 0.3, flammability: 0, ph: 7.0, electrical: 0, radioactivity: 0 },
+  [WOOD]:       { id: WOOD,      name: "Holz", type: TYPE.SOLID, color: [139,90,43], density: 45, melting: 250, boiling: 500, heatCapacity: 1.7, conductivity: 0.08, flammability: 0.8, ph: 6.0, electrical: 0, radioactivity: 0, organic: true },
+  [STONE]:      { id: STONE,     name: "Stein", type: TYPE.SOLID, color: [110,110,115], density: 85, melting: 1400, boiling: 3500, heatCapacity: 0.8, conductivity: 0.4, flammability: 0, ph: 7.0, electrical: 0, radioactivity: 0 },
+  [METAL]:      { id: METAL,     name: "Metall", type: TYPE.SOLID, color: [165,170,180], density: 95, melting: 1455, boiling: 2830, heatCapacity: 0.45, conductivity: 3.0, flammability: 0, ph: 7.0, electrical: 2.0, radioactivity: 0, oxidizable: true },
+  [ICE]:        { id: ICE,       name: "Eis", type: TYPE.SOLID, color: [200,235,255], density: 8, melting: 0, boiling: 100, heatCapacity: 2.1, conductivity: 0.5, flammability: 0, ph: 7.0, electrical: 0, radioactivity: 0 },
+  [GLASS]:      { id: GLASS,     name: "Glas", type: TYPE.SOLID, color: [200,225,240], density: 55, melting: 600, boiling: 2200, heatCapacity: 0.8, conductivity: 0.1, flammability: 0, ph: 8.0, electrical: 0, radioactivity: 0 },
+  [RUST]:       { id: RUST,      name: "Rost", type: TYPE.SOLID, color: [180,80,40], density: 70, melting: 200, boiling: 800, heatCapacity: 0.7, conductivity: 0.2, flammability: 0.1, ph: 3.0, electrical: 0.3, radioactivity: 0 },
+  [BRASS]:      { id: BRASS,     name: "Messing", type: TYPE.SOLID, color: [220,180,80], density: 85, melting: 900, boiling: 2500, heatCapacity: 0.4, conductivity: 1.2, flammability: 0, ph: 7.0, electrical: 1.5, radioactivity: 0 },
+  [CLONE]:      { id: CLONE,     name: "Klon-Block", type: TYPE.SOLID, color: [255,0,255], density: 50, melting: 200, boiling: 500, heatCapacity: 1.0, conductivity: 0.1, flammability: 0, ph: 7.0, electrical: 0, radioactivity: 0 },
+  [URANIUM]:    { id: URANIUM,   name: "Uran", type: TYPE.SOLID, color: [50,180,50], density: 190, melting: 1135, boiling: 3818, heatCapacity: 0.12, conductivity: 0.2, flammability: 0, ph: 6.0, electrical: 0.5, radioactivity: 50 },
+  
+  // Special
+  [FIRE]:       { id: FIRE,      name: "Feuer", type: TYPE.SPECIAL, color: [255,100,0], density: 0.5, melting: 0, boiling: 0, heatCapacity: 1.5, conductivity: 0.5, flammability: 1.0, ph: 0, electrical: 0, radioactivity: 0, temp: 800 },
+  [PLANT]:      { id: PLANT,     name: "Pflanze", type: TYPE.PLANT, color: [46,184,60], density: 30, melting: 100, boiling: 200, heatCapacity: 4.0, conductivity: 0.1, flammability: 0.6, ph: 6.5, electrical: 0, radioactivity: 0, organic: true, photosynthesis: true, needsWater: true },
+  [PLANT_FLOWER]: { id: PLANT_FLOWER, name: "Blume", type: TYPE.PLANT, color: [255,100,150], density: 25, melting: 80, boiling: 150, heatCapacity: 4.0, conductivity: 0.1, flammability: 0.5, ph: 6.0, electrical: 0, radioactivity: 0, organic: true, photosynthesis: true, reproductive: true },
+  [PLANT_DEAD]: { id: PLANT_DEAD, name: "Tote Pflanze", type: TYPE.PLANT, color: [139,115,55], density: 25, melting: 200, boiling: 400, heatCapacity: 1.5, conductivity: 0.05, flammability: 0.9, ph: 6.0, electrical: 0, radioactivity: 0, organic: true },
+  [BACTERIA]:   { id: BACTERIA,  name: "Bakterien", type: TYPE.SPECIAL, color: [100,255,100], density: 5, melting: 0, boiling: 0, heatCapacity: 4.0, conductivity: 0.1, flammability: 0, ph: 7.0, electrical: 0, radioactivity: 0, organic: true, decomposer: true },
+  [SPORE]:      { id: SPORE,     name: "Sporen", type: TYPE.SPECIAL, color: [180,255,180], density: 2, melting: 0, boiling: 0, heatCapacity: 1.0, conductivity: 0.05, flammability: 0, ph: 7.0, electrical: 0, radioactivity: 0, organic: true, reproductive: true },
+  [MOLD]:       { id: MOLD,      name: "Schimmel", type: TYPE.SPECIAL, color: [80,180,60], density: 10, melting: 0, boiling: 0, heatCapacity: 3.5, conductivity: 0.1, flammability: 0.2, ph: 5.0, electrical: 0, radioactivity: 0, organic: true, decomposer: true, reproductive: true },
+  [FIREBALL]:   { id: FIREBALL,  name: "Feuerball", type: TYPE.SPECIAL, color: [255,150,0], density: 1, melting: 0, boiling: 0, heatCapacity: 2.0, conductivity: 1.0, flammability: 1.0, ph: 0, electrical: 0, radioactivity: 0, temp: 1200, explosive: true },
+  [TNT]:        { id: TNT,       name: "TNT", type: TYPE.POWDER, color: [200,50,50], density: 50, melting: 80, boiling: 300, heatCapacity: 1.0, conductivity: 0.1, flammability: 1.0, ph: 7.0, electrical: 0, radioactivity: 0, explosive: true },
+};
+
+// pH color interpolation helper
+function phColor(ph, baseColor) {
+  let [r, g, b] = baseColor;
+  if (ph < 3) {
+    r = Math.min(255, r + (3 - ph) * 30);
+    g = Math.max(0, g - (3 - ph) * 40);
+  } else if (ph > 11) {
+    r = Math.max(0, r - (ph - 11) * 20);
+    g = Math.min(255, g + (ph - 11) * 20);
+    b = Math.min(255, b + (ph - 11) * 30);
+  }
+  return [r, g, b];
+}
+
+// Keyboard mapping
+const KEY_MAP = {
+  '1': SAND, '2': WATER, '3': WALL, '4': WOOD, '5': FIRE, '6': PLANT, '7': OIL, '8': LAVA, '9': STONE,
+  'q': GLASS, 'w': ACID, 'e': OXYGEN, 'r': METAL, 't': ICE, 'y': STEAM, 'u': ASH, 'i': SALT, 'o': TNT, 'p': HYDROGEN,
+  '-': EMPTY, '=': COAL, '\\': BLOOD, "'": EGGS, ';': CLONE,
+  '[': DIRT, ']': GRAVEL, '\\': SPAN, 'a': BACTERIA, 's': SULFUR, 'd': PHOSPHORUS, 'f': MERCURY,
+  'g': SODA, 'h': HONEY, 'j': ALCOHOL, 'k': CHLORINE, 'l': NITROGEN, 'z': URANIUM, 'x': FIREBALL, 'c': FIRE_EXTINGUISHER
+};
+
+/**
+ * ENGINE STATE
+ */
+let W, H, N;
+let grid, tempGrid, ageGrid, colorSeedGrid;
+let phGrid, soluteGrid, electricalGrid, radiationGrid;
+let canvas, ctx, img, pix;
+let curMat = SAND, bsz = 5, spd = 5, paused = false;
+let targetGridWidth = 200; // User-settable grid width
+let rainActive = false, fireActive = false, windActive = false, windDir = 1;
+let ecosystemActive = false;
+let frameCount = 0, fpsTimer = 0, lastFps = 0;
+let photoActivity = 0.7;
+let tick = 0;
+
+// Seeded RNG
+let rngState = 42;
+function seedRng(s) { rngState = s || 1; }
+function rng() {
+  rngState ^= rngState << 13; rngState >>>= 0;
+  rngState ^= rngState >>> 17; rngState >>>= 0;
+  rngState ^= rngState << 5; rngState >>>= 0;
+  return rngState / 4294967296;
+}
+function rngRange(min, max) { return min + rng() * (max - min); }
+
+/**
+ * TYPE CHECKING
+ */
+const isEmpty = (m) => m === EMPTY;
+const isLiquid = (m) => MATS[m]?.type === TYPE.LIQUID;
+const isGas = (m) => MATS[m]?.type === TYPE.GAS;
+const isPowder = (m) => MATS[m]?.type === TYPE.POWDER;
+const isSolid = (m) => MATS[m]?.type === TYPE.SOLID;
+const isSpecial = (m) => MATS[m]?.type === TYPE.SPECIAL;
+const isPlant = (m) => MATS[m]?.type === TYPE.PLANT;
+const isOrganic = (m) => MATS[m]?.type === TYPE.ORGANIC || MATS[m]?.organic;
+const isFlammable = (m) => MATS[m]?.flammability > 0;
+const isExplosive = (m) => MATS[m]?.explosive;
+const isOxidizable = (m) => MATS[m]?.oxidizable;
+
+/**
+ * DENSITY & BUOYANCY
+ */
+function canDisplace(target, source) {
+  if (isEmpty(target)) return true;
+  const s = MATS[source], t = MATS[target];
+  if (!s || !t) return false;
+  
+  // Same material: don't displace
+  if (source === target) return false;
+  
+  // Explosives can displace anything
+  if (isExplosive(source)) return true;
+  
+  // Powders sink in liquids if denser
+  if (isPowder(source) && isLiquid(target)) return s.density > t.density;
+  if (isPowder(source) && isGas(target)) return false;
+  
+  // Liquids sink in less dense liquids
+  if (isLiquid(source) && isLiquid(target)) return s.density > t.density;
+  
+  // Liquids sink in powders if denser
+  if (isLiquid(source) && isPowder(target)) return s.density > t.density * 0.5;
+  
+  // Gases rise above everything
+  if (isGas(source) && (isLiquid(target) || isPowder(target) || isSolid(target))) return false;
+  
+  // Fire rises through everything
+  if (source === FIRE) return true;
+  
+  return false;
+}
+
+/**
+ * SWAP & MOVE
+ */
+function swap(x1, y1, x2, y2) {
+  if (x2 < 0 || x2 >= W || y2 < 0 || y2 >= H) return false;
+  const i1 = y1 * W + x1, i2 = y2 * W + x2;
+  
+  let tmp;
+  tmp = grid[i2]; grid[i2] = grid[i1]; grid[i1] = tmp;
+  tmp = tempGrid[i2]; tempGrid[i2] = tempGrid[i1]; tempGrid[i1] = tmp;
+  tmp = ageGrid[i2]; ageGrid[i2] = ageGrid[i1]; ageGrid[i1] = tmp;
+  tmp = colorSeedGrid[i2]; colorSeedGrid[i2] = colorSeedGrid[i1]; colorSeedGrid[i1] = tmp;
+  tmp = phGrid[i2]; phGrid[i2] = phGrid[i1]; phGrid[i1] = tmp;
+  tmp = soluteGrid[i2]; soluteGrid[i2] = soluteGrid[i1]; soluteGrid[i1] = tmp;
+  tmp = electricalGrid[i2]; electricalGrid[i2] = electricalGrid[i1]; electricalGrid[i1] = tmp;
+  tmp = radiationGrid[i2]; radiationGrid[i2] = radiationGrid[i1]; radiationGrid[i1] = tmp;
+  
+  return true;
+}
+
+function tryMove(x, y, tx, ty, matId) {
+  if (tx < 0 || tx >= W || ty < 0 || ty >= H) {
+    // Out of bounds: material leaves the simulation
+    if (ty >= H && (isGas(matId) || matId === FIRE || matId === STEAM || matId === SMOKE)) return true;
+    return false;
+  }
+  const i1 = y * W + x, i2 = ty * W + tx;
+  if (grid[i2] === matId) return false;
+  if (grid[i2] !== EMPTY && !canDisplace(grid[i2], matId)) return false;
+  swap(x, y, tx, ty);
+  return true;
+}
+
+/**
+ * POWDER PHYSICS - Realistic granular material behavior
+ */
+function updatePowder(x, y, matId) {
+  const i = y * W + x;
+  const mat = MATS[matId];
+  
+  // === WET SAND PHYSICS ===
+  if (matId === SAND_WET) {
+    // Wet sand is heavier and moves slower
+    if (rng() > 0.5) return false; // 50% slowdown
+    
+    // Wet sand can support slight overhangs (angle of repose)
+    // Check if there's support below
+    let hasSupport = false;
+    if (y + 1 < H) {
+      const below = grid[(y + 1) * W + x];
+      if (below !== EMPTY && below !== WATER) {
+        hasSupport = true;
+      }
+    }
+    
+    // Without support, wet sand is stable (like a sandcastle)
+    if (!hasSupport && rng() < 0.7) return false;
+    
+    // Wet sand dries over time
+    if (rng() < 0.001) {
+      grid[i] = SAND; // Dry out
+      return false;
+    }
+    
+    // Normal wet sand movement (slower, more cohesive)
+    if (y + 1 < H) {
+      if (tryMove(x, y, x, y + 1, matId)) return true;
+      // Wet sand doesn't flow diagonally as easily
+      if (rng() < 0.3) {
+        const dir = rng() < 0.5 ? -1 : 1;
+        if (tryMove(x, y, x + dir, y + 1, matId)) return true;
+      }
+    }
+    
+    // Wet sand can "flow" sideways when piled up
+    if (rng() < 0.1) {
+      const dir = rng() < 0.5 ? -1 : 1;
+      if (tryMove(x, y, x + dir, y, matId)) return true;
+    }
+    
+    return false;
+  }
+  
+  // Hygroscopic powders absorb moisture
+  if (mat.hygroscopic) {
+    for (let dy = -2; dy <= 2; dy++) {
+      for (let dx = -2; dx <= 2; dx++) {
+        const nx = x + dx, ny = y + dy;
+        if (nx >= 0 && nx < W && ny >= 0 && ny < H) {
+          if (grid[ny * W + nx] === WATER && rng() < 0.01) {
+            grid[ny * W + nx] = EMPTY;
+            tempGrid[y * W + x] = Math.min(tempGrid[y * W + x] + 20, 100); // Exothermic
+          }
+        }
+      }
+    }
+  }
+  
+  // Normal powder movement
+  if (y + 1 < H) {
+    if (tryMove(x, y, x, y + 1, matId)) return true;
+    const dir = rng() < 0.5 ? -1 : 1;
+    if (tryMove(x, y, x + dir, y + 1, matId)) return true;
+    if (tryMove(x, y, x - dir, y + 1, matId)) return true;
+  }
+  
+  // Capillary action: powders with high capillary value can move upward
+  if (mat.capillary > 0.3 && y > 0 && rng() < mat.capillary * 0.02) {
+    for (let dy = -1; dy >= -3; dy--) {
+      const nx = x + (rng() < 0.5 ? -1 : 1);
+      if (nx >= 0 && nx < W && y + dy >= 0 && grid[(y + dy) * W + nx] === WATER) {
+        if (tryMove(x, y, nx, y + dy, matId)) return true;
+      }
+    }
+  }
+  
+  return false;
+}
+
+/**
+ * LIQUID PHYSICS
+ */
+function updateLiquid(x, y, matId) {
+  const mat = MATS[matId];
+  const viscosity = mat.viscosity || 1.0;
+  const prob = Math.max(0.1, 1.0 - viscosity * 0.1);
+  
+  if (rng() > prob) return false; // Viscosity delay
+  
+  // Extinguish property
+  if (mat.extinguish) {
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        const nx = x + dx, ny = y + dy;
+        if (nx >= 0 && nx < W && ny >= 0 && ny < H) {
+          if (grid[ny * W + nx] === FIRE) {
+            grid[ny * W + nx] = STEAM;
+            tempGrid[ny * W + nx] = 100;
+          }
+        }
+      }
+    }
+  }
+  
+  // Normal liquid movement
+  if (y + 1 < H) {
+    if (tryMove(x, y, x, y + 1, matId)) return true;
+  }
+  
+  // Flow sideways with preference for spreading
+  const dir = rng() < 0.5 ? -1 : 1;
+  if (tryMove(x, y, x + dir, y, matId)) return true;
+  if (tryMove(x, y, x - dir, y, matId)) return true;
+  
+  // Diagonal flow
+  if (y + 1 < H) {
+    if (tryMove(x, y, x + dir, y + 1, matId)) return true;
+    if (tryMove(x, y, x - dir, y + 1, matId)) return true;
+  }
+  
+  // Surface tension: liquids tend to stick together
+  if (mat.surfaceTension > 0.5 && y + 1 < H && x > 0 && x < W - 1) {
+    if (grid[y * W + x - 1] === matId && grid[y * W + x + 1] === matId) {
+      // Surrounded horizontally, less likely to flow
+      if (rng() > mat.surfaceTension * 0.3) return false;
+    }
+  }
+  
+  return false;
+}
+
+/**
+ * GAS PHYSICS
+ */
+function updateGas(x, y, matId) {
+  const mat = MATS[matId];
+  const buoyancy = mat.buoyancy || 0;
+  
+  // Gases rise based on buoyancy
+  if (y - 1 >= 0) {
+    if (tryMove(x, y, x, y - 1, matId)) return true;
+    const dir = rng() < 0.5 ? -1 : 1;
+    if (tryMove(x, y, x + dir, y - 1, matId)) return true;
+    if (tryMove(x, y, x - dir, y - 1, matId)) return true;
+  }
+  
+  // Buoyant gases float faster
+  if (buoyancy < -0.5 && y - 2 >= 0) {
+    if (tryMove(x, y, x, y - 2, matId)) return true;
+  }
+  
+  // Horizontal spread
+  const dir = rng() < 0.5 ? -1 : 1;
+  if (tryMove(x, y, x + dir, y, matId)) return true;
+  if (tryMove(x, y, x - dir, y, matId)) return true;
+  
+  // Wind effect
+  if (windActive && x + windDir >= 0 && x + windDir < W) {
+    if (tryMove(x, y, x + windDir, y, matId)) return true;
+  }
+  
+  return false;
+}
+
+/**
+ * PLANT GROWTH SYSTEM - Biologically accurate plant physiology
+ * Models: photosynthesis, transpiration, nutrient uptake, tropisms
+ */
+function updatePlant(x, y, matId) {
+  const mat = MATS[matId];
+  const i = y * W + x;
+  ageGrid[i]++;
+  
+  // === THERMAL STRESS RESPONSE ===
+  // Optimal plant temperature: 10-30°C
+  const optimalTempMin = 10, optimalTempMax = 30;
+  
+  if (tempGrid[i] > 45) {
+    // Heat stress: plants wilt and can die
+    if (rng() < 0.05) {
+      grid[i] = PLANT_DEAD; // Heat death
+      return;
+    }
+  }
+  if (tempGrid[i] > 250) {
+    grid[i] = FIRE;
+    tempGrid[i] = 600;
+    return;
+  }
+  
+  // Frost damage: cell membrane disruption
+  if (tempGrid[i] < -5) {
+    // Ice crystal formation damages cells
+    if (rng() < 0.03) {
+      grid[i] = PLANT_DEAD; // Frozen and died
+      return;
+    }
+    // Partial freezing slows growth
+  }
+  
+  if (tempGrid[i] < -15) {
+    grid[i] = PLANT_DEAD; // Complete freeze
+    return;
+  }
+  
+  // === PHOTOSYNTHESIS - Realistic light/CO2/O2 dynamics ===
+  if (mat.photosynthesis && photoActivity > 0) {
+    // Light check: clear path to top of screen
+    let hasLight = true;
+    let lightIntensity = 1.0;
+    for (let cy = 0; cy < y; cy++) {
+      const cell = grid[cy * W + x];
+      if (cell !== EMPTY) {
+        if (cell === WATER) {
+          lightIntensity *= 0.8; // Water attenuates light slightly
+        } else {
+          hasLight = false;
+          break;
+        }
+      }
+    }
+    
+    // Photosynthesis rate depends on light, temperature, CO2
+    if (hasLight) {
+      const tempFactor = (tempGrid[i] >= optimalTempMin && tempGrid[i] <= optimalTempMax) ? 1.0 :
+                         (tempGrid[i] < optimalTempMin) ? Math.max(0, (tempGrid[i] + 5) / 15) :
+                         Math.max(0, 1 - (tempGrid[i] - 30) / 20);
+      
+      // Check for CO2 nearby (from decay, respiration, combustion)
+      let co2Level = 0;
+      for (let dy = -3; dy <= 3; dy++) {
+        for (let dx = -3; dx <= 3; dx++) {
+          const nx = x + dx, ny = y + dy;
+          if (nx >= 0 && nx < W && ny >= 0 && ny < H) {
+            const ni = ny * W + nx;
+            if (grid[ni] === SMOKE || grid[ni] === FIRE) co2Level += 2;
+            if (grid[ni] === PLANT_DEAD || grid[ni] === BACTERIA || grid[ni] === MOLD) co2Level += 1;
+          }
+        }
+      }
+      
+      // O2 production rate
+      const photoRate = 0.02 * photoActivity * lightIntensity * tempFactor * (0.5 + Math.min(1, co2Level * 0.3));
+      
+      if (rng() < photoRate) {
+        // Release O2 in a random adjacent cell
+        const dir = Math.floor(rng() * 4);
+        const dx = [0, 0, -1, 1][dir];
+        const dy = [-1, 1, 0, 0][dir];
+        const nx = x + dx, ny = y + dy;
+        if (nx >= 0 && nx < W && ny >= 0 && ny < H) {
+          const ni = ny * W + nx;
+          if (grid[ni] === EMPTY || grid[ni] === OXYGEN) {
+            if (rng() < 0.5) {
+              grid[ni] = OXYGEN;
+            }
+          }
+        }
+      }
+      
+      // Photosynthesis produces carbohydrates - strengthens plant
+      if (rng() < 0.001 * photoActivity * lightIntensity) {
+        // Plant health improves (represented by slower aging)
+        ageGrid[i] = Math.max(0, ageGrid[i] - 1);
+      }
+    }
+  }
+  
+  // === WATER UPTAKE & TRANSPIRATION ===
+  // Roots absorb water from soil
+  const rootZone = 8;
+  let waterAvailable = 0;
+  let nutrientLevel = 0;
+  
+  for (let dy = -rootZone; dy <= rootZone; dy++) {
+    for (let dx = -rootZone; dx <= rootZone; dx++) {
+      // Roots grow downward preferentially
+      const effectiveDist = Math.sqrt(dx * dx + dy * dy * 0.5);
+      if (effectiveDist > rootZone) continue;
+      
+      const nx = x + dx, ny = y + dy;
+      if (nx >= 0 && nx < W && ny >= 0 && ny < H) {
+        const ni = ny * W + nx;
+        if (grid[ni] === WATER) waterAvailable += 3;
+        if (grid[ni] === SAND_WET || grid[ni] === DIRT) nutrientLevel += 1;
+        if (grid[ni] === PLANT_DEAD || grid[ni] === BACTERIA || grid[ni] === MOLD || grid[ni] === ASH) nutrientLevel += 2;
+      }
+    }
+  }
+  
+  // === GROWTH - Only with water and appropriate age ===
+  if (ageGrid[i] > 3 && waterAvailable > 0) {
+    // Growth rate depends on water, nutrients, light, temperature
+    let hasLight = true;
+    for (let cy = 0; cy < y; cy++) {
+      if (grid[cy * W + x] !== EMPTY && grid[cy * W + x] !== WATER) { hasLight = false; break; }
+    }
+    
+    const tempFactor = (tempGrid[i] >= optimalTempMin && tempGrid[i] <= optimalTempMax) ? 1.0 : 0.3;
+    // Drastically reduced growth rate for realistic plant development
+    // Base rate: 0.005 = ~0.5% chance per tick per frame
+    // With spd=5 ticks/frame and 60fps = 300 ticks/sec, that's ~1.5% growth chance per second at optimal conditions
+    const growthRate = 0.005 * Math.min(1, waterAvailable / 3) * Math.min(1, nutrientLevel / 2) *
+                       (hasLight ? photoActivity : 0.05) * tempFactor;
+    
+    if (rng() < growthRate) {
+      // Apical meristem: grow upward from tip
+      if (y > 0 && grid[(y - 1) * W + x] === EMPTY) {
+        // Check for structural support below
+        let hasSupport = false;
+        for (let sy = y + 1; sy < Math.min(H, y + 4); sy++) {
+          const below = grid[sy * W + x];
+          if (below !== EMPTY && below !== WATER) {
+            hasSupport = true;
+            break;
+          }
+        }
+        
+        if (hasSupport) {
+          grid[(y - 1) * W + x] = PLANT;
+          ageGrid[(y - 1) * W + x] = 0; // New growth starts fresh
+          
+          // Mature plants can flower
+          if (ageGrid[i] > 40 && rng() < 0.08 * photoActivity * tempFactor) {
+            grid[(y - 1) * W + x] = PLANT_FLOWER;
+            ageGrid[(y - 1) * W + x] = 0;
+          }
+        }
+      }
+      
+      // Lateral meristem: branch sideways (increases surface area)
+      if (ageGrid[i] > 10 && rng() < 0.08 * growthRate) {
+        const dir = rng() < 0.5 ? -1 : 1;
+        if (x + dir >= 0 && x + dir < W && grid[y * W + x + dir] === EMPTY) {
+          // Branch needs connection to main stem
+          if (y + 1 < H && (grid[(y + 1) * W + x] === PLANT || grid[(y + 1) * W + x] === PLANT_FLOWER)) {
+            grid[y * W + x + dir] = PLANT;
+            ageGrid[y * W + x + dir] = ageGrid[i] - 5;
+          }
+        }
+      }
+    }
+    
+    // Consume water through transpiration
+    if (rng() < 0.1 * growthRate) {
+      // Find and consume nearest water
+      for (let d = 1; d <= rootZone && waterAvailable > 0; d++) {
+        for (let dy = -d; dy <= d && waterAvailable > 0; dy++) {
+          for (let dx = -d; dx <= d && waterAvailable > 0; dx++) {
+            const nx = x + dx, ny = y + dy;
+            if (nx >= 0 && nx < W && ny >= 0 && ny < H) {
+              if (grid[ny * W + nx] === WATER && rng() < 0.1) {
+                grid[ny * W + nx] = EMPTY;
+                waterAvailable--;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  // Drought stress: plants die without water
+  if (waterAvailable === 0 && ageGrid[i] > 20 && rng() < 0.005) {
+    grid[i] = PLANT_DEAD; // Died of drought
+    return;
+  }
+  
+  // Reproduction: flowering plants spread seeds - enhanced
+  if (mat.reproductive && ageGrid[i] > 10) {
+    // Flowers release pollen/seeds continuously but slowly
+    if (rng() < 0.08) {
+      // Wind dispersal: seeds blow in random directions
+      const windDir = windActive ? windDir : (rng() < 0.5 ? -1 : 1);
+      const dispersalRange = windActive ? 8 : 4;
+      
+      for (let angle = 0; angle < 360; angle += 45) {
+        const rad = angle * Math.PI / 180;
+        const dist = 1 + Math.floor(rng() * dispersalRange);
+        const sx = Math.floor(x + Math.cos(rad) * dist);
+        const sy = Math.floor(y + Math.sin(rad) * dist - dist * 0.5); // Tend to fall downward
+        
+        if (sx >= 0 && sx < W && sy >= 0 && sy < H && grid[sy * W + sx] === EMPTY) {
+          // Seeds can be: new flower, plant, or spore
+          const seedType = rng();
+          if (seedType < 0.5) {
+            // New flower seed - needs dirt to grow
+            grid[sy * W + sx] = PLANT_FLOWER;
+            ageGrid[sy * W + sx] = 0;
+          } else if (seedType < 0.85) {
+            // Regular plant seed
+            grid[sy * W + sx] = PLANT;
+            ageGrid[sy * W + sx] = 0;
+          } else {
+            // Spore (can grow into mold)
+            grid[sy * W + sx] = SPORE;
+            ageGrid[sy * W + sx] = 0;
+          }
+        }
+      }
+    }
+    
+    // Flowers attract bacteria (pollination simulation) - bacteria help spread seeds
+    if (rng() < 0.05) {
+      for (let dy = -3; dy <= 3; dy++) {
+        for (let dx = -3; dx <= 3; dx++) {
+          const nx = x + dx, ny = y + dy;
+          if (nx >= 0 && nx < W && ny >= 0 && ny < H) {
+            const ni = ny * W + nx;
+            if (grid[ni] === BACTERIA && rng() < 0.08) {
+              // Bacteria near flowers get "pollinated" - they spread faster
+              ageGrid[ni] = 500; // Mark as pollinated
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  // Flower growth: flower seeds need to land on dirt/plant to grow properly
+  if (matId === PLANT_FLOWER && ageGrid[i] > 5) {
+    // Check if flower is supported by dirt or plant below
+    let supported = false;
+    let supportType = EMPTY;
+    if (y + 1 < H) {
+      const below = grid[(y + 1) * W + x];
+      if (below === DIRT || below === SAND || below === SAND_DARK) {
+        supported = true;
+        supportType = below;
+      } else if (below === PLANT || below === PLANT_DEAD || below === PLANT_FLOWER) {
+        supported = true;
+        supportType = below;
+      }
+    }
+    
+    // If not supported, flower falls down
+    if (!supported && y + 1 < H) {
+      if (grid[(y + 1) * W + x] === EMPTY && rng() < 0.4) {
+        swap(x, y, x, y + 1);
+      }
+    }
+    
+    // Flowers on dirt grow faster and produce more seeds
+    if (supported && supportType === DIRT || supportType === SAND || supportType === SAND_DARK) {
+      // Faster growth on good soil
+      if (ageGrid[i] % Math.max(1, 15 - Math.floor(ageGrid[i] / 20)) === 0 && rng() < 0.3) {
+        // Grow upward
+        if (y > 0 && grid[(y - 1) * W + x] === EMPTY) {
+          grid[(y - 1) * W + x] = PLANT;
+          ageGrid[(y - 1) * W + x] = ageGrid[i];
+        }
+      }
+    }
+    
+    // Flowers die after a while and drop many seeds
+    if (ageGrid[i] > 150 && rng() < 0.03) {
+      // Drop seeds in a wide radius
+      const seedRadius = 5;
+      for (let dy = -seedRadius; dy <= seedRadius; dy++) {
+        for (let dx = -seedRadius; dx <= seedRadius; dx++) {
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist > seedRadius) continue;
+          const nx = x + dx, ny = y + dy + Math.floor(dist); // Seeds fall downward
+          if (nx >= 0 && nx < W && ny >= 0 && ny < H && grid[ny * W + nx] === EMPTY && rng() < 0.15) {
+            if (rng() < 0.6) {
+              grid[ny * W + nx] = PLANT_FLOWER;
+            } else {
+              grid[ny * W + nx] = PLANT;
+            }
+            ageGrid[ny * W + nx] = 0;
+          }
+        }
+      }
+      grid[i] = PLANT_DEAD;
+      ageGrid[i] = 0;
+    }
+    
+    // Mature flowers can also convert to regular plants
+    if (ageGrid[i] > 100 && rng() < 0.01) {
+      grid[i] = PLANT;
+      ageGrid[i] = ageGrid[i] / 2;
+    }
+  }
+  
+  // Regular plant growth - enhanced with branching and seed production
+  if (matId === PLANT && ageGrid[i] > 0) {
+    // Plants grow upward and branch
+    if (ageGrid[i] % Math.max(1, 8 - Math.floor(photoActivity * 5)) === 0 && rng() < 0.35) {
+      // Grow upward
+      if (y > 0 && grid[(y - 1) * W + x] === EMPTY) {
+        // Check for support below
+        let hasSupport = false;
+        for (let sy = y + 1; sy < Math.min(H, y + 4); sy++) {
+          const below = grid[sy * W + x];
+          if (below === DIRT || below === SAND || below === SAND_DARK || below === WALL || below === STONE) {
+            hasSupport = true;
+            break;
+          }
+          if (below !== EMPTY) break;
+        }
+        // Also check if directly below is plant (growing on top)
+        if (y + 1 < H && (grid[(y + 1) * W + x] === PLANT || grid[(y + 1) * W + x] === PLANT_DEAD)) {
+          hasSupport = true;
+        }
+        
+        if (hasSupport || y + 1 >= H) {
+          grid[(y - 1) * W + x] = PLANT;
+          ageGrid[(y - 1) * W + x] = ageGrid[i];
+        }
+      }
+    }
+    
+    // Branching - grow sideways
+    if (ageGrid[i] > 5 && rng() < 0.05) {
+      const dir = rng() < 0.5 ? -1 : 1;
+      if (x + dir >= 0 && x + dir < W && y > 0 && grid[y * W + x + dir] === EMPTY) {
+        // Check if there's a plant below or adjacent for support
+        let hasSideSupport = false;
+        if (y + 1 < H && (grid[(y + 1) * W + x] === PLANT || grid[(y + 1) * W + x] === PLANT_DEAD)) {
+          hasSideSupport = true;
+        }
+        if (x > 0 && (grid[y * W + (x - 1)] === PLANT || grid[y * W + (x - 1)] === PLANT_DEAD)) {
+          hasSideSupport = true;
+        }
+        if (x < W - 1 && (grid[y * W + (x + 1)] === PLANT || grid[y * W + (x + 1)] === PLANT_DEAD)) {
+          hasSideSupport = true;
+        }
+        
+        if (hasSideSupport) {
+          grid[y * W + x + dir] = PLANT;
+          ageGrid[y * W + x + dir] = ageGrid[i];
+        }
+      }
+    }
+    
+    // Plants can produce flowers when mature
+    if (ageGrid[i] > 30 && rng() < 0.02 * photoActivity) {
+      // Try to convert to flower
+      if (rng() < 0.3) {
+        grid[i] = PLANT_FLOWER;
+        ageGrid[i] = 0;
+      }
+    }
+    
+    // Plants produce seeds when mature - wind dispersal
+    if (ageGrid[i] > 40 && rng() < 0.03) {
+      const seedCount = 1 + Math.floor(rng() * 3);
+      for (let s = 0; s < seedCount; s++) {
+        const dx = Math.floor(rng() * 7) - 3;
+        const dy = Math.floor(rng() * 5) - 1; // Tend upward (wind dispersal)
+        const nx = x + dx, ny = y + dy;
+        if (nx >= 0 && nx < W && ny >= 0 && ny < H && grid[ny * W + nx] === EMPTY && rng() < 0.1) {
+          if (rng() < 0.7) {
+            grid[ny * W + nx] = PLANT;
+          } else {
+            grid[ny * W + nx] = SPORE;
+          }
+          ageGrid[ny * W + nx] = 0;
+        }
+      }
+    }
+  }
+ }
+
+/**
+  * SPORE & MOLD SYSTEM - Enhanced
+   */
+  function updateSpore(x, y, matId) {
+    const i = y * W + x;
+    ageGrid[i]++;
+    
+    // Humidity detection - spores absorb moisture from nearby water/humidity
+    let humidityLevel = 0;
+    for (let dy = -3; dy <= 3; dy++) {
+      for (let dx = -3; dx <= 3; dx++) {
+        const nx = x + dx, ny = y + dy;
+        if (nx >= 0 && nx < W && ny >= 0 && ny < H) {
+          const ni = ny * W + nx;
+          if (grid[ni] === WATER) humidityLevel += 3;
+          if (grid[ni] === STEAM) humidityLevel += 1;
+          if (grid[ni] === MOLD || grid[ni] === BACTERIA) humidityLevel += 1; // Organic moisture
+        }
+      }
+    }
+    
+    // Spores float with gases (more realistic movement)
+    if (y - 1 >= 0 && rng() < 0.15 + humidityLevel * 0.01) {
+      if (tryMove(x, y, x, y - 1, matId)) return;
+      const dir = rng() < 0.5 ? -1 : 1;
+      if (tryMove(x, y, x + dir, y - 1, matId)) return;
+      if (tryMove(x, y, x - dir, y - 1, matId)) return;
+    }
+    
+    // Spores also drift sideways like real airborne spores
+    if (rng() < 0.1 + humidityLevel * 0.005) {
+      const dir = rng() < 0.5 ? -1 : 1;
+      if (tryMove(x, y, x + dir, y, matId)) return;
+    }
+    
+    // Spores settle down due to gravity (slowly) - heavier when humid
+    const settleChance = 0.1 + humidityLevel * 0.02;
+    if (y + 1 < H && rng() < settleChance) {
+      if (tryMove(x, y, x, y + 1, matId)) {}
+      else if (rng() < 0.5 && tryMove(x, y, x - 1, y + 1, matId)) {}
+      else if (tryMove(x, y, x + 1, y + 1, matId)) {}
+    }
+    
+    // Spores germinate when they touch organic matter + moisture
+    // Germination is faster with higher humidity
+    if (ageGrid[i] > 5 && humidityLevel >= 2) {
+      let nearOrganic = false;
+      
+      for (let dy = -3; dy <= 3 && !nearOrganic; dy++) {
+        for (let dx = -3; dx <= 3 && !nearOrganic; dx++) {
+          const nx = x + dx, ny = y + dy;
+          if (nx >= 0 && nx < W && ny >= 0 && ny < H) {
+            const ni = ny * W + nx;
+            const nMat = grid[ni];
+            if (nMat === DIRT || nMat === PLANT_DEAD || nMat === BACTERIA || nMat === MOLD || nMat === ASH || isOrganic(nMat)) {
+              nearOrganic = true;
+            }
+          }
+        }
+      }
+      
+      // Germinate into mold if organic matter nearby - rate depends on humidity
+      const germinationRate = Math.min(0.15, 0.02 * humidityLevel);
+      if (nearOrganic && rng() < germinationRate) {
+        grid[i] = MOLD;
+        ageGrid[i] = 0;
+        return;
+      }
+      
+      // High humidity: spores can also grow into plant matter directly
+      if (humidityLevel >= 5 && nearOrganic && rng() < 0.01) {
+        grid[i] = PLANT;
+        ageGrid[i] = 0;
+        return;
+      }
+    }
+    
+    // Spores absorb water when humid - become heavy and sink faster
+    if (humidityLevel >= 3 && rng() < 0.02) {
+      for (let dy = -2; dy <= 2; dy++) {
+        for (let dx = -2; dx <= 2; dx++) {
+          const nx = x + dx, ny = y + dy;
+          if (nx >= 0 && nx < W && ny >= 0 && ny < H) {
+            if (grid[ny * W + nx] === WATER && rng() < 0.05) {
+              grid[ny * W + nx] = EMPTY; // Absorb water
+              humidityLevel = Math.max(0, humidityLevel - 1);
+              break;
+            }
+          }
+        }
+      }
+    }
+    
+    // Spores can also slowly convert to dead plant matter
+    if (ageGrid[i] > 150 && rng() < 0.005) {
+      grid[i] = PLANT_DEAD;
+      return;
+    }
+    
+    // Spores eventually die (longer lifespan, but shorter in dry conditions)
+    const maxAge = humidityLevel > 3 ? 600 : 300;
+    if (ageGrid[i] > maxAge) {
+      grid[i] = EMPTY;
+    }
+  }
+
+/**
+  * MOLD GROWTH - Enhanced with spore production and better spread
+   */
+  function updateMold(x, y, matId) {
+    const i = y * W + x;
+    ageGrid[i]++;
+    
+    // Calculate moisture level around mold
+    let moistureLevel = 0;
+    for (let dy = -4; dy <= 4; dy++) {
+      for (let dx = -4; dx <= 4; dx++) {
+        const nx = x + dx, ny = y + dy;
+        if (nx >= 0 && nx < W && ny >= 0 && ny < H) {
+          const ni = ny * W + nx;
+          if (grid[ni] === WATER) moistureLevel += 3;
+          if (grid[ni] === STEAM) moistureLevel += 1;
+          if (isOrganic(grid[ni]) || grid[ni] === PLANT_DEAD || grid[ni] === DIRT) moistureLevel += 1;
+        }
+      }
+    }
+    
+    // Mold decomposes organic matter - faster with more moisture
+    const decomposeChance = 0.02 + moistureLevel * 0.005;
+    const neighbors = [i-1, i+1, i-W, i+W];
+    for (const ni of neighbors) {
+      if (ni >= 0 && ni < N) {
+        const nMat = grid[ni];
+        if ((isOrganic(nMat) || nMat === PLANT_DEAD || nMat === ASH) && nMat !== MOLD && rng() < decomposeChance) {
+          // Convert to bacteria after partial decomposition
+          if (rng() < 0.6) {
+            grid[ni] = BACTERIA;
+          } else {
+            grid[ni] = DIRT; // Mold enriches soil
+          }
+          // Mold spreads where it decomposed
+          if (rng() < 0.3) {
+            grid[ni] = MOLD;
+            ageGrid[ni] = 0;
+          }
+        }
+      }
+    }
+    
+    // Mold spreads to adjacent empty cells - rate depends on moisture
+    if (rng() < 0.1 + moistureLevel * 0.02) {
+      const dx = Math.floor(rng() * 5) - 2;
+      const dy = Math.floor(rng() * 5) - 2;
+      const nx = x + dx, ny = y + dy;
+      if (nx >= 0 && nx < W && ny >= 0 && ny < H && grid[ny * W + nx] === EMPTY) {
+        // Check proximity to water - larger radius with more moisture
+        const searchRadius = Math.min(6, 2 + Math.floor(moistureLevel / 3));
+        let nearWater = false;
+        for (let d = 1; d <= searchRadius && !nearWater; d++) {
+          for (let a = 0; a < 8; a++) {
+            const ax = x + Math.floor(Math.cos(a * Math.PI / 4) * d);
+            const ay = y + Math.floor(Math.sin(a * Math.PI / 4) * d);
+            if (ax >= 0 && ax < W && ay >= 0 && ay < H) {
+              const ai = ay * W + ax;
+              if (grid[ai] === WATER || grid[ai] === STEAM) {
+                nearWater = true; break;
+              }
+            }
+          }
+        }
+        if (nearWater) {
+          grid[ny * W + nx] = MOLD;
+          ageGrid[ny * W + nx] = 0;
+        }
+      }
+    }
+    
+    // Mature mold produces spores - more spores with more moisture
+    if (ageGrid[i] > 30) {
+      const sporeProductionRate = Math.min(0.4, 0.05 + moistureLevel * 0.02);
+      if (rng() < sporeProductionRate) {
+        // Release spores in a wider area
+        const sporeCount = 1 + Math.floor(moistureLevel / 4);
+        for (let s = 0; s < sporeCount; s++) {
+          const dx = Math.floor(rng() * 7) - 3;
+          const dy = Math.floor(rng() * 7) - 3;
+          const nx = x + dx, ny = y + dy;
+          if (nx >= 0 && nx < W && ny >= 0 && ny < H && grid[ny * W + nx] === EMPTY && rng() < 0.15) {
+            grid[ny * W + nx] = SPORE;
+            ageGrid[ny * W + nx] = 0;
+          }
+        }
+      }
+    }
+    
+    // Mold spreads spores that float away
+    if (ageGrid[i] > 60 && rng() < 0.05) {
+      // Spores float upward
+      if (y > 0 && grid[(y - 1) * W + x] === EMPTY && rng() < 0.3) {
+        grid[(y - 1) * W + x] = SPORE;
+        ageGrid[(y - 1) * W + x] = 0;
+      }
+    }
+    
+    // Mold dies at high temperature (heat kills mold)
+    if (tempGrid[i] > 70) {
+      grid[i] = STEAM;
+      return;
+    }
+    
+    // Mold dies in dry conditions (no moisture for extended period)
+    if (moistureLevel === 0 && ageGrid[i] > 100 && rng() < 0.02) {
+      grid[i] = ASH;
+      return;
+    }
+    
+    // Mold eventually composts into soil
+    if (ageGrid[i] > 400) {
+      grid[i] = DIRT;
+      return;
+    }
+  }
+
+/**
+ * BACTERIA SYSTEM
+ */
+function updateBacteria(x, y, matId) {
+  const i = y * W + x;
+  ageGrid[i]++;
+  
+  // Bacteria decompose organic matter
+  const neighbors = [i-1, i+1, i-W, i+W];
+  for (const ni of neighbors) {
+    if (ni >= 0 && ni < N) {
+      const nMat = grid[ni];
+      if ((isOrganic(nMat) || nMat === PLANT_DEAD || nMat === ASH) && nMat !== BACTERIA && rng() < 0.03) {
+        // Decompose to simpler materials
+        if (rng() < 0.5) {
+          grid[ni] = EMPTY; // Complete decomposition
+        } else {
+          grid[ni] = ASH;
+        }
+        // Bacteria reproduce
+        if (rng() < 0.3) {
+          const dx = Math.floor(rng() * 3) - 1;
+          const dy = Math.floor(rng() * 3) - 1;
+          const nx = x + dx, ny = y + dy;
+          if (nx >= 0 && nx < W && ny >= 0 && ny < H && grid[ny * W + nx] === EMPTY && rng() < 0.3) {
+            grid[ny * W + nx] = BACTERIA;
+            ageGrid[ny * W + nx] = 0;
+          }
+        }
+        break;
+      }
+    }
+  }
+  
+  // Bacteria need moisture
+  let nearWater = false;
+  for (let dy = -2; dy <= 2 && !nearWater; dy++) {
+    for (let dx = -2; dx <= 2 && !nearWater; dx++) {
+      const nx = x + dx, ny = y + dy;
+      if (nx >= 0 && nx < W && ny >= 0 && ny < H && grid[ny * W + nx] === WATER) {
+        nearWater = true;
+      }
+    }
+  }
+  
+  if (!nearWater && ageGrid[i] > 50) {
+    grid[i] = ASH; // Bacteria die and dry out
+  }
+  
+  if (ageGrid[i] > 200 || tempGrid[i] > 80) {
+    grid[i] = ASH;
+  }
+}
+
+/**
+ * CHEMICAL REACTIONS
+ */
+function checkChemicalReactions(x, y, matId) {
+  const i = y * W + x;
+  const mat = MATS[matId];
+  
+  // Check neighbors for reactions
+  const neighbors = [
+    { dx: -1, dy: 0 }, { dx: 1, dy: 0 }, { dx: 0, dy: -1 }, { dx: 0, dy: 1 }
+  ];
+  
+  for (const { dx, dy } of neighbors) {
+    const nx = x + dx, ny = y + dy;
+    if (nx < 0 || nx >= W || ny < 0 || ny >= H) continue;
+    const ni = ny * W + nx;
+    const nId = grid[ni];
+    const nMat = MATS[nId];
+    if (!nMat) continue;
+    
+    // === COMBUSTION ===
+    if (matId === FIRE || tempGrid[i] > 300) {
+      if (nMat.flammability > 0 && rng() < nMat.flammability * 0.05) {
+        grid[ni] = FIRE;
+        tempGrid[ni] = 700;
+      }
+      // Water -> Steam
+      if (nId === WATER) {
+        grid[ni] = STEAM;
+        tempGrid[ni] = 150;
+      }
+      // Ice -> Water
+      if (nId === ICE) {
+        grid[ni] = WATER;
+      }
+      // Salt dissolution in water
+      if (matId === WATER && nId === SALT && rng() < 0.01) {
+        grid[ni] = EMPTY;
+        phGrid[i] = Math.min(7.0, phGrid[i] + 0.05);
+      }
+    }
+    
+    // === ACID REACTIONS ===
+    if (matId === ACID) {
+      // Acid + Metal -> Hydrogen + Salt
+      if (nId === METAL && rng() < 0.02) {
+        grid[ni] = ASH;
+        if (rng() < 0.3) {
+          grid[i] = EMPTY; // Acid used up
+        }
+        // Produce hydrogen gas
+        for (const { dx: d2x, dy: d2y } of neighbors) {
+          const nnx = nx + d2x, nny = ny + d2y;
+          if (nnx >= 0 && nnx < W && nny >= 0 && nny < H && grid[nny * W + nnx] === EMPTY && rng() < 0.3) {
+            grid[nny * W + nnx] = HYDROGEN;
+            break;
+          }
+        }
+      }
+      // Acid + Base (neutralization)
+      if (nId === SODA || nId === BLOOD_ALKALI) {
+        grid[ni] = WATER;
+        grid[i] = WATER;
+        tempGrid[i] = 60; // Exothermic
+        tempGrid[ni] = 60;
+      }
+      // Acid + Sulfur -> SO2 (smoke)
+      if (nId === SULFUR && rng() < 0.03) {
+        grid[ni] = SMOKE;
+        grid[i] = rng() < 0.5 ? SMOKE : EMPTY;
+      }
+      // Acid + Carbonate (stone/limestone) -> CO2
+      if (nId === STONE && rng() < 0.01) {
+        grid[i] = rng() < 0.7 ? SMOKE : EMPTY;
+        for (const { dx: d2x, dy: d2y } of neighbors) {
+          const nnx = nx + d2x, nny = ny + d2y;
+          if (nnx >= 0 && nnx < W && nny >= 0 && nny < H && grid[nny * W + nnx] === EMPTY && rng() < 0.3) {
+            grid[nny * W + nnx] = SMOKE; // CO2
+            break;
+          }
+        }
+      }
+      // Acid destroys plants
+      if (isPlant(nId) || nId === PLANT_DEAD) {
+        grid[ni] = ASH;
+        grid[i] = rng() < 0.5 ? SMOKE : EMPTY;
+      }
+    }
+    
+    // === BASE (ALKALI) REACTIONS ===
+    if (nId === ACID) {
+      if (matId === SODA || matId === BLOOD_ALKALI) {
+        grid[i] = WATER;
+        grid[ni] = WATER;
+        tempGrid[i] = 60;
+      }
+    }
+    // Lauge + Oil -> Soap (simplified: becomes cleaner liquid)
+    if (matId === SODA || matId === BLOOD_ALKALI) {
+      if (nId === OIL) {
+        grid[ni] = WATER; // Oil neutralized
+        if (rng() < 0.3) grid[i] = WATER;
+      }
+      // Lauge dissolves wood slowly
+      if (nId === WOOD && rng() < 0.01) {
+        grid[ni] = ASH;
+      }
+    }
+    
+    // === OXIDATION ===
+    if (nMat.oxidizable && matId === OXYGEN && tempGrid[i] > 50 && rng() < 0.005) {
+      grid[ni] = RUST;
+      tempGrid[i] += 20; // Exothermic
+    }
+    // Rust can be reduced by hydrogen at high temp
+    if (nId === RUST && matId === HYDROGEN && tempGrid[i] > 200 && rng() < 0.02) {
+      grid[ni] = METAL;
+      grid[i] = STEAM;
+    }
+    
+    // === HYDROGEN + OXYGEN EXPLOSION ===
+    if ((matId === HYDROGEN && nId === OXYGEN) || (matId === OXYGEN && nId === HYDROGEN)) {
+      if (matId === FIRE || nId === FIRE || tempGrid[i] > 200 || tempGrid[ni] > 200 || rng() < 0.001) {
+        // H2+O2 explosion creates water vapor and water droplets (not ash!)
+        const explosionRadius = 8;
+        for (let dy = -explosionRadius; dy <= explosionRadius; dy++) {
+          for (let dx = -explosionRadius; dx <= explosionRadius; dx++) {
+            if (dx * dx + dy * dy > explosionRadius * explosionRadius) continue;
+            const nx = x + dx, ny = y + dy;
+            if (nx < 0 || nx >= W || ny < 0 || ny >= H) continue;
+            const ni = ny * W + nx;
+            const neighborMat = MATS[grid[ni]];
+            
+            if (neighborMat && neighborMat.id !== WALL && neighborMat.id !== CLONE) {
+              const dist = Math.sqrt(dx * dx + dy * dy);
+              const intensity = 1 - dist / explosionRadius;
+              
+              if (grid[ni] === HYDROGEN || grid[ni] === OXYGEN) {
+                // Convert unreacted gases to water
+                if (tempGrid[ni] > 200) {
+                  grid[ni] = STEAM;
+                  tempGrid[ni] = 120;
+                } else {
+                  grid[ni] = WATER;
+                  tempGrid[ni] = 30;
+                }
+              } else if (neighborMat.id === WATER) {
+                // More water created
+                tempGrid[ni] = Math.min(tempGrid[ni] + 50, 100);
+              } else if (neighborMat.id === FIRE) {
+                grid[ni] = STEAM;
+                tempGrid[ni] = 100;
+              } else if (neighborMat.id === URANIUM) {
+                // Nuclear chain reaction!
+                explode(nx, ny, explosionRadius * 0.5, false);
+              } else if (neighborMat.flammability > 0 && rng() < intensity * 0.3) {
+                grid[ni] = FIRE;
+                tempGrid[ni] = 600 * intensity;
+              } else if (neighborMat.id === WATER) {
+                grid[ni] = STEAM;
+                tempGrid[ni] = 100;
+              }
+            }
+          }
+        }
+        // Create water droplets that fall as "rain" from explosion
+        for (let k = 0; k < 15; k++) {
+          const rx = x + Math.floor(rng() * explosionRadius * 2) - explosionRadius;
+          const ry = y + Math.floor(rng() * explosionRadius * 2) - explosionRadius;
+          if (rx >= 0 && rx < W && ry >= 0 && ry < H && grid[ry * W + rx] === EMPTY) {
+            grid[ry * W + rx] = WATER;
+            tempGrid[ry * W + rx] = 25;
+          }
+        }
+        return true;
+      }
+    }
+    
+    // === LAVA + WATER -> STONE/OBSIDIAN + STEAM ===
+    if (matId === LAVA && nId === WATER) {
+      // Rapid cooling creates glass/obsidian, slow cooling creates stone
+      grid[ni] = STEAM;
+      if (rng() < 0.15) {
+        grid[i] = GLASS; // Obsidian-like glass from rapid quenching
+        tempGrid[i] = 100;
+      } else if (rng() < 0.5) {
+        grid[i] = STONE;
+        tempGrid[i] = 200;
+      }
+    }
+    // Water + Lava heat transfer
+    if (matId === WATER && nId === LAVA) {
+      grid[i] = STEAM;
+      tempGrid[ni] = Math.max(tempGrid[ni], 500); // Lava stays hot
+    }
+    
+    // === SULFUR + FIRE -> SMOKE (SO2) ===
+    if (matId === FIRE && nId === SULFUR) {
+      grid[ni] = SMOKE;
+    }
+    
+    // === PHOSPHORUS AUTO-IGNITION ===
+    if (nId === PHOSPHORUS && nMat.autoFlammable && tempGrid[i] > 44) {
+      grid[ni] = FIRE;
+      tempGrid[ni] = 600;
+    }
+    if (matId === FIRE && nId === PHOSPHORUS) {
+      grid[ni] = FIRE;
+      tempGrid[ni] = 800;
+    }
+    
+    // === URANIUM RADIATION ===
+    if (nId === URANIUM) {
+      // Uranium emits radiation continuously
+      if (rng() < 0.008) {
+        // Radiation spreads in a cross pattern (realistic radiation diffusion)
+        const radDirs = [{dx:0,dy:-1},{dx:0,dy:1},{dx:-1,dy:0},{dx:1,dy:0}];
+        for (const {dx: d2x, dy: d2y} of radDirs) {
+          const nnx = nx + d2x, nny = ny + d2y;
+          if (nnx >= 0 && nnx < W && nny >= 0 && nny < H && grid[nny * W + nnx] === EMPTY && rng() < 0.2) {
+            grid[nny * W + nnx] = RADIATION;
+            break;
+          }
+        }
+      }
+      
+      // Radiation damages nearby organic matter more aggressively
+      for (const {dx: d2x, dy: d2y} of neighbors) {
+        const nnx = nx + d2x, nny = ny + d2y;
+        if (nnx >= 0 && nnx < W && nny >= 0 && nny < H) {
+          const nni = nny * W + nnx;
+          const nMatId = grid[nni];
+          
+          // Radiation kills plants faster
+          if (isPlant(nMatId)) {
+            if (rng() < 0.04) {
+              grid[nni] = PLANT_DEAD;
+              ageGrid[nni] = 0;
+            }
+          }
+          // Radiation accelerates decay of dead plants into radioactive waste
+          if (nMatId === PLANT_DEAD && rng() < 0.05) {
+            // Creates radioactive contaminated soil
+            grid[nni] = DIRT;
+            // Add radiation on top
+            if (nny > 0 && grid[(nny-1) * W + nnx] === EMPTY) {
+              grid[(nny-1) * W + nnx] = RADIATION;
+            }
+          }
+          // Radiation damages mold
+          if (nMatId === MOLD && rng() < 0.02) {
+            grid[nni] = ASH;
+          }
+          // Radiation mutates bacteria - some become radioactive waste producers
+          if (nMatId === BACTERIA && rng() < 0.03) {
+            // Bacteria break down into radioactive ash
+            grid[nni] = ASH;
+            // Spread radiation
+            for (const {dx: d3x, dy: d3y} of neighbors) {
+              const mnx = nx + d3x, mny = ny + d3y;
+              if (mnx >= 0 && mnx < W && mny >= 0 && mny < H && grid[mny * W + mnx] === EMPTY && rng() < 0.15) {
+                grid[mny * W + mnx] = RADIATION;
+                break;
+              }
+            }
+          }
+        }
+      }
+      
+      // Radiation creates radioactive waste from nearby materials - enhanced
+      if (rng() < 0.002) {
+        for (const {dx: d2x, dy: d2y} of neighbors) {
+          const nnx = nx + d2x, nny = ny + d2y;
+          if (nnx >= 0 && nnx < W && nny >= 0 && nny < H) {
+            const nMatId = grid[nny * W + nnx];
+            // Contaminate ground materials - they become radioactive waste
+            if ((nMatId === DIRT || nMatId === SAND || nMatId === SAND_DARK || nMatId === GRAVEL || nMatId === STONE) && rng() < 0.4) {
+              // Mark material as contaminated by adding radiation on top
+              if (nny > 0 && grid[(nny-1) * W + nnx] === EMPTY) {
+                grid[(nny-1) * W + nnx] = RADIATION;
+              }
+              // The ground material itself slowly becomes radioactive ash
+              if (rng() < 0.1) {
+                grid[nny * W + nnx] = ASH; // Contaminated ash = radioactive waste
+              }
+              break;
+            }
+            // Water becomes radioactive waste water
+            if (nMatId === WATER && rng() < 0.15) {
+              // Water stays but becomes radioactive (shown by radiation particle)
+              if (nny > 0 && grid[(nny-1) * W + nnx] === EMPTY) {
+                grid[(nny-1) * W + nnx] = RADIATION;
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    // Radiation affects living organisms - enhanced damage
+    if (matId === RADIATION) {
+      // Radiation spreads to adjacent cells
+      if (rng() < 0.03) {
+        const radDirs = [{dx:0,dy:-1},{dx:0,dy:1},{dx:-1,dy:0},{dx:1,dy:0}];
+        for (const {dx: d2x, dy: d2y} of radDirs) {
+          const nnx = nx + d2x, nny = ny + d2y;
+          if (nnx >= 0 && nnx < W && nny >= 0 && nny < H && grid[nny * W + nnx] === EMPTY && rng() < 0.25) {
+            grid[nny * W + nnx] = RADIATION;
+            break;
+          }
+        }
+      }
+      
+      // Radiation damages nearby organic matter in a larger radius
+      for (let dy = -2; dy <= 2; dy++) {
+        for (let dx = -2; dx <= 2; dx++) {
+          const nnx = x + dx, nny = y + dy;
+          if (nnx >= 0 && nnx < W && nny >= 0 && nny < H) {
+            const nMatId = grid[nny * W + nnx];
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const damageChance = Math.max(0.01, 0.06 - dist * 0.02);
+            
+            // Radiation kills plants on contact/nearby
+            if (isPlant(nMatId) && rng() < damageChance) {
+              grid[nny * W + nnx] = PLANT_DEAD;
+              ageGrid[nny * W + nnx] = 0;
+            }
+            // Radiation kills bacteria on contact/nearby
+            if (nMatId === BACTERIA && rng() < damageChance * 1.2) {
+              grid[nny * W + nnx] = ASH;
+            }
+            // Radiation kills mold on contact/nearby
+            if (nMatId === MOLD && rng() < damageChance * 0.8) {
+              grid[nny * W + nnx] = ASH;
+            }
+            // Radiation damages organic matter
+            if (isOrganic(nMatId) && nMatId !== MOLD && nMatId !== BACTERIA && rng() < damageChance * 0.5) {
+              grid[nny * W + nnx] = PLANT_DEAD;
+            }
+          }
+        }
+      }
+      
+      // Radiation decays over time
+      if (rng() < 0.15) grid[i] = EMPTY;
+    }
+    
+    // === ALCOHOL + FIRE ===
+    if (matId === FIRE && nId === ALCOHOL) {
+      grid[ni] = FIRE;
+      tempGrid[ni] = 800;
+    }
+    
+    // === HONEY CARAMELIZATION ===
+    if (nId === HONEY && tempGrid[i] > 110 && rng() < 0.02) {
+      grid[ni] = ASH;
+    }
+    
+    // === MERCURY + SULFUR -> MERCURY SULFIDE (red powder) ===
+    if ((matId === MERCURY && nId === SULFUR) || (matId === SULFUR && nId === MERCURY)) {
+      if (rng() < 0.01) {
+        grid[i] = RUST; // Simplified: turns to red powder (using rust color)
+        grid[ni] = RUST;
+      }
+    }
+  }
+  
+  return false;
+}
+
+/**
+ * EXPLOSION SYSTEM - Realistic blast physics
+ * Handles TNT, fireballs, and other explosives with proper energy distribution
+ */
+function explode(cx, cy, radius, isTNT) {
+  // TNT produces a more powerful, concentrated blast with different effects by zone
+  const blastType = isTNT ? 'tnt' : 'fireball';
+  const energy = isTNT ? 1500 : 1000; // TNT has higher energy density
+  
+  // Phase 1: Blast wave - instant destruction in center, pressure effects outward
+  for (let dy = -radius; dy <= radius; dy++) {
+    for (let dx = -radius; dx <= radius; dx++) {
+      if (dx * dx + dy * dy > radius * radius) continue;
+      const nx = cx + dx, ny = cy + dy;
+      if (nx < 0 || nx >= W || ny < 0 || ny >= H) continue;
+      const ni = ny * W + nx;
+      const mat = MATS[grid[ni]];
+      if (!mat) continue;
+      
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const normDist = dist / radius; // 0 = center, 1 = edge
+      
+      // Define blast zones
+      let intensity;
+      if (blastType === 'tnt') {
+        // TNT: very intense center, rapid falloff
+        intensity = normDist < 0.3 ? 1.0 : Math.max(0, 1.0 - (normDist - 0.3) / 0.7);
+      } else {
+        // Fireball: more gradual falloff
+        intensity = Math.max(0, 1.0 - normDist);
+      }
+      
+      // Zone-based effects
+      if (mat.id === WALL || mat.id === CLONE) {
+        // Walls resist explosion but can crack
+        if (blastType === 'tnt' && intensity > 0.8 && rng() < 0.3) {
+          grid[ni] = STONE; // Wall cracks into stone
+          tempGrid[ni] = 200;
+        }
+        continue;
+      }
+      
+      if (mat.id === TNT) {
+        // Chain reaction: adjacent TNT detonates
+        if (intensity > 0.5) {
+          explode(nx, ny, radius * 0.5, true);
+        }
+        continue;
+      }
+      
+      if (mat.id === URANIUM) {
+        // Nuclear chain reaction!
+        explode(nx, ny, radius * 0.6, false);
+        continue;
+      }
+      
+      // Calculate thermal energy deposited
+      const thermalEnergy = intensity * energy;
+      
+      if (blastType === 'tnt') {
+        // TNT blast: crushing pressure + heat
+        if (intensity > 0.7) {
+          // Center zone: complete vaporization
+          if (mat.id !== WALL && mat.id !== CLONE) {
+            grid[ni] = SMOKE;
+            tempGrid[ni] = thermalEnergy;
+          }
+        } else if (intensity > 0.4) {
+          // Inner zone: combustion and melting
+          if (mat.id === WATER) {
+            grid[ni] = STEAM;
+            tempGrid[ni] = 300;
+          } else if (mat.id === ICE) {
+            grid[ni] = WATER;
+            tempGrid[ni] = 100;
+          } else if (mat.oxidizable || mat.id === METAL) {
+            if (thermalEnergy > mat.melting * 0.5) {
+              grid[ni] = LAVA;
+              tempGrid[ni] = thermalEnergy * 0.5;
+            } else {
+              grid[ni] = RUST;
+            }
+          } else if (mat.flammability > 0 || mat.id === OIL || mat.id === ALCOHOL || mat.id === HONEY) {
+            grid[ni] = FIRE;
+            tempGrid[ni] = thermalEnergy;
+          } else if (mat.id === PLANT || mat.id === PLANT_FLOWER || mat.id === PLANT_DEAD || mat.id === WOOD) {
+            grid[ni] = FIRE;
+            tempGrid[ni] = thermalEnergy;
+          } else if (mat.id === DIRT || mat.id === SAND || mat.id === SAND_DARK || mat.id === GRAVEL) {
+            // Ground is compacted/vitrified
+            if (intensity > 0.6 && rng() < 0.3) {
+              grid[ni] = GLASS; // Sand vitrifies to glass
+              tempGrid[ni] = 500;
+            } else {
+              grid[ni] = ASH; // Organic content burns
+            }
+          } else {
+            grid[ni] = intensity > 0.6 ? FIRE : SMOKE;
+            tempGrid[ni] = thermalEnergy * 0.5;
+          }
+        } else {
+          // Outer zone: heat and smoke only
+          if (mat.id === WATER) {
+            grid[ni] = STEAM;
+          } else if (mat.flammability > 0.5 && thermalEnergy > 200) {
+            grid[ni] = FIRE;
+            tempGrid[ni] = thermalEnergy;
+          } else {
+            grid[ni] = SMOKE;
+            tempGrid[ni] = thermalEnergy * 0.3;
+          }
+        }
+      } else {
+        // Fireball explosion: more heat, less pressure
+        if (mat.id === WATER) {
+          grid[ni] = STEAM;
+          tempGrid[ni] = Math.min(400, thermalEnergy);
+        } else if (mat.flammability > 0 || mat.id === OIL || mat.id === ALCOHOL) {
+          grid[ni] = FIRE;
+          tempGrid[ni] = thermalEnergy;
+        } else if (mat.id === PLANT || mat.id === PLANT_FLOWER || mat.id === PLANT_DEAD || mat.id === WOOD) {
+          grid[ni] = FIRE;
+          tempGrid[ni] = thermalEnergy;
+        } else if (rng() < intensity * 0.6) {
+          grid[ni] = intensity > 0.5 ? FIRE : SMOKE;
+          tempGrid[ni] = thermalEnergy * 0.4;
+        }
+      }
+    }
+  }
+  
+  // TNT produces characteristic mushroom cloud
+  if (blastType === 'tnt') {
+    // Smoke column rises from explosion
+    for (let i = 0; i < radius * 3; i++) {
+      const smokeX = cx + Math.floor(rng() * radius * 2) - radius;
+      const smokeY = cy - Math.floor(rng() * radius * 4);
+      if (smokeX >= 0 && smokeX < W && smokeY >= 0 && smokeY < H && grid[smokeY * W + smokeX] === EMPTY) {
+        grid[smokeY * W + smokeX] = SMOKE;
+        tempGrid[smokeY * W + smokeX] = 80;
+        ageGrid[smokeY * W + smokeX] = 0;
+      }
+    }
+    // Ash falls back down
+    for (let i = 0; i < radius; i++) {
+      const ashX = cx + Math.floor(rng() * radius * 4) - radius * 2;
+      const ashY = cy + Math.floor(rng() * radius);
+      if (ashX >= 0 && ashX < W && ashY >= 0 && ashY < H && grid[ashY * W + ashX] === EMPTY) {
+        grid[ashY * W + ashX] = ASH;
+      }
+    }
+  }
+}
+
+// Special TNT detonation function
+function detonateTNT(x, y) {
+  const i = y * W + x;
+  grid[i] = EMPTY; // TNT consumed
+  explode(x, y, 12, true); // TNT has radius 12
+}
+
+/**
+ * THERMAL PHYSICS
+ */
+function updateThermal(x, y, matId) {
+  const i = y * W + x;
+  const mat = MATS[matId];
+  if (!mat || mat.heatCapacity === 0) return;
+  
+  // Heat conduction to neighbors
+  if (mat.conductivity > 0 && rng() < 0.2) {
+    const neighbors = [];
+    if (x > 0) neighbors.push(i - 1);
+    if (x < W - 1) neighbors.push(i + 1);
+    if (y > 0) neighbors.push(i - W);
+    if (y < H - 1) neighbors.push(i + W);
+    
+    if (neighbors.length > 0) {
+      const ni = neighbors[Math.floor(rng() * neighbors.length)];
+      const nMat = MATS[grid[ni]];
+      if (!nMat) return;
+      
+      const tempDiff = tempGrid[i] - tempGrid[ni];
+      if (Math.abs(tempDiff) > 0.5) {
+        const transfer = tempDiff * 0.05 * Math.sqrt(mat.conductivity * nMat.conductivity);
+        tempGrid[i] -= transfer;
+        tempGrid[ni] += transfer;
+      }
+    }
+  }
+  
+  // Ambient temperature regulation (room temp ~20°C)
+  const ambientRate = 0.002 / mat.heatCapacity;
+  if (tempGrid[i] > 25) {
+    tempGrid[i] -= ambientRate;
+  } else if (tempGrid[i] < 18) {
+    tempGrid[i] += ambientRate;
+  }
+  
+  // === EGG COAGULATION - Realistic protein denaturation ===
+  // Eggs coagulate at 62°C (albumen) and 70°C (yolk)
+  if (matId === EGGS && mat.raw) {
+    const coagTemp = mat.coagulationTemp || 62;
+    if (tempGrid[i] >= coagTemp) {
+      // Egg white coagulates - turns from transparent liquid to opaque solid
+      grid[i] = COOKED_EGG;
+      tempGrid[i] = tempGrid[i]; // Keep current temperature
+      // Cooked egg is now a solid that can be further processed
+    }
+  }
+  
+  // Phase transitions
+  // Melting
+  if (mat.melting > 0 && tempGrid[i] >= mat.melting) {
+    if (matId === ICE) grid[i] = WATER;
+    else if (matId === STONE || matId === METAL || matId === WALL) grid[i] = LAVA;
+    else if (matId === GLASS) grid[i] = EMPTY;
+    else if (matId === WOOD) { grid[i] = FIRE; tempGrid[i] = 400; }
+    else if (matId === RUST) grid[i] = METAL;
+    else if (matId === BRASS) grid[i] = LAVA;
+    else if (matId === COOKED_EGG) { grid[i] = FIRE; tempGrid[i] = 500; } // Cooked egg burns
+  }
+  
+  // Freezing
+  if (mat.melting > 0 && tempGrid[i] <= mat.melting && isLiquid(matId)) {
+    if (matId === WATER) grid[i] = ICE;
+    else if (matId === LAVA) { grid[i] = STONE; tempGrid[i] = 100; }
+  }
+  
+  // Boiling
+  if (mat.boiling > 0 && tempGrid[i] >= mat.boiling) {
+    if (matId === WATER || matId === BLOOD) grid[i] = STEAM;
+    else if (matId === OIL) { grid[i] = FIRE; tempGrid[i] = 500; }
+    else if (matId === ACID) grid[i] = SMOKE;
+    else if (matId === COOKED_EGG) { grid[i] = ASH; } // Cooked egg chars
+    else if (matId === HONEY) { grid[i] = ASH; }
+    else if (matId === ALCOHOL) { grid[i] = FIRE; tempGrid[i] = 600; }
+    else if (matId === MERCURY) grid[i] = STEAM;
+  }
+  
+  // === LAVA PHYSICS - Realistic cooling and crystallization ===
+  if (matId === LAVA) {
+    // Lava cools based on contact with other materials
+    if (tempGrid[i] <= 700 && y + 1 < H) {
+      // Cooling rate depends on surrounding materials
+      const below = grid[(y + 1) * W + x];
+      let coolingRate = 0.1; // Base cooling
+      
+      if (below === WATER || below === ICE) {
+        // Rapid cooling on water/ice - forms obsidian-like glass
+        coolingRate = 2.0;
+        if (tempGrid[i] <= 800 && rng() < 0.05) {
+          grid[i] = GLASS; // Obsidian formation
+          tempGrid[i] = 100;
+        }
+      } else if (below === DIRT || below === SAND || below === SAND_DARK) {
+        // Slow cooling on ground - forms stone
+        coolingRate = 0.3;
+        if (tempGrid[i] <= 600 && rng() < 0.02) {
+          grid[i] = STONE;
+          tempGrid[i] = 200;
+        }
+      } else {
+        // Air cooling
+        coolingRate = 0.05;
+        if (tempGrid[i] <= 500 && rng() < 0.01) {
+          grid[i] = STONE;
+          tempGrid[i] = 150;
+        }
+      }
+      
+      tempGrid[i] -= coolingRate;
+    }
+    
+    // Lava glows brighter when hotter
+    if (tempGrid[i] > 1000) {
+      tempGrid[i] = Math.min(1200, tempGrid[i]); // Max temperature
+    }
+    
+    // Lava flows faster when hotter (lower viscosity)
+    const viscosityFactor = Math.max(1, (tempGrid[i] - 500) / 200);
+  }
+  
+  // Wet sand formation - water mixes with powder
+  if (matId === WATER && y + 1 < H) {
+    const below = grid[(y + 1) * W + x];
+    if ((below === SAND || below === SAND_DARK || below === GRAVEL) && rng() < 0.02) {
+      // Water soaks into powder, creating wet powder
+      if (MATS[below] && MATS[below].capillary) {
+        grid[(y + 1) * W + x] = SAND_WET;
+        tempGrid[(y + 1) * W + x] = tempGrid[i]; // Share temperature
+      }
+    }
+  }
+  
+  // Condensation
+  if (matId === STEAM && tempGrid[i] <= 90) {
+    grid[i] = WATER;
+    tempGrid[i] = 80;
+  }
+  
+  // Fire behavior
+  if (matId === FIRE) {
+    tempGrid[i] = Math.max(tempGrid[i], 600);
+    ageGrid[i]++;
+    
+    // Fire produces smoke
+    if (rng() < 0.3) {
+      const dir = rng() < 0.5 ? -1 : 1;
+      for (const d of [dir, -dir]) {
+        if (x + d >= 0 && x + d < W && y - 1 >= 0 && grid[(y - 1) * W + x + d] === EMPTY && rng() < 0.2) {
+          grid[(y - 1) * W + x + d] = SMOKE;
+          tempGrid[(y - 1) * W + x + d] = 80;
+          break;
+        }
+      }
+    }
+    
+    // Fire dies out
+    if (ageGrid[i] > 15 + rng() * 25 || rng() < 0.03) {
+      grid[i] = rng() < 0.6 ? SMOKE : EMPTY;
+      tempGrid[i] = 40;
+    }
+  }
+  
+  // Smoke behavior
+  if (matId === SMOKE) {
+    ageGrid[i]++;
+    // Soot settles
+    if (mat.soot && rng() < 0.01 && y + 1 < H && grid[(y + 1) * W + x] !== EMPTY) {
+      grid[i] = ASH;
+    }
+    if (ageGrid[i] > 80 + rng() * 120) {
+      grid[i] = EMPTY;
+      tempGrid[i] = 20;
+    }
+  }
+  
+  // Radiation decay
+  if (matId === RADIATION) {
+    if (rng() < 0.1) grid[i] = EMPTY;
+  }
+}
+
+/**
+ * MAIN SIMULATION
+ */
+function simulate() {
+  tick++;
+  
+  // Wind direction changes occasionally
+  if (windActive && rng() < 0.01) {
+    windDir = rng() < 0.5 ? -1 : 1;
+  }
+  
+  // Process bottom-up for powders and liquids
+  for (let y = H - 1; y >= 0; y--) {
+    const reverse = rng() < 0.5;
+    const xStart = reverse ? W - 1 : 0;
+    const xEnd = reverse ? -1 : W;
+    const xStep = reverse ? -1 : 1;
+    
+    for (let x = xStart; x !== xEnd; x += xStep) {
+      const i = y * W + x;
+      const matId = grid[i];
+      if (matId === EMPTY) continue;
+      
+      const mat = MATS[matId];
+      if (!mat) continue;
+      
+      // Update thermal physics
+      updateThermal(x, y, matId);
+      
+      // Check chemical reactions
+      checkChemicalReactions(x, y, matId);
+      
+      // Material-specific updates
+      if (isPowder(matId)) {
+        updatePowder(x, y, matId);
+      } else if (isLiquid(matId)) {
+        updateLiquid(x, y, matId);
+      }
+    }
+  }
+  
+  // Process top-down for gases
+  for (let y = 0; y < H; y++) {
+    const reverse = rng() < 0.5;
+    const xStart = reverse ? W - 1 : 0;
+    const xEnd = reverse ? -1 : W;
+    const xStep = reverse ? -1 : 1;
+    
+    for (let x = xStart; x !== xEnd; x += xStep) {
+      const i = y * W + x;
+      const matId = grid[i];
+      if (!isGas(matId) && matId !== SMOKE && matId !== STEAM) continue;
+      
+      updateGas(x, y, matId);
+    }
+  }
+  
+  // Process plants and organic matter
+  for (let y = 0; y < H; y++) {
+    const reverse = rng() < 0.5;
+    const xStart = reverse ? W - 1 : 0;
+    const xEnd = reverse ? -1 : W;
+    const xStep = reverse ? -1 : 1;
+    
+    for (let x = xStart; x !== xEnd; x += xStep) {
+      const i = y * W + x;
+      const matId = grid[i];
+      
+      if (isPlant(matId)) {
+        updatePlant(x, y, matId);
+      } else if (matId === SPORE) {
+        updateSpore(x, y, matId);
+      } else if (matId === MOLD) {
+        updateMold(x, y, matId);
+      } else if (matId === BACTERIA) {
+        updateBacteria(x, y, matId);
+      }
+    }
+  }
+  
+  // Rain effect
+  if (rainActive) {
+    for (let i = 0; i < 80; i++) {
+      const x = Math.floor(rng() * W);
+      if (grid[x] === EMPTY) {
+        grid[x] = WATER;
+        tempGrid[x] = 18;
+      }
+    }
+  }
+  
+  // Fire rain effect
+  if (fireActive) {
+    for (let i = 0; i < 30; i++) {
+      const x = Math.floor(rng() * W);
+      if (grid[x] === EMPTY) {
+        grid[x] = FIREBALL;
+        tempGrid[x] = 1000;
+        ageGrid[x] = 0;
+      }
+    }
+  }
+  
+  // Fireball physics
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const i = y * W + x;
+      if (grid[i] === FIREBALL) {
+        ageGrid[i]++;
+        // Fireballs fall fast
+        if (y + 1 < H && grid[(y + 1) * W + x] === EMPTY && rng() < 0.5) {
+          swap(x, y, x, y + 1);
+        } else if (rng() < 0.3) {
+          // Explode on impact or after time
+          explode(x, y, 12, false);
+        }
+        if (ageGrid[i] > 100) {
+          explode(x, y, 8, false);
+        }
+      }
+    }
+  }
+  
+  // TNT physics - realistic detonation
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const i = y * W + x;
+      if (grid[i] === TNT) {
+        // TNT detonates when:
+        // 1. Exposed to high temperature (>300°C)
+        // 2. Hit by fire or explosion
+        // 3. Hit by shock wave (adjacent explosion)
+        // 4. Struck by lightning (rare)
+        
+        if (tempGrid[i] > 300 || grid[i-1] === FIRE || grid[i+1] === FIRE ||
+            grid[i-W] === FIRE || grid[i+W] === FIRE ||
+            grid[i-1] === FIREBALL || grid[i+1] === FIREBALL ||
+            grid[i-W] === FIREBALL || grid[i+W] === FIREBALL) {
+          detonateTNT(x, y);
+          break;
+        }
+        
+        // TNT slowly degrades over very long time
+        if (ageGrid[i] > 10000 && rng() < 0.001) {
+          grid[i] = ASH; // Decomposes to harmless ash
+        }
+      }
+    }
+  }
+  
+  // Ecosystem generation
+  if (ecosystemActive) {
+    // Add a simple ecosystem: dirt base, water, plants
+    if (tick % 100 === 0) {
+      // Create a small pond
+      const px = Math.floor(rng() * (W - 20)) + 10;
+      const py = Math.floor(rng() * (H - 10)) + 5;
+      
+      // Dirt layer
+      for (let dy = 0; dy < 3; dy++) {
+        for (let dx = -5; dx <= 5; dx++) {
+          const nx = px + dx, ny = py + dy;
+          if (nx >= 0 && nx < W && ny >= 0 && ny < H && grid[ny * W + nx] === EMPTY) {
+            grid[ny * W + nx] = DIRT;
+          }
+        }
+      }
+      
+      // Water pool
+      for (let dx = -3; dx <= 3; dx++) {
+        const nx = px + dx, ny = py + 3;
+        if (nx >= 0 && nx < W && ny >= 0 && ny < H && grid[ny * W + nx] === EMPTY) {
+          grid[ny * W + nx] = WATER;
+          tempGrid[ny * W + nx] = 20;
+        }
+      }
+      
+      // Plants on dirt edges
+      for (let dx = -5; dx <= 5; dx++) {
+        const nx = px + dx, ny = py + 2;
+        if (nx >= 0 && nx < W && ny >= 0 && ny < H && grid[ny * W + nx] === DIRT && rng() < 0.4) {
+          grid[ny * W + nx] = PLANT;
+          ageGrid[ny * W + nx] = Math.floor(rng() * 20);
+        }
+      }
+    }
+  }
+}
+
+/**
+ * RENDERING
+ */
+function render() {
+  for (let i = 0; i < N; i++) {
+    const matId = grid[i];
+    const ci = i * 4;
+    
+    if (matId === EMPTY) {
+      pix[ci] = 12; pix[ci+1] = 12; pix[ci+2] = 15; pix[ci+3] = 255;
+      continue;
+    }
+    
+    const mat = MATS[matId];
+    let r = mat.color[0];
+    let g = mat.color[1];
+    let b = mat.color[2];
+    
+    // Temperature effects
+    const t = tempGrid[i];
+    const seed = colorSeedGrid[i];
+    const baseNoise = (seed % 25) - 12;
+    
+    if (t > 30) {
+      const heatFactor = Math.min(1, Math.max(0, (t - 30) / 600));
+      
+      // Incandescence: red -> orange -> yellow -> white
+      r += heatFactor * 150;
+      g += heatFactor * (heatFactor > 0.5 ? 100 : 40);
+      b += heatFactor * (heatFactor > 0.8 ? 80 : 0);
+      
+      // Glow effect for very hot objects
+      if (t > 400) {
+        const glow = (heatFactor - 0.5) * 60;
+        r += glow; g += glow * 0.7; b += glow * 0.3;
+      }
+    }
+    
+    // Cold effects
+    if (t < 0) {
+      const coldFactor = Math.min(1, Math.abs(t) / 50);
+      b = Math.min(255, b + coldFactor * 40);
+      r = Math.max(0, r - coldFactor * 20);
+    }
+    
+    // Base texture noise
+    r += baseNoise;
+    g += baseNoise;
+    b += baseNoise;
+    
+    // pH visualization
+    const ph = phGrid[i];
+    if (ph !== undefined && ph !== null && mat.ph !== 7.0) {
+      if (ph < 4) {
+        r = Math.min(255, r + (4 - ph) * 15);
+      } else if (ph > 10) {
+        b = Math.min(255, b + (ph - 10) * 15);
+      }
+    }
+    
+    // Radiation visualization
+    if (radiationGrid[i] > 0) {
+      const rad = Math.min(1, radiationGrid[i] / 50);
+      r = r * (1 - rad) + 50 * rad;
+      g = g * (1 - rad) + 255 * rad;
+      b = b * (1 - rad) + 50 * rad;
+    }
+    
+    // Special rendering
+    if (matId === FIRE) {
+      const flicker = Math.sin(tick * 0.3 + seed) * 40;
+      r = 255;
+      g = 120 + flicker;
+      b = 20 + flicker * 0.3;
+    }
+    
+    if (matId === LAVA) {
+      const bubble = Math.sin(tick * 0.05 + seed * 0.1) * 30;
+      r = 255;
+      g = 60 + bubble;
+      b = 10 + bubble * 0.2;
+    }
+    
+    if (matId === PLANT) {
+      // Health-based green intensity
+      const health = Math.max(0, Math.min(1, 1 - Math.abs(t - 25) / 50));
+      g = 184 + health * 40;
+      // Variation based on age
+      const ageVar = Math.sin(ageGrid[i] * 0.1) * 15;
+      g += ageVar;
+    }
+    
+    if (matId === PLANT_FLOWER) {
+      // Colorful flower
+      const hue = (seed * 37 + tick * 0.01) % 360;
+      const sat = 0.8;
+      const val = 0.9;
+      // Simple HSV to RGB
+      const c = val * sat;
+      const x = c * (1 - Math.abs((hue / 60) % 2 - 1));
+      const m = val - c;
+      let fr, fg, fb;
+      if (hue < 60) { fr = c; fg = x; fb = 0; }
+      else if (hue < 120) { fr = x; fg = c; fb = 0; }
+      else if (hue < 180) { fr = 0; fg = c; fb = x; }
+      else if (hue < 240) { fr = 0; fg = x; fb = c; }
+      else if (hue < 300) { fr = x; fg = 0; fb = c; }
+      else { fr = c; fg = 0; fb = x; }
+      r = fr * 255 + m * 255;
+      g = fg * 255 + m * 255;
+      b = fb * 255 + m * 255;
+    }
+    
+    if (matId === STEAM) {
+      const alpha = Math.max(0.3, 1 - ageGrid[i] / 100);
+      r = 200 + (1 - alpha) * 55;
+      g = 210 + (1 - alpha) * 45;
+      b = 225 + (1 - alpha) * 30;
+    }
+    
+    if (matId === SMOKE) {
+      const alpha = Math.max(0.2, 1 - ageGrid[i] / 120);
+      const v = 70 + (1 - alpha) * 40;
+      r = v; g = v; b = v;
+    }
+    
+    if (matId === URANIUM) {
+      const pulse = Math.sin(tick * 0.05 + seed) * 30;
+      g = 180 + pulse;
+    }
+    
+    if (matId === CLONE) {
+      const pulse = Math.sin(tick * 0.08) * 40;
+      r = 255; g = pulse; b = 255;
+    }
+    
+    if (matId === BACTERIA) {
+      const pulse = Math.sin(tick * 0.1 + seed * 0.5) * 20;
+      g = 255;
+      r = 80 + pulse;
+    }
+    
+    pix[ci]   = Math.max(0, Math.min(255, r));
+    pix[ci+1] = Math.max(0, Math.min(255, g));
+    pix[ci+2] = Math.max(0, Math.min(255, b));
+    pix[ci+3] = 255;
+  }
+  
+  ctx.putImageData(img, 0, 0);
+}
+
+/**
+ * INITIALIZATION
+ */
+function resize() {
+  // Use user-settable grid width, calculate height based on aspect ratio
+  W = targetGridWidth;
+  const aspectRatio = window.innerHeight / window.innerWidth;
+  H = Math.floor(W * aspectRatio);
+  
+  // Clamp grid size
+  W = Math.max(50, Math.min(500, W));
+  H = Math.max(50, Math.min(500, H));
+  
+  N = W * H;
+  canvas.width = W;
+  canvas.height = H;
+  
+  // Preserve existing data if resizing
+  const oldGrid = grid, oldTemp = tempGrid, oldAge = ageGrid;
+  const oldW = W, oldH = H;
+  
+  grid = new Uint8Array(N);
+  tempGrid = new Float32Array(N).fill(20);
+  ageGrid = new Uint16Array(N);
+  colorSeedGrid = new Uint16Array(N);
+  phGrid = new Float32Array(N).fill(7.0);
+  soluteGrid = new Float32Array(N);
+  electricalGrid = new Float32Array(N);
+  radiationGrid = new Float32Array(N);
+  
+  // Copy old data to new grid
+  if (oldGrid && oldGrid.length > 0) {
+    const newW2 = W, oldW2 = Math.min(oldW, W);
+    const copyH = Math.min(oldH, H);
+    for (let y = 0; y < copyH; y++) {
+      for (let x = 0; x < oldW2; x++) {
+        const oldIdx = y * oldW + x;
+        const newIdx = y * newW2 + x;
+        grid[newIdx] = oldGrid[oldIdx];
+        tempGrid[newIdx] = oldTemp ? oldTemp[oldIdx] : 20;
+        ageGrid[newIdx] = oldAge ? oldAge[oldIdx] : 0;
+      }
+    }
+  }
+  
+  for (let i = 0; i < N; i++) {
+    if (colorSeedGrid[i] === 0) {
+      colorSeedGrid[i] = Math.floor(rng() * 1000);
+    }
+  }
+  
+  img = ctx.createImageData(W, H);
+  pix = img.data;
+}
+
+function buildUI() {
+  const containers = {
+    powder: document.getElementById("matGridPowder"),
+    liquid: document.getElementById("matGridLiquid"),
+    gas: document.getElementById("matGridGas"),
+    solid: document.getElementById("matGridSolid"),
+    special: document.getElementById("matGridSpecial")
+  };
+  
+  // Clear containers
+  for (const key in containers) containers[key].innerHTML = "";
+  
+  for (const id in MATS) {
+    if (id == EMPTY) continue;
+    const m = MATS[id];
+    const btn = document.createElement("button");
+    btn.textContent = m.name;
+    btn.title = `${m.name}\nDichte: ${m.density} | Schmelzpunkt: ${m.melting}°C | Siedepunkt: ${m.boiling}°C\nEntzündung: ${Math.round(m.flammability * 100)}% | pH: ${m.ph}`;
+    if (m.id === curMat) btn.classList.add("active");
+    btn.onclick = () => {
+      curMat = m.id;
+      buildUI();
+    };
+    
+    let containerKey;
+    switch (m.type) {
+      case TYPE.POWDER: containerKey = "powder"; break;
+      case TYPE.LIQUID: containerKey = "liquid"; break;
+      case TYPE.GAS: containerKey = "gas"; break;
+      case TYPE.SOLID: containerKey = "solid"; break;
+      default: containerKey = "special";
+    }
+    
+    containers[containerKey].appendChild(btn);
+  }
+}
+
+// Input handling
+let isDrawing = false, isErasing = false;
+
+function getPos(e) {
+  const rect = canvas.getBoundingClientRect();
+  const x = (e.clientX - rect.left) * (W / rect.width);
+  const y = (e.clientY - rect.top) * (H / rect.height);
+  return { x: Math.floor(x), y: Math.floor(y) };
+}
+
+function paintAt(x, y) {
+  for (let dy = -bsz; dy <= bsz; dy++) {
+    for (let dx = -bsz; dx <= bsz; dx++) {
+      if (dx * dx + dy * dy > bsz * bsz) continue;
+      if (rng() > 0.75) continue;
+      
+      const nx = x + dx, ny = y + dy;
+      if (nx >= 0 && nx < W && ny >= 0 && ny < H) {
+        const idx = ny * W + nx;
+        if (isErasing) {
+          grid[idx] = EMPTY;
+          tempGrid[idx] = 20;
+          ageGrid[idx] = 0;
+        } else {
+          grid[idx] = curMat;
+          tempGrid[idx] = MATS[curMat].temp || 20;
+          ageGrid[idx] = 0;
+          phGrid[idx] = MATS[curMat].ph || 7.0;
+        }
+      }
+    }
+  }
+}
+
+function initInput() {
+  canvas.addEventListener("pointerdown", e => {
+    e.preventDefault();
+    isDrawing = true;
+    isErasing = e.button === 2 || e.shiftKey;
+    const pos = getPos(e);
+    paintAt(pos.x, pos.y);
+  });
+  
+  window.addEventListener("pointermove", e => {
+    if (!isDrawing) return;
+    const pos = getPos(e);
+    paintAt(pos.x, pos.y);
+  });
+  
+  window.addEventListener("pointerup", () => {
+    isDrawing = false;
+    isErasing = false;
+  });
+  
+  canvas.addEventListener("contextmenu", e => e.preventDefault());
+}
+
+function initUI() {
+  document.getElementById("gridR").oninput = function() {
+    const newWidth = parseInt(this.value);
+    if (newWidth !== targetGridWidth) {
+      targetGridWidth = newWidth;
+      resize();
+    }
+  };
+  document.getElementById("brushR").oninput = function() { bsz = parseInt(this.value); };
+  document.getElementById("speedR").oninput = function() { spd = parseInt(this.value); };
+  document.getElementById("photoR").oninput = function() { photoActivity = parseInt(this.value) / 100; };
+  
+  document.getElementById("pauseBtn").onclick = function() {
+    paused = !paused;
+    this.textContent = paused ? "Fortsetzen" : "Pause";
+  };
+  
+  document.getElementById("clearBtn").onclick = () => {
+    grid.fill(EMPTY);
+    tempGrid.fill(20);
+    ageGrid.fill(0);
+    phGrid.fill(7.0);
+    soluteGrid.fill(0);
+    electricalGrid.fill(0);
+    radiationGrid.fill(0);
+  };
+  
+  document.getElementById("rainBtn").onclick = () => {
+    rainActive = !rainActive;
+    fireActive = false;
+    windActive = false;
+    ecosystemActive = false;
+    document.getElementById("rainBtn").classList.toggle("active", rainActive);
+    document.getElementById("fireBtn").classList.remove("active");
+    document.getElementById("windBtn").classList.remove("active");
+    document.getElementById("seedBtn").classList.remove("active");
+  };
+  
+  document.getElementById("fireBtn").onclick = () => {
+    fireActive = !fireActive;
+    rainActive = false;
+    windActive = false;
+    ecosystemActive = false;
+    document.getElementById("fireBtn").classList.toggle("active", fireActive);
+    document.getElementById("rainBtn").classList.remove("active");
+    document.getElementById("windBtn").classList.remove("active");
+    document.getElementById("seedBtn").classList.remove("active");
+  };
+  
+  document.getElementById("windBtn").onclick = () => {
+    windActive = !windActive;
+    rainActive = false;
+    fireActive = false;
+    ecosystemActive = false;
+    document.getElementById("windBtn").classList.toggle("active", windActive);
+    document.getElementById("rainBtn").classList.remove("active");
+    document.getElementById("fireBtn").classList.remove("active");
+    document.getElementById("seedBtn").classList.remove("active");
+  };
+  
+  document.getElementById("seedBtn").onclick = () => {
+    ecosystemActive = !ecosystemActive;
+    rainActive = false;
+    fireActive = false;
+    windActive = false;
+    document.getElementById("seedBtn").classList.toggle("active", ecosystemActive);
+    document.getElementById("rainBtn").classList.remove("active");
+    document.getElementById("fireBtn").classList.remove("active");
+    document.getElementById("windBtn").classList.remove("active");
+  };
+  
+  document.getElementById("toggleUI").onclick = () => {
+    const ui = document.getElementById("ui");
+    ui.classList.toggle("hidden");
+    document.getElementById("toggleUI").textContent = ui.classList.contains("hidden") ? "Anzeigen" : "Ausblenden";
+  };
+  
+  window.addEventListener("keydown", e => {
+    const key = e.key.toLowerCase();
+    
+    if (key === " ") {
+      e.preventDefault();
+      paused = !paused;
+      document.getElementById("pauseBtn").textContent = paused ? "Fortsetzen" : "Pause";
+    }
+    if (key === "c") {
+      grid.fill(EMPTY);
+      tempGrid.fill(20);
+      ageGrid.fill(0);
+      phGrid.fill(7.0);
+    }
+    if (key === "h") document.getElementById("toggleUI").click();
+    
+    if (KEY_MAP[key] !== undefined) {
+      curMat = KEY_MAP[key];
+      buildUI();
+    }
+  });
+}
+
+// Main Loop
+function loop(timestamp) {
+  requestAnimationFrame(loop);
+  
+  if (!paused) {
+    for (let s = 0; s < spd; s++) {
+      simulate();
+    }
+  }
+  
+  render();
+  
+  frameCount++;
+  if (timestamp - fpsTimer > 1000) {
+    lastFps = frameCount;
+    let particleCount = 0;
+    for (let i = 0; i < N; i++) {
+      if (grid[i] !== EMPTY) particleCount++;
+    }
+    document.getElementById("st").textContent = `${lastFps} FPS | ${particleCount.toLocaleString()} Partikel`;
+    frameCount = 0;
+    fpsTimer = timestamp;
+  }
+}
+
+function init() {
+  canvas = document.getElementById("c");
+  ctx = canvas.getContext("2d", { alpha: false });
+  
+  seedRng(12345);
+  resize();
+  buildUI();
+  initInput();
+  initUI();
+  
+  requestAnimationFrame(loop);
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", init);
+} else {
+  init();
+}
+</script>
+</body>
+</html>
