@@ -26,6 +26,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: null
 
       - name: Install htmlhint
         run: npm install -g htmlhint
@@ -44,6 +45,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: null
 
       - name: Create build artifact
         run: |
