@@ -8,7 +8,7 @@ Ein interaktives **Zellulares Automaten-Spiel** mit physikalisch, chemisch und b
 
 ## 🎮 Features
 
-### Materialien (52+)
+### Materialien (58+)
 
 | Kategorie | Materialien |
 |-----------|-------------|
@@ -18,6 +18,7 @@ Ein interaktives **Zellulares Automaten-Spiel** mit physikalisch, chemisch und b
 | **Energie** | Feuer, Funke, TNT, Feuerlöscher |
 | **Biologie** | Pflanzen, Blumen, Sporen, Schimmel, Bakterien |
 | **Chemie** | Salz, Kalk, Kohle, Metall, Glas |
+| **Kunststoffe** | Kunststoff (PLASTIC) |
 | **Spezial** | Eier, Beton, Isolator, Sensor |
 
 ### Physikalische Simulation
