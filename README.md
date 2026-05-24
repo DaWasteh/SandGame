@@ -8,18 +8,67 @@ Ein interaktives **Zellulares Automaten-Spiel** mit physikalisch, chemisch und b
 
 ## 🎮 Features
 
-### Materialien (58+)
+### Materialien (72+)
 
 | Kategorie | Materialien |
 |-----------|-------------|
 | **Grundlagen** | Sand, Stein, Erde, Wasser, Luft |
 | **Flüssigkeiten** | Wasser, Öl, Lava, Säure, Schmelze |
-| **Gase** | Dampf, CO₂, Stickstoff, H₂, O₂ |
+| **Gase** | Dampf, CO₂, Stickstoff, H₂, O₂, Pollen |
 | **Energie** | Feuer, Funke, TNT, Feuerlöscher |
-| **Biologie** | Pflanzen, Blumen, Sporen, Schimmel, Bakterien |
+| **Biologie** | Samen, Keimlinge, Stämme, Blätter, Wurzeln, 3 Blütentypen, Pilze, Bakterien |
 | **Chemie** | Salz, Kalk, Kohle, Metall, Glas |
 | **Kunststoffe** | Kunststoff (PLASTIC) |
-| **Spezial** | Eier, Beton, Isolator, Sensor |
+| **Spezial** | Eier, Beton, Isolator, Sensor, Strahlung |
+
+### 🌱 Erweitertes Biologie-System (v2.1)
+
+#### Wachstumsstadien
+Pflanzen durchlaufen strukturierte Entwicklungsstadien:
+
+```
+SAMEN → KEIMLING → JUNGER STAMM → ERWACHSENE PFLANZE → BLÜTE → ALTERUNG → TOTE PFLANZE → KOMPOST
+```
+
+| Stadium | Material | Beschreibung |
+|---------|----------|--------------|
+| 0 | [`PLANT_SEED`](sand_game.html:307) | Samen keimt bei Feuchtigkeit (5-30°C) |
+| 1 | [`PLANT_SPROUT`](sand_game.html:308) | Keimling bildet erste Wurzeln und Blätter |
+| 2 | [`PLANT_STEM`](sand_game.html:308) | Haupttrieb wächst nach oben, seitliche Blätter |
+| 3 | [`PLANT_MATURE`](sand_game.html:309) | Erwachsene Pflanze, kann Blüten bilden |
+| 4 | [`FLOWER_DANDELION`](sand_game.html:310) | Gänseblümchen (gelb) |
+| 4 | [`FLOWER_TULIP`](sand_game.html:310) | Tulpe (rot) |
+| 4 | [`FLOWER_POPPY`](sand_game.html:311) | Mohn (orange-rot) |
+| 5 | [`PLANT_DEAD`](sand_game.html:311) | Tote Pflanze, wird zu Kompost |
+
+#### Strukturierter Wachstum
+- **Klarer Haupttrieb**: Pflanzen wachsen kontrolliert nach oben
+- **Seitliche Blätter**: Alle 8-12 Ticks entsteht ein Blatt links/rechts abwechselnd
+- **Kein Wuchern**: Keine seitlichen Stamm-Äste mehr
+- **Wurzeln**: Nur der Keimling bildet Wurzeln nach unten
+
+#### Saison-System
+4 Jahreszeiten mit Einfluss auf das Wachstum:
+
+| Saison | Symbol | Wachstumsfaktor | Effekt |
+|--------|--------|-----------------|--------|
+| Frühling | 🌸 | 1.0 | Normales Wachstum |
+| Sommer | ☀️ | 1.2 | Maximales Wachstum |
+| Herbst | 🍂 | 0.5 | Reduziertes Wachstum, Blätter färben sich |
+| Winter | ❄️ | 0.1 | Fast kein Wachstum, Pflanzen sterben langsam |
+
+#### Säfte- und Nährstoffdynamik
+- [`plantSapGrid`](sand_game.html:510) - Säftestand (0-100)
+- [`soilNutrientGrid`](sand_game.html:511) - Bodennährstoffe (0-100)
+- [`plantWaterGrid`](sand_game.html:512) - Wasserstand (0-100)
+- Wurzeln absorbieren Wasser und Nährstoffe aus dem Boden
+- Saft wird nach oben zu Blättern und Blüten transportiert
+
+#### Kompostierung
+- Tote Pflanzen bleiben **200+ Ticks** liegen
+- Natürliche Zersetzung: **0.0002 pro Tick** (ca. 16 Minuten bei 5 Ticks/Frame)
+- Mit Bakterien/Schimmel: **0.001-0.002 pro Tick**
+- Nährstoffe werden langsam an den Boden zurückgegeben
 
 ### Physikalische Simulation
 

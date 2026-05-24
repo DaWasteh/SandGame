@@ -278,6 +278,10 @@
   <span id="sunCycleText">Tag</span>
   <span id="sunCycleProgress">(0%)</span>
 </div>
+<div class="sun-cycle-indicator" id="seasonIndicator" style="display:none;">
+  <span class="sun-icon">🌱</span>
+  <span id="seasonText">Frühling</span>
+</div>
 
 <script>
 "use strict";
@@ -302,7 +306,13 @@
 const TYPE = { SOLID: 0, LIQUID: 1, GAS: 2, POWDER: 3, SPECIAL: 4, PLANT: 5, ORGANIC: 6 };
 
 // Material IDs - expanded list
-const EMPTY = 0, SAND = 1, WATER = 2, WALL = 3, WOOD = 4, FIRE = 5, SMOKE = 6, PLANT = 7, OIL = 8, LAVA = 9, STONE = 10, GLASS = 11, ACID = 12, OXYGEN = 13, METAL = 14, ICE = 15, STEAM = 16, ASH = 17, SALT = 18, TNT = 19, HYDROGEN = 20, COAL = 21, BLOOD = 22, EGGS = 23, CLONE = 24, SAND_DARK = 25, DIRT = 26, GRAVEL = 27, SPAN = 28, BACTERIA = 29, FIREBALL = 30, SODA = 31, BLOOD_ALKALI = 32, RUST = 33, CEMENT = 34, SULFUR = 35, PHOSPHORUS = 36, MERCURY = 37, BRASS = 38, BLOOD_ACID = 39, PLANT_FLOWER = 40, PLANT_DEAD = 41, SPORE = 42, MOLD = 43, HONEY = 44, ALCOHOL = 45, CHLORINE = 46, NITROGEN = 47, URANIUM = 48, RADIATION = 49, FIRE_EXTINGUISHER = 50, COOKED_EGG = 51, SAND_WET = 52, CO2 = 53, MYCELIUM = 54, PLANT_ROOT = 55, PLANT_LEAF = 56, PLASTIC = 57;
+const EMPTY = 0, SAND = 1, WATER = 2, WALL = 3, WOOD = 4, FIRE = 5, SMOKE = 6, PLANT = 7, OIL = 8, LAVA = 9, STONE = 10, GLASS = 11, ACID = 12, OXYGEN = 13, METAL = 14, ICE = 15, STEAM = 16, ASH = 17, SALT = 18, TNT = 19, HYDROGEN = 20, COAL = 21, BLOOD = 22, EGGS = 23, CLONE = 24, SAND_DARK = 25, DIRT = 26, GRAVEL = 27, SPAN = 28, BACTERIA = 29, FIREBALL = 30, SODA = 31, BLOOD_ALKALI = 32, RUST = 33, CEMENT = 34, SULFUR = 35, PHOSPHORUS = 36, MERCURY = 37, BRASS = 38, BLOOD_ACID = 39, PLANT_FLOWER = 40, PLANT_DEAD = 41, SPORE = 42, MOLD = 43, HONEY = 44, ALCOHOL = 45, CHLORINE = 46, NITROGEN = 47, URANIUM = 48, RADIATION = 49, FIRE_EXTINGUISHER = 50, COOKED_EGG = 51, SAND_WET = 52, CO2 = 53, MYCELIUM = 54, PLANT_ROOT = 55, PLANT_LEAF = 56, PLASTIC = 57,
+// Biologie-Erweiterung: Neue Pflanzen- und Blütentypen
+PLANT_SEED = 58, PLANT_SPROUT = 59, PLANT_STEM = 60, PLANT_MATURE = 61,
+FLOWER_DANDELION = 62, FLOWER_TULIP = 63, FLOWER_POPPY = 64,
+LEAF_OAK = 65, LEAF_MAPLE = 66, ROOT_SYSTEM = 67,
+PLANT_SAP = 68, POLLEN = 69,
+SEED_SUNFLOWER = 70, SEED_WHEAT = 71;
 
 /**
  * MATERIAL DEFINITIONS
@@ -378,6 +388,84 @@ const MATS = {
   [MYCELIUM]:   { id: MYCELIUM,  name: "Myzel", type: TYPE.SPECIAL, color: [220,220,230], density: 10, melting: 0, boiling: 0, heatCapacity: 2.0, conductivity: 0.1, flammability: 0.1, ph: 6.0, electrical: 0, radioactivity: 0, organic: true, mycelium: true },
   [FIREBALL]:   { id: FIREBALL,  name: "Feuerball", type: TYPE.SPECIAL, color: [255,150,0], density: 1, melting: 0, boiling: 0, heatCapacity: 2.0, conductivity: 1.0, flammability: 1.0, ph: 0, electrical: 0, radioactivity: 0, temp: 1200, explosive: true },
   [TNT]:        { id: TNT,       name: "TNT", type: TYPE.POWDER, color: [200,50,50], density: 50, melting: 80, boiling: 300, heatCapacity: 1.0, conductivity: 0.1, flammability: 1.0, ph: 7.0, electrical: 0, radioactivity: 0, explosive: true },
+  
+  // === Biologie-Erweiterung: Neue Pflanzen- und Blütentypen ===
+  [PLANT_SEED]: {
+    id: PLANT_SEED, name: "Samen", type: TYPE.POWDER, color: [139,90,43], density: 20,
+    melting: 50, boiling: 150, heatCapacity: 1.5, conductivity: 0.05, flammability: 0.1,
+    ph: 6.0, electrical: 0, radioactivity: 0, organic: true, seedType: true,
+    germinationTempMin: 5, germinationTempMax: 35, needsMoisture: true
+  },
+  [PLANT_SPROUT]: {
+    id: PLANT_SPROUT, name: "Keimling", type: TYPE.PLANT, color: [120,200,80], density: 15,
+    melting: 100, boiling: 200, heatCapacity: 4.0, conductivity: 0.1, flammability: 0.4,
+    ph: 6.5, electrical: 0, radioactivity: 0, organic: true, photosynthesis: true,
+    stem: true, stage: 1 // Keimling
+  },
+  [PLANT_STEM]: {
+    id: PLANT_STEM, name: "Pflanzenstamm", type: TYPE.PLANT, color: [34,139,34], density: 25,
+    melting: 100, boiling: 200, heatCapacity: 4.0, conductivity: 0.1, flammability: 0.5,
+    ph: 6.5, electrical: 0, radioactivity: 0, organic: true, photosynthesis: true,
+    stem: true, stage: 2 // Jungpflanze
+  },
+  [PLANT_MATURE]: {
+    id: PLANT_MATURE, name: "Erwachsene Pflanze", type: TYPE.PLANT, color: [0,100,0], density: 30,
+    melting: 100, boiling: 200, heatCapacity: 4.5, conductivity: 0.1, flammability: 0.4,
+    ph: 6.5, electrical: 0, radioactivity: 0, organic: true, photosynthesis: true,
+    stem: true, mature: true, stage: 3 // Erwachsen
+  },
+  [FLOWER_DANDELION]: {
+    id: FLOWER_DANDELION, name: "Gänseblümchen", type: TYPE.PLANT, color: [255,255,100], density: 10,
+    melting: 80, boiling: 150, heatCapacity: 4.0, conductivity: 0.1, flammability: 0.3,
+    ph: 6.0, electrical: 0, radioactivity: 0, organic: true, reproductive: true,
+    flowerType: "dandelion", pollinatorAttraction: 0.8, colorVariety: 0
+  },
+  [FLOWER_TULIP]: {
+    id: FLOWER_TULIP, name: "Tulpe", type: TYPE.PLANT, color: [255,50,50], density: 15,
+    melting: 80, boiling: 150, heatCapacity: 4.0, conductivity: 0.1, flammability: 0.3,
+    ph: 6.5, electrical: 0, radioactivity: 0, organic: true, reproductive: true,
+    flowerType: "tulip", pollinatorAttraction: 0.9, colorVariety: 1
+  },
+  [FLOWER_POPPY]: {
+    id: FLOWER_POPPY, name: "Mohn", type: TYPE.PLANT, color: [220,50,30], density: 12,
+    melting: 80, boiling: 150, heatCapacity: 4.0, conductivity: 0.1, flammability: 0.3,
+    ph: 6.0, electrical: 0, radioactivity: 0, organic: true, reproductive: true,
+    flowerType: "poppy", pollinatorAttraction: 0.85, colorVariety: 2
+  },
+  [LEAF_OAK]: {
+    id: LEAF_OAK, name: "Eichenblatt", type: TYPE.PLANT, color: [34,120,34], density: 15,
+    melting: 80, boiling: 150, heatCapacity: 4.0, conductivity: 0.1, flammability: 0.4,
+    ph: 6.0, electrical: 0, radioactivity: 0, organic: true, leaf: true, photosynthesis: true,
+    autumnColor: [180,100,30]
+  },
+  [LEAF_MAPLE]: {
+    id: LEAF_MAPLE, name: "Ahornblatt", type: TYPE.PLANT, color: [40,140,40], density: 15,
+    melting: 80, boiling: 150, heatCapacity: 4.0, conductivity: 0.1, flammability: 0.4,
+    ph: 6.0, electrical: 0, radioactivity: 0, organic: true, leaf: true, photosynthesis: true,
+    autumnColor: [220,60,20]
+  },
+  [ROOT_SYSTEM]: {
+    id: ROOT_SYSTEM, name: "Wurzelsystem", type: TYPE.PLANT, color: [160,120,60], density: 30,
+    melting: 100, boiling: 200, heatCapacity: 4.0, conductivity: 0.1, flammability: 0.3,
+    ph: 6.0, electrical: 0, radioactivity: 0, organic: true, root: true,
+    waterAbsorption: true, nutrientAbsorption: true
+  },
+  [POLLEN]: {
+    id: POLLEN, name: "Pollen", type: TYPE.GAS, color: [255,255,150], density: 0.5,
+    melting: 0, boiling: 0, heatCapacity: 1.0, conductivity: 0.05, flammability: 0.1,
+    ph: 6.0, electrical: 0, radioactivity: 0, organic: true, gas: true,
+    buoyancy: -0.3, pollenType: true
+  },
+  [SEED_SUNFLOWER]: {
+    id: SEED_SUNFLOWER, name: "Sonnenblumensamen", type: TYPE.POWDER, color: [60,40,20], density: 25,
+    melting: 50, boiling: 150, heatCapacity: 1.5, conductivity: 0.05, flammability: 0.1,
+    ph: 6.0, electrical: 0, radioactivity: 0, organic: true, seedType: true
+  },
+  [SEED_WHEAT]: {
+    id: SEED_WHEAT, name: "Weizen", type: TYPE.POWDER, color: [218,165,32], density: 18,
+    melting: 50, boiling: 150, heatCapacity: 1.5, conductivity: 0.05, flammability: 0.3,
+    ph: 6.5, electrical: 0, radioactivity: 0, organic: true, seedType: true
+  },
 };
 
 // pH color interpolation helper
@@ -400,7 +488,21 @@ const KEY_MAP = {
   'q': GLASS, 'w': ACID, 'e': OXYGEN, 'r': METAL, 't': ICE, 'y': STEAM, 'u': ASH, 'i': SALT, 'o': TNT, 'p': HYDROGEN,
   '-': EMPTY, '=': COAL, '\\': BLOOD, "'": EGGS, ';': CLONE,
   '[': DIRT, ']': GRAVEL, '\\': SPAN, 'a': BACTERIA, 's': SULFUR, 'd': PHOSPHORUS, 'f': MERCURY,
-  'g': SODA, 'h': HONEY, 'j': ALCOHOL, 'k': CHLORINE, 'l': NITROGEN, 'z': URANIUM, 'x': FIREBALL, 'c': FIRE_EXTINGUISHER
+  'g': SODA, 'h': HONEY, 'j': ALCOHOL, 'k': CHLORINE, 'l': NITROGEN, 'z': URANIUM, 'x': FIREBALL, 'c': FIRE_EXTINGUISHER,
+  // === Biologie-Erweiterung: Neue Materialien ===
+  'b': PLANT_SEED,    // Samen
+  'n': PLANT_SPROUT,  // Keimling
+  'm': PLANT_STEM,    // Stamm
+  ',': PLANT_MATURE,  // Erwachsen
+  '.': FLOWER_DANDELION, // Gänseblümchen
+  '/': FLOWER_TULIP,    // Tulpe
+  'v': FLOWER_POPPY,    // Mohn
+  'o': LEAF_OAK,        // Eichenblatt (override)
+  'p': LEAF_MAPLE,      // Ahornblatt (override)
+  'x': ROOT_SYSTEM,     // Wurzel (override)
+  'z': POLLEN,          // Pollen (override)
+  ',': SEED_SUNFLOWER,  // Sonnenblume (override)
+  '.': SEED_WHEAT,      // Weizen (override)
 };
 
 /**
@@ -418,6 +520,22 @@ let ecosystemActive = false;
 let frameCount = 0, fpsTimer = 0, lastFps = 0;
 let photoActivity = 0.7;
 let tick = 0;
+
+// === Biologie-Erweiterung: Neue Grid-Systeme ===
+let plantTypeGrid;     // Pflanzenart: 0=keine, 1=Blume, 2=Gras, 3=Pilz, 4=Baum
+let plantStageGrid;    // Wachstumsstadium: 0=Samen, 1=Keimling, 2=Jung, 3=Erwachsen, 4=Blüte, 5=Alt
+let plantHealthGrid;   // Gesundheit: 0-100
+let plantSapGrid;      // Säftestand: 0-100
+let soilNutrientGrid;  // Bodennährstoffe: 0-100 (Float32)
+let plantWaterGrid;    // Wasserstand: 0-100
+let plantIdGrid;       // Eindeutige ID für jede Pflanze (verbundene Zellen)
+let nextPlantId = 1;   // Zähler für eindeutige Pflanzen-IDs
+
+// Saison-System
+let season = 0; // 0=Frühling, 1=Sommer, 2=Herbst, 3=Winter
+let seasonTime = 0;
+let seasonLength = 3000; // Ticks pro Saison
+let seasonProgress = 0; // 0-1 innerhalb der aktuellen Saison
 
 // Sonnenzyklus-System
 let sunCycleEnabled = false;
@@ -501,6 +619,16 @@ function swap(x1, y1, x2, y2) {
   tmp = soluteGrid[i2]; soluteGrid[i2] = soluteGrid[i1]; soluteGrid[i1] = tmp;
   tmp = electricalGrid[i2]; electricalGrid[i2] = electricalGrid[i1]; electricalGrid[i1] = tmp;
   tmp = radiationGrid[i2]; radiationGrid[i2] = radiationGrid[i1]; radiationGrid[i1] = tmp;
+  
+  // === Biologie-Erweiterung: Neue Grids tauschen ===
+  tmp = plantTypeGrid[i2]; plantTypeGrid[i2] = plantTypeGrid[i1]; plantTypeGrid[i1] = tmp;
+  tmp = plantStageGrid[i2]; plantStageGrid[i2] = plantStageGrid[i1]; plantStageGrid[i1] = tmp;
+  tmp = plantHealthGrid[i2]; plantHealthGrid[i2] = plantHealthGrid[i1]; plantHealthGrid[i1] = tmp;
+  tmp = plantSapGrid[i2]; plantSapGrid[i2] = plantSapGrid[i1]; plantSapGrid[i1] = tmp;
+  tmp = plantWaterGrid[i2]; plantWaterGrid[i2] = plantWaterGrid[i1]; plantWaterGrid[i1] = tmp;
+  tmp = plantIdGrid[i2]; plantIdGrid[i2] = plantIdGrid[i1]; plantIdGrid[i1] = tmp;
+  // Nährstoffe bleiben am Ort (Boden-Eigenschaft)
+  // soilNutrientGrid wird nicht getauscht
   
   return true;
 }
@@ -878,15 +1006,15 @@ function updatePlant(x, y, matId) {
       }
     }
     
-    // Leaves can fall off when dry or old - more lenient
-    if (ageGrid[i] > 150 && rng() < 0.001) {
+    // Leaves can fall off when dry or old - DEUTLICH VERLANGSAMT
+    if (ageGrid[i] > 300 && rng() < 0.0003) {
       grid[i] = PLANT_DEAD;
     }
     
     return;
   }
   
-  // === MAIN STEM (PLANT) ===
+  // === MAIN STEM (PLANT) - BACKWARD COMPATIBILITY, DEUTLICH VERLANGSAMT ===
   if (matId === PLANT) {
     // Check soil contact - more lenient, plants can survive without direct soil contact for a while
     let hasSoilContact = false;
@@ -936,17 +1064,17 @@ function updatePlant(x, y, matId) {
     const tempFactor = (tempGrid[i] >= optimalTempMin && tempGrid[i] <= optimalTempMax) ? 1.0 :
                        (tempGrid[i] >= 5 && tempGrid[i] <= 40) ? 0.6 : 0.2;
     
-    // Growth rate - faster and more reliable
-    const growthRate = 0.003 * Math.min(1, effectiveLight + 0.3) * tempFactor;
+    // Growth rate - DEUTLICH VERLANGSAMT für backward compat
+    const growthRate = 0.0005 * Math.min(1, effectiveLight + 0.3) * tempFactor;
     
     if (rng() < growthRate && (hasSoilContact || hasRootSupport)) {
-      // Grow upward (main stem)
+      // Grow upward (main stem) - kontrolliert
       if (y > 0 && grid[(y - 1) * W + x] === EMPTY) {
         grid[(y - 1) * W + x] = PLANT;
         ageGrid[(y - 1) * W + x] = 0;
         
-        // Add leaves on sides - more frequent and reliable
-        if (ageGrid[i] > 3 && rng() < 0.35) {
+        // Add leaves on sides - sehr selten
+        if (ageGrid[i] > 10 && rng() < 0.05) {
           const dir = rng() < 0.5 ? -1 : 1;
           if (x + dir >= 0 && x + dir < W && grid[y * W + (x + dir)] === EMPTY) {
             grid[y * W + (x + dir)] = PLANT_LEAF;
@@ -954,21 +1082,21 @@ function updatePlant(x, y, matId) {
           }
         }
         
-        // Flower at maturity - more reliable
-        if (ageGrid[i] > 20 && rng() < 0.04) {
+        // Flower at maturity - sehr selten
+        if (ageGrid[i] > 60 && rng() < 0.008) {
           grid[(y - 1) * W + x] = PLANT_FLOWER;
         }
       }
     }
     
-    // Grow roots downward from stem base - more reliable
-    if (y + 1 < H && grid[(y + 1) * W + x] === EMPTY && ageGrid[i] > 3 && rng() < 0.015) {
+    // Grow roots downward from stem base - sehr selten
+    if (y + 1 < H && grid[(y + 1) * W + x] === EMPTY && ageGrid[i] > 20 && rng() < 0.003) {
       grid[(y + 1) * W + x] = PLANT_ROOT;
       ageGrid[(y + 1) * W + x] = 0;
     }
     
-    // Side branching - more frequent
-    if (ageGrid[i] > 8 && rng() < 0.012) {
+    // Side branching - DEUTLICH VERLANGSAMT (kein Wuchern mehr!)
+    if (ageGrid[i] > 20 && rng() < 0.002) {
       const dir = rng() < 0.5 ? -1 : 1;
       if (x + dir >= 0 && x + dir < W && grid[y * W + (x + dir)] === EMPTY) {
         if (y > 0 && (grid[(y - 1) * W + x] === PLANT || grid[(y - 1) * W + x] === EMPTY)) {
@@ -978,13 +1106,13 @@ function updatePlant(x, y, matId) {
       }
     }
     
-    // Age into dead plant - much slower
-    if (ageGrid[i] > 500 && rng() < 0.0008) {
+    // Age into dead plant - sehr langsam
+    if (ageGrid[i] > 800 && rng() < 0.0003) {
       grid[i] = PLANT_DEAD;
     }
   }
   
-  // === FLOWER (PLANT_FLOWER) ===
+  // === FLOWER (PLANT_FLOWER) - DEUTLICH VERLANGSAMT ===
   if (matId === PLANT_FLOWER) {
     // Check support - more lenient
     let supported = false;
@@ -1005,28 +1133,28 @@ function updatePlant(x, y, matId) {
       return;
     }
     
-    // Produce seeds - more reliable
-    if (ageGrid[i] > 5 && rng() < 0.025) {
-      const windEffect = windActive ? windDir * 3 : 0;
+    // Produce seeds - DEUTLICH VERLANGSAMT
+    if (ageGrid[i] > 30 && rng() < 0.003) { // 0.025 -> 0.003
+      const windEffect = windActive ? windDir * 2 : 0;
       let seedProduced = false;
       
-      // Try multiple directions
-      for (let attempt = 0; attempt < 6 && !seedProduced; attempt++) {
+      // Try fewer directions
+      for (let attempt = 0; attempt < 3 && !seedProduced; attempt++) {
         const angle = rng() * Math.PI * 2;
-        const dist = 1 + Math.floor(rng() * 4);
+        const dist = 1 + Math.floor(rng() * 2); // Kürzere Distanz
         const sx = Math.floor(x + Math.cos(angle) * dist + windEffect);
-        const sy = Math.floor(y + Math.sin(angle) * dist + (rng() < 0.7 ? 1 : -1));
+        const sy = Math.floor(y + Math.sin(angle) * dist + (rng() < 0.5 ? 1 : -1));
         
         if (sx >= 0 && sx < W && sy >= 0 && sy < H && grid[sy * W + sx] === EMPTY) {
           // Check if landing on suitable ground
           if (sy + 1 < H) {
             const ground = grid[(sy + 1) * W + sx];
-            if (ground === DIRT || ground === SAND || ground === SAND_WET || ground === SAND_DARK || ground === EMPTY) {
-              // 60% plant, 25% flower, 15% spore
+            if (ground === DIRT || ground === SAND || ground === SAND_WET || ground === SAND_DARK) {
+              // 70% same type, 20% flower, 10% spore
               const seedType = rng();
-              if (seedType < 0.6) {
+              if (seedType < 0.7) {
                 grid[sy * W + sx] = PLANT;
-              } else if (seedType < 0.85) {
+              } else if (seedType < 0.9) {
                 grid[sy * W + sx] = PLANT_FLOWER;
               } else {
                 grid[sy * W + sx] = SPORE;
@@ -1039,16 +1167,16 @@ function updatePlant(x, y, matId) {
       }
     }
     
-    // Age - much slower
-    if (ageGrid[i] > 400 && rng() < 0.0008) {
+    // Age - sehr langsam
+    if (ageGrid[i] > 600 && rng() < 0.0003) {
       grid[i] = PLANT_DEAD;
     }
   }
   
-  // === DEAD PLANT ===
+  // === DEAD PLANT === - DEUTLICH VERLANGSAMT
   if (matId === PLANT_DEAD) {
     // Dead plants slowly decompose (handled by bacteria/mold)
-    if (ageGrid[i] > 300 && rng() < 0.002) {
+    if (ageGrid[i] > 500 && rng() < 0.0003) { // 0.002 -> 0.0003
       grid[i] = DIRT;
     }
   }
@@ -1481,6 +1609,704 @@ function updateBacteria(x, y, matId) {
   // Alterung - Bakterien werden zu Erde (Nährstoffkreislauf)
   if (ageGrid[i] > 200 && rng() < 0.002) {
     grid[i] = DIRT;
+  }
+}
+
+/**
+ * === BIOLOGIE-ERWEITERUNG: Erweitertes Pflanzenwachstumssystem ===
+ * Mit Wachstumsstadien, Säftedynamik, Bestäubung und Saison-Effekten
+ */
+
+// Hilfsfunktion: Saison-Ermittlung
+function getCurrentSeason() {
+  if (!sunCycleEnabled) return 1; // Immer Sommer ohne Zyklus
+  return Math.floor(season % 4);
+}
+
+// Hilfsfunktion: Saison-Faktor für Wachstumsbeeinflussung
+function getSeasonGrowthFactor() {
+  const s = getCurrentSeason();
+  if (s === 0) return 1.0; // Frühling: gutes Wachstum
+  if (s === 1) return 1.2; // Sommer: maximales Wachstum
+  if (s === 2) return 0.5; // Herbst: langsames Wachstum
+  return 0.1; // Winter: kaum Wachstum
+}
+
+// Hilfsfunktion: Herbst-Färbung für Blätter
+function getAutumnColorFactor() {
+  const s = getCurrentSeason();
+  if (s === 2) return seasonProgress; // Herbst: immer mehr Färbung
+  if (s === 3) return 1.0; // Winter: vollständig gefärbt
+  return 0; // Kein Herbst
+}
+
+// Hilfsfunktion: Pflanzengesundheit berechnen
+function calculatePlantHealth(x, y, i) {
+  let health = 50;
+  const temp = tempGrid[i];
+  
+  // Temperatur-Einfluss
+  if (temp >= 15 && temp <= 35) {
+    health += 25; // Optimal
+  } else if (temp >= 5 && temp <= 45) {
+    health += 10; // Akzeptabel
+  } else if (temp < -5 || temp > 50) {
+    health -= 20; // Stress
+  }
+  
+  // Saison-Einfluss
+  health += getSeasonGrowthFactor() * 10 - 10;
+  
+  // Wasser-Einfluss
+  const water = plantWaterGrid[i] || 0;
+  if (water >= 30) {
+    health += 20;
+  } else if (water >= 10) {
+    health += 10;
+  } else {
+    health -= 15;
+  }
+  
+  // Licht-Einfluss
+  const sunlight = getSunlightIntensity();
+  const lightFactor = hasUnobstructedLight(x, y);
+  if (sunlight * lightFactor > 0.3) {
+    health += 15;
+  }
+  
+  return Math.max(0, Math.min(100, health));
+}
+
+// Hilfsfunktion: Saft-Transport (Wasser von Wurzeln nach oben)
+function updateSapTransport(x, y, i) {
+  // Suche nach Wurzeln unterhalb
+  let waterFound = false;
+  let waterDist = 999;
+  for (let dy = 1; dy <= 6; dy++) {
+    if (y + dy >= H) break;
+    const below = grid[(y + dy) * W + x];
+    if (below === ROOT_SYSTEM || below === PLANT_ROOT) {
+      waterFound = true;
+      waterDist = dy;
+      break;
+    }
+    // Suche nach Wasser
+    if (below === WATER || below === SAND_WET) {
+      waterFound = true;
+      waterDist = dy + 2;
+      break;
+    }
+  }
+  
+  // Saft-Stand aktualisieren
+  const sapLevel = waterFound ? Math.max(plantSapGrid[i] + 5, 70) : Math.max(0, plantSapGrid[i] - 3);
+  plantSapGrid[i] = sapLevel;
+  
+  // Wenn Wurzeln gefunden, Wasser aus dem Boden entfernen
+  if (waterFound && waterDist < 999 && rng() < 0.02) {
+    for (let dy = 1; dy <= waterDist; dy++) {
+      if (y + dy >= H) break;
+      const ni = (y + dy) * W + x;
+      if (grid[ni] === WATER) {
+        grid[ni] = DIRT; // Wasser wird absorbiert
+        soilNutrientGrid[ni] = Math.min(100, soilNutrientGrid[ni] + 2);
+        break;
+      } else if (grid[ni] === SAND_WET) {
+        grid[ni] = SAND;
+        break;
+      }
+    }
+  }
+  
+  return sapLevel;
+}
+
+// Hilfsfunktion: Nährstoffe aus dem Boden aufnehmen
+function absorbSoilNutrients(x, y, i) {
+  // Suche nach Erde unterhalb
+  for (let dy = 1; dy <= 4; dy++) {
+    if (y + dy >= H) break;
+    const ni = (y + dy) * W + x;
+    if (grid[ni] === DIRT && soilNutrientGrid[ni] > 10) {
+      const absorbed = Math.min(5, soilNutrientGrid[ni]);
+      soilNutrientGrid[ni] -= absorbed;
+      plantSapGrid[i] = Math.min(100, plantSapGrid[i] + absorbed * 0.5);
+      return absorbed;
+    }
+  }
+  return 0;
+}
+
+// === ÜBERARBEITES PFLANZEN-WACHSTUM ===
+// Langsamer, strukturierter Wachstum mit klarem Haupttrieb und Blättern
+
+// Hilfsfunktion: Prüfe ob eine Pflanze zu einer Gruppe gehört
+function getPlantGroupId(i) {
+  return plantIdGrid[i] || 0;
+}
+
+// Hilfsfunktion: Zähle Stamm-Blöcke einer Pflanze
+function countPlantBlocks(plantId, type) {
+  let count = 0;
+  for (let i = 0; i < N; i++) {
+    if (plantIdGrid[i] === plantId) {
+      const mat = grid[i];
+      if (!type || mat === type) count++;
+    }
+  }
+  return count;
+}
+
+// --- updatePlantSeed(): Samen-System ---
+function updatePlantSeed(x, y, matId) {
+  const i = y * W + x;
+  ageGrid[i]++;
+  
+  // Samen braucht Feuchtigkeit zum Keimen
+  let moistureLevel = 0;
+  for (let dy = -2; dy <= 2; dy++) {
+    for (let dx = -2; dx <= 2; dx++) {
+      const nx = x + dx, ny = y + dy;
+      if (nx >= 0 && nx < W && ny >= 0 && ny < H) {
+        const ni = ny * W + nx;
+        if (grid[ni] === WATER) moistureLevel += 3;
+        if (grid[ni] === SAND_WET || grid[ni] === DIRT) moistureLevel += 1;
+      }
+    }
+  }
+  
+  // Samen braucht Erde/Sand darunter
+  let onSuitableGround = false;
+  if (y + 1 < H) {
+    const below = grid[(y + 1) * W + x];
+    onSuitableGround = (below === DIRT || below === SAND_WET || below === SAND || below === SAND_DARK);
+  }
+  
+  // Keimung: Samen wird zum Keimling (sehr langsam, braucht mehrere Bedingungen)
+  if (onSuitableGround && moistureLevel >= 2) {
+    const germinationChance = 0.003 * getSeasonGrowthFactor(); // DEUTLICHER VERLANGSAMT
+    const temp = tempGrid[i];
+    if (temp >= 10 && temp <= 30 && ageGrid[i] > 10 && rng() < germinationChance) {
+      grid[i] = PLANT_SPROUT;
+      plantTypeGrid[i] = rng() < 0.5 ? 1 : 2; // Blume oder Gras
+      plantStageGrid[i] = 1;
+      plantHealthGrid[i] = 60;
+      plantIdGrid[i] = nextPlantId++;
+      ageGrid[i] = 0;
+      return;
+    }
+  }
+  
+  // Samen verdirbt bei Stauwasser (sehr langsam)
+  if (moistureLevel >= 6 && ageGrid[i] > 100 && rng() < 0.005) {
+    grid[i] = DIRT;
+    return;
+  }
+  
+  // Samen altert sehr langsam
+  if (ageGrid[i] > 1000 && rng() < 0.001) {
+    grid[i] = DIRT;
+  }
+}
+
+// --- updatePlantSprout(): Keimling-System ---
+function updatePlantSprout(x, y, matId) {
+  const i = y * W + x;
+  ageGrid[i]++;
+  
+  // Gesundheit berechnen
+  plantHealthGrid[i] = calculatePlantHealth(x, y, i);
+  
+  // Saft transportieren
+  updateSapTransport(x, y, i);
+  
+  // Wenn Gesundheit zu niedrig, stirbt der Keimling (sehr langsam)
+  if (plantHealthGrid[i] < 15 && ageGrid[i] > 50 && rng() < 0.005) {
+    grid[i] = PLANT_DEAD;
+    plantHealthGrid[i] = 0;
+    return;
+  }
+  
+  // Wurzeln bilden (sehr langsam, nur 1 Wurzel)
+  if (y + 1 < H && grid[(y + 1) * W + x] === EMPTY && ageGrid[i] > 15 && rng() < 0.005) {
+    grid[(y + 1) * W + x] = ROOT_SYSTEM;
+    plantTypeGrid[(y + 1) * W + x] = plantTypeGrid[i];
+    plantStageGrid[(y + 1) * W + x] = 2;
+    plantHealthGrid[(y + 1) * W + x] = plantHealthGrid[i];
+    plantIdGrid[(y + 1) * W + x] = plantIdGrid[i];
+    ageGrid[(y + 1) * W + x] = 0;
+  }
+  
+  // Wächst NACH OBEN zum Haupttrieb (sehr kontrolliert)
+  const healthFactor = plantHealthGrid[i] / 100;
+  const light = hasUnobstructedLight(x, y);
+  // DEUTLICHER VERLANGSAMT: 0.005 statt 0.04
+  const growChance = healthFactor * 0.005 * (1 + light * 0.3) * getSeasonGrowthFactor();
+  
+  if (y > 0 && grid[(y - 1) * W + x] === EMPTY && rng() < growChance) {
+    grid[(y - 1) * W + x] = PLANT_STEM;
+    plantTypeGrid[(y - 1) * W + x] = plantTypeGrid[i];
+    plantStageGrid[(y - 1) * W + x] = 2;
+    plantHealthGrid[(y - 1) * W + x] = plantHealthGrid[i];
+    plantIdGrid[(y - 1) * W + x] = plantIdGrid[i];
+    ageGrid[(y - 1) * W + x] = 0;
+  }
+  
+  // Seitliche Blätter (nur alle 5-8 Ticks, nur 1 Blatt)
+  if (ageGrid[i] > 10 && ageGrid[i] % 6 === 0 && rng() < 0.008 * getSeasonGrowthFactor()) {
+    const dir = rng() < 0.5 ? -1 : 1;
+    if (x + dir >= 0 && x + dir < W && grid[y * W + (x + dir)] === EMPTY) {
+      grid[y * W + (x + dir)] = LEAF_OAK;
+      plantTypeGrid[y * W + (x + dir)] = plantTypeGrid[i];
+      plantHealthGrid[y * W + (x + dir)] = plantHealthGrid[i];
+      plantIdGrid[y * W + (x + dir)] = plantIdGrid[i];
+      ageGrid[y * W + (x + dir)] = 0;
+    }
+  }
+  
+  // Alterung: Wächst zum erwachsenen Stamm (sehr langsam)
+  if (ageGrid[i] > 120 && rng() < 0.008) {
+    grid[i] = PLANT_STEM;
+    plantStageGrid[i] = 2;
+    ageGrid[i] = 0;
+  }
+}
+
+// --- updatePlantStem(): Stamm-System (Haupttrieb) ---
+function updatePlantStem(x, y, matId) {
+  const i = y * W + x;
+  ageGrid[i]++;
+  
+  // Gesundheit und Saft aktualisieren
+  plantHealthGrid[i] = calculatePlantHealth(x, y, i);
+  updateSapTransport(x, y, i);
+  absorbSoilNutrients(x, y, i);
+  
+  // Nach oben wachsen (Haupttrieb - sehr langsam)
+  // DEUTLICHER VERLANGSAMT: 0.002 statt 0.003
+  const growthRate = 0.002 * (plantHealthGrid[i] / 100) * (1 + getSunlightIntensity() * 0.3) * getSeasonGrowthFactor();
+  if (plantStageGrid[i] < 3 && plantHealthGrid[i] > 25) {
+    if (y > 0 && grid[(y - 1) * W + x] === EMPTY && rng() < growthRate) {
+      grid[(y - 1) * W + x] = PLANT_STEM;
+      plantTypeGrid[(y - 1) * W + x] = plantTypeGrid[i];
+      plantStageGrid[(y - 1) * W + x] = plantStageGrid[i];
+      plantHealthGrid[(y - 1) * W + x] = plantHealthGrid[i];
+      plantIdGrid[(y - 1) * W + x] = plantIdGrid[i];
+      ageGrid[(y - 1) * W + x] = 0;
+    }
+  }
+  
+  // Blätter bilden seitlich (kontrolliert, alle 8-12 Ticks)
+  if (ageGrid[i] > 15 && ageGrid[i] % 8 === 0 && rng() < 0.006 * getSeasonGrowthFactor()) {
+    // Nur 1 Blatt pro Tick, abwechselnd links/rechts
+    const dir = (ageGrid[i] / 8 % 2 === 0) ? -1 : 1;
+    if (x + dir >= 0 && x + dir < W && grid[y * W + (x + dir)] === EMPTY) {
+      grid[y * W + (x + dir)] = LEAF_OAK;
+      plantTypeGrid[y * W + (x + dir)] = plantTypeGrid[i];
+      plantHealthGrid[y * W + (x + dir)] = plantHealthGrid[i];
+      plantIdGrid[y * W + (x + dir)] = plantIdGrid[i];
+      ageGrid[y * W + (x + dir)] = 0;
+    }
+  }
+  
+  // KEINE Wurzeln nach unten vom Stamm - das war zu viel
+  // Wurzelbildung nur vom Keimling
+  
+  // Wird zur erwachsenen Pflanze (sehr langsam)
+  if (ageGrid[i] > 80 && plantStageGrid[i] < 3 && rng() < 0.008) {
+    grid[i] = PLANT_MATURE;
+    plantStageGrid[i] = 3;
+    ageGrid[i] = 0;
+  }
+  
+  // Alterung (sehr langsam)
+  if (ageGrid[i] > 500 && rng() < 0.001) {
+    plantStageGrid[i] = 5; // Alt
+  }
+}
+
+// --- updatePlantMature(): Erwachsen-Pflanze (kein seitliches Wuchern mehr!) ---
+function updatePlantMature(x, y, matId) {
+  const i = y * W + x;
+  ageGrid[i]++;
+  
+  // Gesundheit und Saft aktualisieren
+  plantHealthGrid[i] = calculatePlantHealth(x, y, i);
+  updateSapTransport(x, y, i);
+  absorbSoilNutrients(x, y, i);
+  
+  // KEIN seitliches Wachsen mehr! Nur noch Blüte oben
+  
+  // Kann BLÜTEN bilden (am Haupttrieb, sehr kontrolliert)
+  // DEUTLICHER VERLANGSAMT: 0.002 statt 0.008
+  if (plantHealthGrid[i] > 30 && ageGrid[i] > 40 && rng() < 0.002 * getSeasonGrowthFactor()) {
+    // Nur wenn oben frei ist
+    if (y > 0 && grid[(y - 1) * W + x] === EMPTY) {
+      const flowerType = rng();
+      let flowerMat;
+      if (flowerType < 0.4) {
+        flowerMat = FLOWER_DANDELION;
+      } else if (flowerType < 0.7) {
+        flowerMat = FLOWER_TULIP;
+      } else {
+        flowerMat = FLOWER_POPPY;
+      }
+      grid[(y - 1) * W + x] = flowerMat;
+      plantTypeGrid[(y - 1) * W + x] = plantTypeGrid[i];
+      plantStageGrid[(y - 1) * W + x] = 4;
+      plantHealthGrid[(y - 1) * W + x] = plantHealthGrid[i];
+      plantIdGrid[(y - 1) * W + x] = plantIdGrid[i];
+      ageGrid[(y - 1) * W + x] = 0;
+    }
+  }
+  
+  // KEIN weiteres Wachstum nach oben als PLANT_MATURE
+  // Die Pflanze bleibt in der Größe
+  
+  // KEINE seitlichen Äste mehr!
+  
+  // Ab und zu noch Blätter am Stamm (sehr selten)
+  if (ageGrid[i] > 30 && rng() < 0.001 * getSeasonGrowthFactor()) {
+    const dir = rng() < 0.5 ? -1 : 1;
+    if (x + dir >= 0 && x + dir < W && grid[y * W + (x + dir)] === EMPTY) {
+      grid[y * W + (x + dir)] = LEAF_OAK;
+      plantTypeGrid[y * W + (x + dir)] = plantTypeGrid[i];
+      plantHealthGrid[y * W + (x + dir)] = plantHealthGrid[i];
+      plantIdGrid[y * W + (x + dir)] = plantIdGrid[i];
+      ageGrid[y * W + (x + dir)] = 0;
+    }
+  }
+  
+  // Herbst-Färbung
+  const autumnFactor = getAutumnColorFactor();
+  if (autumnFactor > 0.5 && rng() < 0.0005) {
+    plantHealthGrid[i] = Math.max(20, plantHealthGrid[i] - 2);
+  }
+  
+  // Winter: Stirbt sehr langsam
+  if (getCurrentSeason() === 3 && ageGrid[i] > 200 && rng() < 0.002) {
+    plantHealthGrid[i] -= 5;
+    if (plantHealthGrid[i] <= 0) {
+      grid[i] = PLANT_DEAD;
+      return;
+    }
+  }
+}
+
+// --- updateFlower(): Blütensystem mit Bestäubung ---
+function updateFlower(x, y, matId) {
+  const i = y * W + x;
+  ageGrid[i]++;
+  
+  // Prüfe Unterstützung
+  let supported = false;
+  if (y + 1 < H) {
+    const below = grid[(y + 1) * W + x];
+    supported = (below === PLANT || below === PLANT_STEM || below === PLANT_MATURE ||
+                 below === ROOT_SYSTEM || below === PLANT_ROOT || below === DIRT ||
+                 below === SAND || below === SAND_WET);
+  }
+  
+  // Fällt wenn nicht unterstützt
+  if (!supported && y + 1 < H && grid[(y + 1) * W + x] === EMPTY && rng() < 0.03) {
+    swap(x, y, x, y + 1);
+    return;
+  }
+  
+  // Gesundheit
+  plantHealthGrid[i] = calculatePlantHealth(x, y, i);
+  
+  // Pollen produzieren (an sonnigen Tagen)
+  if (plantHealthGrid[i] > 30 && getSunlightIntensity() > 0.5 && rng() < 0.01) {
+    const mat = MATS[matId];
+    const attraction = mat.pollinatorAttraction || 0.5;
+    
+    // Pollen als Gas-Partikel
+    if (y > 0 && grid[(y - 1) * W + x] === EMPTY && rng() < attraction * 0.3) {
+      grid[(y - 1) * W + x] = POLLEN;
+      plantHealthGrid[i] -= 5;
+    }
+  }
+  
+  // Samen produzieren (nach "Bestäubung" - hier: einfach mit Zeit)
+  if (ageGrid[i] > 15 && plantHealthGrid[i] > 20 && rng() < 0.015 * getSeasonGrowthFactor()) {
+    const mat = MATS[matId];
+    const windEffect = windActive ? windDir * 2 : 0;
+    
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const angle = rng() * Math.PI * 2;
+      const dist = 1 + Math.floor(rng() * 3);
+      const sx = Math.floor(x + Math.cos(angle) * dist + windEffect);
+      const sy = Math.floor(y + Math.sin(angle) * dist);
+      
+      if (sx >= 0 && sx < W && sy >= 0 && sy < H && grid[sy * W + sx] === EMPTY) {
+        // Samen auf Erde/Sand keimen lassen
+        if (sy + 1 < H) {
+          const ground = grid[(sy + 1) * W + sx];
+          if (ground === DIRT || ground === SAND || ground === SAND_WET || ground === SAND_DARK) {
+            // Setze Samen
+            if (rng() < 0.7) {
+              grid[sy * W + sx] = PLANT_SEED;
+            } else {
+              grid[sy * W + sx] = SEED_SUNFLOWER;
+            }
+            plantTypeGrid[sy * W + sx] = plantTypeGrid[i];
+            ageGrid[sy * W + sx] = 0;
+            break;
+          }
+        }
+      }
+    }
+  }
+  
+  // Verblühen
+  if (ageGrid[i] > 100 && rng() < 0.01) {
+    grid[i] = PLANT_DEAD;
+    plantHealthGrid[i] = 0;
+    return;
+  }
+  
+  // Herbst: Blumen sterben
+  if (getCurrentSeason() === 2 && ageGrid[i] > 50 && rng() < 0.02) {
+    grid[i] = PLANT_DEAD;
+    return;
+  }
+}
+
+// --- updateLeaf(): Blatt-System mit Transpiration ---
+function updateLeaf(x, y, matId) {
+  const i = y * W + x;
+  ageGrid[i]++;
+  
+  // Gesundheit
+  plantHealthGrid[i] = calculatePlantHealth(x, y, i);
+  
+  // Aktive Photosynthese
+  const sunlight = getSunlightIntensity();
+  const lightFactor = hasUnobstructedLight(x, y);
+  const effectiveLight = sunlight * lightFactor;
+  
+  if (effectiveLight > 0.1 && photoActivity > 0) {
+    const temp = tempGrid[i];
+    const tempFactor = (temp >= 10 && temp <= 35) ? 1.0 :
+                       (temp >= 0 && temp <= 45) ? 0.5 : 0.1;
+    
+    // CO2 aufnehmen und O2 produzieren
+    let co2Nearby = false;
+    for (let dy = -3; dy <= 3; dy++) {
+      for (let dx = -3; dx <= 3; dx++) {
+        const nx = x + dx, ny = y + dy;
+        if (nx >= 0 && nx < W && ny >= 0 && ny < H) {
+          if (grid[ny * W + nx] === CO2) {
+            co2Nearby = true;
+            if (rng() < 0.02) {
+              grid[ny * W + nx] = EMPTY;
+            }
+          }
+        }
+      }
+    }
+    
+    const photoRate = 0.003 * photoActivity * effectiveLight * tempFactor;
+    if (rng() < photoRate) {
+      const dir = Math.floor(rng() * 4);
+      const dx = [0, 0, -1, 1][dir];
+      const dy = [-1, 1, 0, 0][dir];
+      const nx = x + dx, ny = y + dy;
+      if (nx >= 0 && nx < W && ny >= 0 && ny < H && grid[ny * W + nx] === EMPTY) {
+        if (sunCycleEnabled && !isDaytime) {
+          grid[ny * W + nx] = CO2; // Nachts: Atmung
+        } else {
+          grid[ny * W + nx] = OXYGEN; // Tags: Photosynthese
+        }
+      }
+    }
+  }
+  
+  // Transpiration: Gibt Wasser ab
+  if (plantWaterGrid[i] > 20 && rng() < 0.005) {
+    plantWaterGrid[i] -= 5;
+    // Wasser in die Luft als Feuchtigkeit
+    if (y > 0 && grid[(y - 1) * W + x] === EMPTY && rng() < 0.3) {
+      grid[(y - 1) * W + x] = STEAM; // Vereinfacht: gibt Wasserdampf ab
+      tempGrid[(y - 1) * W + x] = 20;
+    }
+  }
+  
+  // Herbst-Färbung
+  const autumnFactor = getAutumnColorFactor();
+  if (autumnFactor > 0.3) {
+    plantHealthGrid[i] -= autumnFactor * 2;
+  }
+  
+  // Blatt fällt im Herbst
+  if (getCurrentSeason() === 3 && rng() < 0.02) {
+    grid[i] = PLANT_DEAD;
+    plantHealthGrid[i] = 0;
+    return;
+  }
+  
+  // Alterung
+  if (ageGrid[i] > 120 && rng() < 0.005) {
+    grid[i] = PLANT_DEAD;
+    plantHealthGrid[i] = 0;
+    return;
+  }
+}
+
+// --- updateRootSystem(): Wurzel-System mit Safttransport ---
+function updateRootSystem(x, y, matId) {
+  const i = y * W + x;
+  ageGrid[i]++;
+  
+  // Gesundheit
+  plantHealthGrid[i] = calculatePlantHealth(x, y, i);
+  
+  // Wasser aus dem Boden aufnehmen
+  let waterAbsorbed = false;
+  for (let dy = 1; dy <= 4; dy++) {
+    if (y + dy >= H) break;
+    const ni = (y + dy) * W + x;
+    if (grid[ni] === WATER) {
+      plantWaterGrid[i] = Math.min(100, plantWaterGrid[i] + 10);
+      soilNutrientGrid[ni] = Math.min(100, soilNutrientGrid[ni] + 1);
+      if (rng() < 0.01) {
+        grid[ni] = SAND_WET;
+        waterAbsorbed = true;
+      }
+      break;
+    } else if (grid[ni] === SAND_WET) {
+      if (rng() < 0.005) {
+        grid[ni] = SAND;
+        plantWaterGrid[i] = Math.min(100, plantWaterGrid[i] + 5);
+        waterAbsorbed = true;
+      }
+    }
+  }
+  
+  // Nährstoffe aus DIRT aufnehmen
+  if (!waterAbsorbed) {
+    for (let dy = 1; dy <= 3; dy++) {
+      if (y + dy >= H) break;
+      const ni = (y + dy) * W + x;
+      if (grid[ni] === DIRT && soilNutrientGrid[ni] > 5) {
+        soilNutrientGrid[ni] -= 2;
+        plantSapGrid[i] = Math.min(100, plantSapGrid[i] + 3);
+      }
+    }
+  }
+  
+  // Wuchs: Wurzeln bilden sich weiter
+  if (plantHealthGrid[i] > 20 && rng() < 0.008 * getSeasonGrowthFactor()) {
+    // Nach unten
+    if (y + 1 < H && grid[(y + 1) * W + x] === EMPTY) {
+      grid[(y + 1) * W + x] = ROOT_SYSTEM;
+      plantTypeGrid[(y + 1) * W + x] = plantTypeGrid[i];
+      plantHealthGrid[(y + 1) * W + x] = plantHealthGrid[i];
+      plantIdGrid[(y + 1) * W + x] = plantIdGrid[i];
+      ageGrid[(y + 1) * W + x] = 0;
+    }
+    // Seitlich
+    if (rng() < 0.5 && x > 0 && grid[y * W + (x - 1)] === EMPTY) {
+      grid[y * W + (x - 1)] = ROOT_SYSTEM;
+      plantTypeGrid[y * W + (x - 1)] = plantTypeGrid[i];
+      plantHealthGrid[y * W + (x - 1)] = plantHealthGrid[i];
+      plantIdGrid[y * W + (x - 1)] = plantIdGrid[i];
+      ageGrid[y * W + (x - 1)] = 0;
+    } else if (x + 1 < W && grid[y * W + (x + 1)] === EMPTY) {
+      grid[y * W + (x + 1)] = ROOT_SYSTEM;
+      plantTypeGrid[y * W + (x + 1)] = plantTypeGrid[i];
+      plantHealthGrid[y * W + (x + 1)] = plantHealthGrid[i];
+      plantIdGrid[y * W + (x + 1)] = plantIdGrid[i];
+      ageGrid[y * W + (x + 1)] = 0;
+    }
+  }
+  
+  // Transportiere Wasser nach oben zur Pflanze
+  if (y > 0 && plantWaterGrid[i] > 30) {
+    const above = grid[(y - 1) * W + x];
+    if (above === PLANT || above === PLANT_STEM || above === PLANT_MATURE ||
+        above === PLANT_SPROUT || above === PLANT_ROOT || above === ROOT_SYSTEM) {
+      const ni = (y - 1) * W + x;
+      plantWaterGrid[ni] = Math.min(100, plantWaterGrid[ni] + plantWaterGrid[i] * 0.3);
+      plantWaterGrid[i] *= 0.7;
+    }
+  }
+  
+  // Sterben wenn zu trocken
+  if (plantWaterGrid[i] <= 0 && ageGrid[i] > 50 && rng() < 0.01) {
+    grid[i] = PLANT_DEAD;
+    plantHealthGrid[i] = 0;
+    return;
+  }
+}
+
+// --- updatePlantDead(): Zersetzungssystem (DEUTLICH VERLANGSAMT) ---
+function updatePlantDead(x, y, matId) {
+  const i = y * W + x;
+  ageGrid[i]++;
+  
+  // Zersetzung durch Bakterien/Schimmel (sehr langsam)
+  let decomposerNearby = false;
+  const neighbors = [i-1, i+1, i-W, i+W, i-W-1, i-W+1, i+W-1, i+W+1];
+  for (const ni of neighbors) {
+    if (ni >= 0 && ni < N) {
+      const nMat = grid[ni];
+      if (nMat === BACTERIA || nMat === MOLD || nMat === MYCELIUM) {
+        decomposerNearby = true;
+        // DEUTLICH VERLANGSAMT: 0.002 statt 0.02
+        if (rng() < 0.002) {
+          grid[i] = DIRT;
+          // Nährstoffe zurück ins Boden
+          if (y + 1 < H) {
+            const below = grid[(y + 1) * W + x];
+            if (below === DIRT && soilNutrientGrid[(y + 1) * W + x] < 100) {
+              soilNutrientGrid[(y + 1) * W + x] = Math.min(100, soilNutrientGrid[(y + 1) * W + x] + 10);
+            }
+          }
+          return;
+        }
+      }
+    }
+  }
+  
+  // Langsame natürliche Zersetzung (DEUTLICH VERLANGSAMT)
+  // Alte Pflanzen bleiben jahrelang liegen
+  const decomposeRate = decomposerNearby ? 0.001 : 0.0002; // 10x langsamer
+  if (ageGrid[i] > 200 && rng() < decomposeRate) { // Braucht 200 Ticks statt 30
+    grid[i] = DIRT;
+    // Nährstoffe zurück
+    if (y + 1 < H) {
+      const ni = (y + 1) * W + x;
+      if (grid[ni] === DIRT) {
+        soilNutrientGrid[ni] = Math.min(100, soilNutrientGrid[ni] + 5);
+      }
+    }
+    return;
+  }
+  
+  // Bei Feuchtigkeit wird es zu Kompost (DEUTLICH VERLANGSAMT)
+  let moistureNearby = 0;
+  for (let dy = -2; dy <= 2; dy++) {
+    for (let dx = -2; dx <= 2; dx++) {
+      const nx = x + dx, ny = y + dy;
+      if (nx >= 0 && nx < W && ny >= 0 && ny < H) {
+        if (grid[ny * W + nx] === WATER || grid[ny * W + nx] === SAND_WET) {
+          moistureNearby += 2;
+        }
+      }
+    }
+  }
+  
+  // DEUTLICH VERLANGSAMT: moistureNearby >= 3 && ageGrid[i] > 200 && rng() < 0.0005
+  if (moistureNearby >= 3 && ageGrid[i] > 200 && rng() < 0.0005) {
+    grid[i] = DIRT;
+    if (y + 1 < H) {
+      const ni = (y + 1) * W + x;
+      if (grid[ni] === DIRT) {
+        soilNutrientGrid[ni] = Math.min(100, soilNutrientGrid[ni] + 15);
+      }
+    }
   }
 }
 
@@ -2302,6 +3128,16 @@ function simulate() {
     }
   }
   
+  // === Saison-System aktualisieren ===
+  if (sunCycleEnabled) {
+    seasonTime++;
+    if (seasonTime >= seasonLength) {
+      seasonTime = 0;
+      season = (season + 1) % 4;
+    }
+    seasonProgress = seasonTime / seasonLength;
+  }
+  
   // Process plants and organic matter
   for (let y = 0; y < H; y++) {
     const reverse = rng() < 0.5;
@@ -2313,7 +3149,33 @@ function simulate() {
       const i = y * W + x;
       const matId = grid[i];
       
-      if (isPlant(matId)) {
+      // === Biologie-Erweiterung: Dispatch zu spezifischen Update-Funktionen ===
+      if (matId === PLANT_SEED) {
+        updatePlantSeed(x, y, matId);
+      } else if (matId === PLANT_SPROUT) {
+        updatePlantSprout(x, y, matId);
+      } else if (matId === PLANT_STEM) {
+        updatePlantStem(x, y, matId);
+      } else if (matId === PLANT_MATURE) {
+        updatePlantMature(x, y, matId);
+      } else if (matId === FLOWER_DANDELION || matId === FLOWER_TULIP || matId === FLOWER_POPPY) {
+        updateFlower(x, y, matId);
+      } else if (matId === LEAF_OAK || matId === LEAF_MAPLE) {
+        updateLeaf(x, y, matId);
+      } else if (matId === ROOT_SYSTEM) {
+        updateRootSystem(x, y, matId);
+      } else if (matId === POLLEN) {
+        // Pollen verfliegt
+        ageGrid[i]++;
+        if (ageGrid[i] > 30 || rng() < 0.05) {
+          grid[i] = EMPTY;
+        } else if (y > 0 && grid[(y - 1) * W + x] === EMPTY && rng() < 0.1) {
+          swap(x, y, x, y - 1);
+        }
+      } else if (matId === PLANT_DEAD) {
+        updatePlantDead(x, y, matId);
+      } else if (isPlant(matId)) {
+        // Alte Pflanzen (PLANT, PLANT_FLOWER, PLANT_ROOT, PLANT_LEAF) - backward compatibility
         updatePlant(x, y, matId);
       } else if (matId === SPORE) {
         updateSpore(x, y, matId);
@@ -2395,39 +3257,86 @@ function simulate() {
     }
   }
   
-  // Ecosystem generation
+  // Ecosystem generation - Enhanced with new biology system
   if (ecosystemActive) {
-    // Add a simple ecosystem: dirt base, water, plants
-    if (tick % 100 === 0) {
-      // Create a small pond
-      const px = Math.floor(rng() * (W - 20)) + 10;
-      const py = Math.floor(rng() * (H - 10)) + 5;
+    // Add a complete ecosystem: dirt base, water, seeds, plants
+    if (tick % 50 === 0) {
+      // Create a small pond with ecosystem
+      const px = Math.floor(rng() * (W - 30)) + 15;
+      const py = Math.floor(rng() * (H - 15)) + 5;
       
-      // Dirt layer
-      for (let dy = 0; dy < 3; dy++) {
-        for (let dx = -5; dx <= 5; dx++) {
+      // Dirt layer with nutrients
+      for (let dy = 0; dy < 4; dy++) {
+        for (let dx = -8; dx <= 8; dx++) {
           const nx = px + dx, ny = py + dy;
           if (nx >= 0 && nx < W && ny >= 0 && ny < H && grid[ny * W + nx] === EMPTY) {
             grid[ny * W + nx] = DIRT;
+            const ni = ny * W + nx;
+            soilNutrientGrid[ni] = 50 + rng() * 40;
           }
         }
       }
       
       // Water pool
-      for (let dx = -3; dx <= 3; dx++) {
-        const nx = px + dx, ny = py + 3;
-        if (nx >= 0 && nx < W && ny >= 0 && ny < H && grid[ny * W + nx] === EMPTY) {
-          grid[ny * W + nx] = WATER;
-          tempGrid[ny * W + nx] = 20;
+      for (let dx = -4; dx <= 4; dx++) {
+        for (let dy = 4; dy <= 5; dy++) {
+          const nx = px + dx, ny = py + dy;
+          if (nx >= 0 && nx < W && ny >= 0 && ny < H && grid[ny * W + nx] === EMPTY) {
+            grid[ny * W + nx] = WATER;
+            tempGrid[ny * W + nx] = 18;
+          }
         }
       }
       
-      // Plants on dirt edges
-      for (let dx = -5; dx <= 5; dx++) {
-        const nx = px + dx, ny = py + 2;
-        if (nx >= 0 && nx < W && ny >= 0 && ny < H && grid[ny * W + nx] === DIRT && rng() < 0.4) {
-          grid[ny * W + nx] = PLANT;
-          ageGrid[ny * W + nx] = Math.floor(rng() * 20);
+      // Plant seeds on dirt edges (new biology system)
+      for (let dx = -8; dx <= 8; dx++) {
+        for (let dy = -1; dy <= 1; dy++) {
+          const nx = px + dx, ny = py + dy;
+          if (nx >= 0 && nx < W && ny >= 0 && ny < H && grid[ny * W + nx] === DIRT && rng() < 0.3) {
+            // Set new seed types
+            const seedType = rng();
+            let seedMat;
+            if (seedType < 0.5) {
+              seedMat = PLANT_SEED;
+            } else if (seedType < 0.8) {
+              seedMat = SEED_SUNFLOWER;
+            } else {
+              seedMat = SEED_WHEAT;
+            }
+            grid[ny * W + nx] = seedMat;
+            plantTypeGrid[ny * W + nx] = Math.floor(rng() * 2) + 1;
+            ageGrid[ny * W + nx] = 0;
+          }
+        }
+      }
+      
+      // Some mature plants
+      if (rng() < 0.3) {
+        const mx = px + Math.floor(rng() * 10) - 5;
+        const my = py - 1;
+        if (mx >= 0 && mx < W && my >= 0 && my < H && grid[my * W + mx] === EMPTY) {
+          // Create a complete plant structure
+          grid[my * W + mx] = PLANT_MATURE;
+          plantTypeGrid[my * W + mx] = 1;
+          plantStageGrid[my * W + mx] = 3;
+          plantHealthGrid[my * W + mx] = 70 + rng() * 30;
+          plantSapGrid[my * W + mx] = 50 + rng() * 50;
+          plantIdGrid[my * W + mx] = nextPlantId++;
+          ageGrid[my * W + mx] = 0;
+          
+          // Add leaves
+          if (mx + 1 < W && grid[my * W + (mx + 1)] === EMPTY) {
+            grid[my * W + (mx + 1)] = LEAF_OAK;
+            plantTypeGrid[my * W + (mx + 1)] = 1;
+            plantHealthGrid[my * W + (mx + 1)] = 70;
+            ageGrid[my * W + (mx + 1)] = 0;
+          }
+          if (mx > 0 && grid[my * W + (mx - 1)] === EMPTY) {
+            grid[my * W + (mx - 1)] = LEAF_MAPLE;
+            plantTypeGrid[my * W + (mx - 1)] = 1;
+            plantHealthGrid[my * W + (mx - 1)] = 70;
+            ageGrid[my * W + (mx - 1)] = 0;
+          }
         }
       }
     }
@@ -2460,6 +3369,13 @@ function simulate() {
     sunText.textContent = isDaytime ? "Tag" : "Nacht";
     sunProgress.textContent = `(${Math.round(sunIntensity * 100)}%)`;
     sunIndicator.className = "sun-cycle-indicator " + (isDaytime ? "day" : "night");
+    
+    // === Saison-Anzeiger aktualisieren ===
+    const seasonNames = ['🌸 Frühling', '☀️ Sommer', '🍂 Herbst', '❄️ Winter'];
+    const seasonIndicator = document.getElementById('seasonIndicator');
+    if (seasonIndicator) {
+      seasonIndicator.textContent = seasonNames[getCurrentSeason()];
+    }
   }
 }
 
@@ -2563,6 +3479,133 @@ function render() {
       g += ageVar;
     }
     
+    // === Biologie-Erweiterung: Neue Pflanzen-Darstellung ===
+    if (matId === PLANT_SEED) {
+      // Samen: Braun mit kleiner Variation
+      r = 139 + baseNoise;
+      g = 90 + baseNoise;
+      b = 43 + baseNoise;
+    }
+    
+    if (matId === PLANT_SPROUT) {
+      // Keimling: Helles Grün
+      const health = plantHealthGrid[i] / 100 || 0.5;
+      r = 120 * health + 50;
+      g = 200 * health + 55;
+      b = 80 * health + 30;
+    }
+    
+    if (matId === PLANT_STEM) {
+      // Stamm: Mittelgrün mit Gesundheits-Abhängigkeit
+      const health = plantHealthGrid[i] / 100 || 0.5;
+      r = 34 * health + 20;
+      g = 139 * health + 45;
+      b = 34 * health + 10;
+      // Herbst-Färbung
+      const autumn = getAutumnColorFactor();
+      if (autumn > 0) {
+        r = r * (1 - autumn * 0.5) + 180 * autumn * 0.5;
+        g = g * (1 - autumn * 0.7) + 100 * autumn * 0.7;
+      }
+    }
+    
+    if (matId === PLANT_MATURE) {
+      // Erwachsene Pflanze: Dunkles Grün
+      const health = plantHealthGrid[i] / 100 || 0.5;
+      r = 0 * health + 20;
+      g = 100 * health + 84;
+      b = 0 * health + 20;
+      // Herbst-Färbung
+      const autumn = getAutumnColorFactor();
+      if (autumn > 0) {
+        r = r * (1 - autumn * 0.6) + 160 * autumn * 0.6;
+        g = g * (1 - autumn * 0.5) + 80 * autumn * 0.5;
+      }
+    }
+    
+    if (matId === FLOWER_DANDELION) {
+      // Gänseblümchen: Gelb
+      r = 255;
+      g = 255;
+      b = 100 + baseNoise;
+    }
+    
+    if (matId === FLOWER_TULIP) {
+      // Tulpe: Rot
+      r = 255;
+      g = 50 + baseNoise;
+      b = 50 + baseNoise;
+    }
+    
+    if (matId === FLOWER_POPPY) {
+      // Mohn: Orange-Rot
+      r = 220 + baseNoise;
+      g = 50 + baseNoise;
+      b = 30 + baseNoise;
+    }
+    
+    if (matId === LEAF_OAK || matId === LEAF_MAPLE) {
+      // Blätter: Grün mit Gesundheits- und Herbst-Effekt
+      const health = plantHealthGrid[i] / 100 || 0.5;
+      const isMaple = matId === LEAF_MAPLE;
+      
+      if (isMaple) {
+        r = 40 * health + 30;
+        g = 140 * health + 50;
+        b = 40 * health + 20;
+      } else {
+        r = 34 * health + 25;
+        g = 120 * health + 40;
+        b = 34 * health + 20;
+      }
+      
+      // Herbst-Färbung
+      const autumn = getAutumnColorFactor();
+      if (autumn > 0) {
+        const autumnR = isMaple ? 220 : 180;
+        const autumnG = isMaple ? 60 : 100;
+        const autumnB = 20;
+        r = r * (1 - autumn) + autumnR * autumn;
+        g = g * (1 - autumn) + autumnG * autumn;
+        b = b * (1 - autumn) + autumnB * autumn;
+      }
+    }
+    
+    if (matId === ROOT_SYSTEM) {
+      // Wurzeln: Hellbraun
+      r = 160 + baseNoise;
+      g = 120 + baseNoise;
+      b = 60 + baseNoise;
+    }
+    
+    if (matId === PLANT_DEAD) {
+      // Tote Pflanze: Braun/Gelb
+      r = 139 + baseNoise;
+      g = 115 + baseNoise;
+      b = 55 + baseNoise;
+    }
+    
+    if (matId === POLLEN) {
+      // Pollen: Hellgelb, transparent
+      r = 255;
+      g = 255;
+      b = 150 + baseNoise;
+    }
+    
+    if (matId === SEED_SUNFLOWER) {
+      // Sonnenblumensamen: Dunkel
+      r = 60 + baseNoise;
+      g = 40 + baseNoise;
+      b = 20 + baseNoise;
+    }
+    
+    if (matId === SEED_WHEAT) {
+      // Weizen: Goldgelb
+      r = 218 + baseNoise;
+      g = 165 + baseNoise;
+      b = 32 + baseNoise;
+    }
+    
     if (matId === PLANT_FLOWER) {
       // Colorful flower
       const hue = (seed * 37 + tick * 0.01) % 360;
@@ -2659,6 +3702,22 @@ function resize() {
   soluteGrid = new Float32Array(N);
   electricalGrid = new Float32Array(N);
   radiationGrid = new Float32Array(N);
+  
+  // === Biologie-Erweiterung: Neue Grid-Systeme ===
+  plantTypeGrid = new Uint8Array(N);
+  plantStageGrid = new Uint8Array(N);
+  plantHealthGrid = new Uint8Array(N);
+  plantSapGrid = new Uint8Array(N);
+  soilNutrientGrid = new Float32Array(N);
+  plantWaterGrid = new Uint8Array(N);
+  plantIdGrid = new Uint32Array(N);
+  
+  // Initialisiere Bodennährstoffe für DIRT-Zellen
+  for (let i = 0; i < N; i++) {
+    if (grid[i] === DIRT) {
+      soilNutrientGrid[i] = 50 + rng() * 30; // 50-80 Nährstoffe
+    }
+  }
   
   // Copy old data to new grid
   if (oldGrid && oldGrid.length > 0) {
@@ -2822,6 +3881,18 @@ function initUI() {
         if (soluteGrid) soluteGrid.fill(0);
         if (electricalGrid) electricalGrid.fill(0);
         if (radiationGrid) radiationGrid.fill(0);
+        // === Biologie-Erweiterung: Neue Grids zurücksetzen ===
+        if (plantTypeGrid) plantTypeGrid.fill(0);
+        if (plantStageGrid) plantStageGrid.fill(0);
+        if (plantHealthGrid) plantHealthGrid.fill(0);
+        if (plantSapGrid) plantSapGrid.fill(0);
+        if (plantWaterGrid) plantWaterGrid.fill(0);
+        if (plantIdGrid) plantIdGrid.fill(0);
+        if (soilNutrientGrid) soilNutrientGrid.fill(0);
+        nextPlantId = 1;
+        season = 0;
+        seasonTime = 0;
+        seasonProgress = 0;
       } catch (err) {
         console.error("Clear button error:", err);
       }
@@ -2909,6 +3980,7 @@ function initUI() {
     sunCycleEnabled = !sunCycleEnabled;
     sunCycleBtn.textContent = sunCycleEnabled ? "✅ Deaktivieren" : "☀️ Aktivieren";
     document.getElementById("sunCycleIndicator").style.display = sunCycleEnabled ? "flex" : "none";
+    document.getElementById("seasonIndicator").style.display = sunCycleEnabled ? "flex" : "none";
     document.getElementById("sunCycleStatus").textContent = sunCycleEnabled ? "✅ Aktiviert" : "❌ Deaktiviert";
   };
   document.getElementById("seedBtn").parentNode.appendChild(sunCycleBtn);
@@ -3075,6 +4147,20 @@ function autoMapColors() {
     PHOSPHORUS: [255, 255, 220],
     SAND_WET:   [140, 120, 80],
     COOKED_EGG: [245, 240, 220],
+    // === Biologie-Erweiterung: Neue Materialien ===
+    PLANT_SEED:     [139, 90, 43],
+    PLANT_SPROUT:   [120, 200, 80],
+    PLANT_STEM:     [34, 139, 34],
+    PLANT_MATURE:   [0, 100, 0],
+    FLOWER_DANDELION: [255, 255, 100],
+    FLOWER_TULIP:   [255, 50, 50],
+    FLOWER_POPPY:   [220, 50, 30],
+    LEAF_OAK:       [34, 120, 34],
+    LEAF_MAPLE:     [40, 140, 40],
+    ROOT_SYSTEM:    [160, 120, 60],
+    POLLEN:         [255, 255, 150],
+    SEED_SUNFLOWER: [60, 40, 20],
+    SEED_WHEAT:     [218, 165, 32],
   };
   
   for (let matName in presets) {
