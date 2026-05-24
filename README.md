@@ -40,7 +40,7 @@ Ein interaktives **Zellulares Automaten-Spiel** mit physikalisch, chemisch und b
 
 - **Photosynthese**: Pflanzen nutzen Licht, Wasser und CO₂ für Wachstum
 - **Transpiration**: Wasserverdunstung durch Blätter
-- **Nährstoffaufnahme**: Wurzeln scanzen Boden auf Nährstoffe
+- **Nährstoffaufnahme**: Wurzeln scanken Boden auf Nährstoffe
 - **Tropismen**: Pflanzen wachsen zum Licht
 - **Sporen-Verbreitung**: Schimmel und Pilze verbreiten sich über Luft und Feuchtigkeit
 - **Keimung**: Sporen keimen nur bei ausreichender Feuchtigkeit
@@ -78,9 +78,19 @@ Das Spiel kann über [GitHub Pages](https://yourusername.github.io/sand-game/) g
 
 | Einstellung | Bereich | Standard |
 |-------------|---------|----------|
-| **Grid-Auflösung** | 50–500 Zellen/Breite | 200 |
+| **Grid-Auflösung** | 50–320 Zellen/Breite | 200 |
 | **Pinselgröße** | 1–30 Pixel | 5 |
-| **Simulations-Ticks pro Frame** | 1–10 | 5 |
+| **Simulations-Ticks pro Frame** | 1–8 | 5 |
+
+## 📸 Bild-Import
+
+Das Spiel unterstützt den Import von Bildern zur Erstellung von Simulationen:
+
+1. Klicke auf **"📁 Bild importieren"** im UI
+2. Wähle ein Bild aus (JPG, PNG)
+3. Das Bild wird automatisch in Materialien umgewandelt
+4. Klicke auf **"Zuordnung anwenden"** um das Bild im Grid zu platzieren
+5. Klicke auf **"Simulation starten"** um die Simulation zu beginnen
 
 ## 🔬 Wissenschaftliche Grundlagen
 
@@ -92,10 +102,18 @@ Das Wachstum von Pflanzen folgt realistischen biologischen Modellen:
 Wachstumsrate = Basis × min(1, Wasser/3) × min(1, Nährstoffe/2) × Photosynthese × Temperaturfaktor
 ```
 
-- **Optimale Temperatur**: 10–30°C
+- **Optimale Temperatur**: 10–35°C
 - **Temperaturstress**: Wachstum reduziert außerhalb des optimalen Bereichs
 - **Lichtabhängigkeit**: Nachts nur 5% der tagaktiven Wachstumsrate
 - **Wasserhaushalt**: Transpiration bei Trockenheit reduziert Wachstum
+
+### Sonnenzyklus
+
+Das Spiel simuliert einen Tag/Nacht-Zyklus mit:
+
+- **Tag (50% des Zyklus)**: Volle Sonnenintensität für Photosynthese
+- **Nacht (50% des Zyklus)**: Schwaches Mondlicht, Pflanzen atmen CO₂ aus
+- **Sonnenhöhe**: Sinusförmiger Verlauf für sanfte Übergänge
 
 ### Explosions-Physik
 
@@ -199,4 +217,4 @@ Entwickelt als zellulares Automaten-Spiel mit Fokus auf wissenschaftliche Korrek
 
 ---
 
-*„Die einzige sichere Annahme ist, dass unsere Annahmen falsch sind."* – Wissenschaftliches Mantra
+*"Die einzige sichere Annahme ist, dass unsere Annahmen falsch sind."* – Wissenschaftliches Mantra
