@@ -233,8 +233,8 @@
     <input type="range" id="photoR" min="0" max="100" value="70">
   </div>
   <div class="control-row">
-    <label>Sonnenzyklus</label>
-    <span id="sunCycleStatus" style="color: #666; font-size: 12px;">❌ Deaktiviert</span>
+    <label>Sonnenzyklus (Tag/Nacht + Jahreszeiten)</label>
+    <button id="sunCycleToggle" style="width: 110px;">☀️ Aktivieren</button>
   </div>
   <div class="control-row">
     <label>Zyklus-Geschwindigkeit</label>
@@ -482,27 +482,28 @@ function phColor(ph, baseColor) {
   return [r, g, b];
 }
 
-// Keyboard mapping
+// Keyboard mapping (cleaned, no conflicting overrides)
 const KEY_MAP = {
   '1': SAND, '2': WATER, '3': WALL, '4': WOOD, '5': FIRE, '6': PLANT, '7': OIL, '8': LAVA, '9': STONE,
   'q': GLASS, 'w': ACID, 'e': OXYGEN, 'r': METAL, 't': ICE, 'y': STEAM, 'u': ASH, 'i': SALT, 'o': TNT, 'p': HYDROGEN,
   '-': EMPTY, '=': COAL, '\\': BLOOD, "'": EGGS, ';': CLONE,
-  '[': DIRT, ']': GRAVEL, '\\': SPAN, 'a': BACTERIA, 's': SULFUR, 'd': PHOSPHORUS, 'f': MERCURY,
+  '[': DIRT, ']': GRAVEL,
+  'a': BACTERIA, 's': SULFUR, 'd': PHOSPHORUS, 'f': MERCURY,
   'g': SODA, 'h': HONEY, 'j': ALCOHOL, 'k': CHLORINE, 'l': NITROGEN, 'z': URANIUM, 'x': FIREBALL, 'c': FIRE_EXTINGUISHER,
   // === Biologie-Erweiterung: Neue Materialien ===
-  'b': PLANT_SEED,    // Samen
-  'n': PLANT_SPROUT,  // Keimling
-  'm': PLANT_STEM,    // Stamm
-  ',': PLANT_MATURE,  // Erwachsen
-  '.': FLOWER_DANDELION, // Gänseblümchen
-  '/': FLOWER_TULIP,    // Tulpe
-  'v': FLOWER_POPPY,    // Mohn
-  'o': LEAF_OAK,        // Eichenblatt (override)
-  'p': LEAF_MAPLE,      // Ahornblatt (override)
-  'x': ROOT_SYSTEM,     // Wurzel (override)
-  'z': POLLEN,          // Pollen (override)
-  ',': SEED_SUNFLOWER,  // Sonnenblume (override)
-  '.': SEED_WHEAT,      // Weizen (override)
+  'b': PLANT_SEED,
+  'n': PLANT_SPROUT,
+  'm': PLANT_STEM,
+  ',': PLANT_MATURE,
+  '.': FLOWER_DANDELION,
+  '/': FLOWER_TULIP,
+  'v': FLOWER_POPPY,
+  'O': LEAF_OAK,
+  'P': LEAF_MAPLE,
+  'X': ROOT_SYSTEM,
+  'Z': POLLEN,
+  'L': SEED_SUNFLOWER,
+  'K': SEED_WHEAT,
 };
 
 /**
@@ -785,35 +786,57 @@ function updateLiquid(x, y, matId) {
 }
 
 /**
- * GAS PHYSICS
+ * GAS PHYSICS - density-aware, convection, wind
  */
 function updateGas(x, y, matId) {
   const mat = MATS[matId];
-  const buoyancy = mat.buoyancy || 0;
-  
-  // Gases rise based on buoyancy
-  if (y - 1 >= 0) {
-    if (tryMove(x, y, x, y - 1, matId)) return true;
+  const buoyancy = mat.buodyancy ?? mat.buoyancy ?? 0;
+  const temp = tempGrid[y * W + x];
+
+  // Convection: hotter gases rise faster
+  const heatBoost = temp > 40 ? Math.min(0.4, (temp - 40) / 800) : 0;
+
+  // Density-based behavior:
+  // - Light gases (H2, O2): prefer up
+  // - Heavy gases (CO2, Cl2): prefer down or stay low
+  const isLight = buoyancy < -0.3;
+  const isHeavy = buoyancy > 0.3;
+
+  if (isLight || (!isHeavy)) {
+    // Primary: rise
+    if (y - 1 >= 0) {
+      if (tryMove(x, y, x, y - 1, matId)) return true;
+      const dir = rng() < 0.5 ? -1 : 1;
+      if (tryMove(x, y, x + dir, y - 1, matId)) return true;
+      if (tryMove(x, y, x - dir, y - 1, matId)) return true;
+    }
+    // Extra lift for very light / hot gases
+    if ((buoyancy < -0.5 || heatBoost > 0.15) && y - 2 >= 0 && rng() < 0.25 + heatBoost) {
+      if (tryMove(x, y, x, y - 2, matId)) return true;
+    }
+  }
+
+  // Heavy gases: prefer to sink or stay low
+  if (isHeavy && y + 1 < H && rng() < 0.35) {
+    if (tryMove(x, y, x, y + 1, matId)) return true;
     const dir = rng() < 0.5 ? -1 : 1;
-    if (tryMove(x, y, x + dir, y - 1, matId)) return true;
-    if (tryMove(x, y, x - dir, y - 1, matId)) return true;
+    if (tryMove(x, y, x + dir, y + 1, matId)) return true;
+    if (tryMove(x, y, x - dir, y + 1, matId)) return true;
   }
-  
-  // Buoyant gases float faster
-  if (buoyancy < -0.5 && y - 2 >= 0) {
-    if (tryMove(x, y, x, y - 2, matId)) return true;
-  }
-  
-  // Horizontal spread
+
+  // Horizontal spread (slightly reduced to avoid chaos)
   const dir = rng() < 0.5 ? -1 : 1;
-  if (tryMove(x, y, x + dir, y, matId)) return true;
-  if (tryMove(x, y, x - dir, y, matId)) return true;
-  
-  // Wind effect
+  if (rng() < 0.6 && tryMove(x, y, x + dir, y, matId)) return true;
+  if (rng() < 0.4 && tryMove(x, y, x - dir, y, matId)) return true;
+
+  // Wind effect (stronger on light gases, weaker on heavy)
   if (windActive && x + windDir >= 0 && x + windDir < W) {
-    if (tryMove(x, y, x + windDir, y, matId)) return true;
+    const windStrength = isHeavy ? 0.25 : 0.6;
+    if (rng() < windStrength) {
+      if (tryMove(x, y, x + windDir, y, matId)) return true;
+    }
   }
-  
+
   return false;
 }
 
@@ -1062,41 +1085,41 @@ function updatePlant(x, y, matId) {
     }
     
     const tempFactor = (tempGrid[i] >= optimalTempMin && tempGrid[i] <= optimalTempMax) ? 1.0 :
-                       (tempGrid[i] >= 5 && tempGrid[i] <= 40) ? 0.6 : 0.2;
-    
-    // Growth rate - DEUTLICH VERLANGSAMT für backward compat
-    const growthRate = 0.0005 * Math.min(1, effectiveLight + 0.3) * tempFactor;
-    
+                        (tempGrid[i] >= 5 && tempGrid[i] <= 40) ? 0.6 : 0.2;
+
+    // Growth rate - strongly reduced to avoid overgrowth
+    const growthRate = 0.00025 * Math.min(1, effectiveLight + 0.3) * tempFactor;
+
     if (rng() < growthRate && (hasSoilContact || hasRootSupport)) {
-      // Grow upward (main stem) - kontrolliert
+      // Grow upward (main stem) - controlled
       if (y > 0 && grid[(y - 1) * W + x] === EMPTY) {
         grid[(y - 1) * W + x] = PLANT;
         ageGrid[(y - 1) * W + x] = 0;
-        
-        // Add leaves on sides - sehr selten
-        if (ageGrid[i] > 10 && rng() < 0.05) {
+
+        // Add leaves on sides - very rare
+        if (ageGrid[i] > 15 && rng() < 0.02) {
           const dir = rng() < 0.5 ? -1 : 1;
           if (x + dir >= 0 && x + dir < W && grid[y * W + (x + dir)] === EMPTY) {
             grid[y * W + (x + dir)] = PLANT_LEAF;
             ageGrid[y * W + (x + dir)] = 0;
           }
         }
-        
-        // Flower at maturity - sehr selten
-        if (ageGrid[i] > 60 && rng() < 0.008) {
+
+        // Flower at maturity - very rare
+        if (ageGrid[i] > 80 && rng() < 0.003) {
           grid[(y - 1) * W + x] = PLANT_FLOWER;
         }
       }
     }
-    
-    // Grow roots downward from stem base - sehr selten
-    if (y + 1 < H && grid[(y + 1) * W + x] === EMPTY && ageGrid[i] > 20 && rng() < 0.003) {
+
+    // Grow roots downward from stem base - very rare
+    if (y + 1 < H && grid[(y + 1) * W + x] === EMPTY && ageGrid[i] > 30 && rng() < 0.0015) {
       grid[(y + 1) * W + x] = PLANT_ROOT;
       ageGrid[(y + 1) * W + x] = 0;
     }
-    
-    // Side branching - DEUTLICH VERLANGSAMT (kein Wuchern mehr!)
-    if (ageGrid[i] > 20 && rng() < 0.002) {
+
+    // Side branching - very limited to avoid "bush" effect
+    if (ageGrid[i] > 30 && ageGrid[i] % 10 === 0 && rng() < 0.0015) {
       const dir = rng() < 0.5 ? -1 : 1;
       if (x + dir >= 0 && x + dir < W && grid[y * W + (x + dir)] === EMPTY) {
         if (y > 0 && (grid[(y - 1) * W + x] === PLANT || grid[(y - 1) * W + x] === EMPTY)) {
@@ -1347,7 +1370,7 @@ function updatePlant(x, y, matId) {
     }
     
     // Myzel breitet sich im Boden aus (langsamer, kontrolliert)
-    if (moistureLevel >= 2 && nutrientsLevel >= 1 && rng() < 0.008) {
+    if (moistureLevel >= 2 && nutrientsLevel >= 1 && rng() < 0.004) {
       const dx = Math.floor(rng() * 3) - 1;
       const dy = Math.floor(rng() * 3) - 1;
       const nx = x + dx, ny = y + dy;
@@ -1457,7 +1480,7 @@ function updatePlant(x, y, matId) {
     
     // Zersetzung (sehr langsam)
     if (moistureLevel >= 2 && hasOrganicSubstrate) {
-      const decomposeChance = 0.002 + moistureLevel * 0.001;
+      const decomposeChance = 0.001 + moistureLevel * 0.0005;
       for (const ni of neighbors) {
         if (ni >= 0 && ni < N) {
           const nMat = grid[ni];
@@ -1573,7 +1596,7 @@ function updateBacteria(x, y, matId) {
       
       // Organische Materie zersetzen (sehr langsam!)
       if ((isOrganic(nMat) || nMat === PLANT_DEAD) && nMat !== BACTERIA && moistureLevel >= 1) {
-        const decomposeRate = 0.001 + moistureLevel * 0.0005; // Sehr langsam
+        const decomposeRate = 0.0005 + moistureLevel * 0.0003;
         if (rng() < decomposeRate) {
           // Schrittweise Zersetzung: erst zu Schimmel/Myzel, dann zu Erde
           if (rng() < 0.4) {
@@ -1596,7 +1619,7 @@ function updateBacteria(x, y, matId) {
   }
   
   // Reproduktion (sehr langsam, nur bei Nahrung und Feuchtigkeit)
-  if (moistureLevel >= 2 && rng() < 0.003) {
+  if (moistureLevel >= 2 && rng() < 0.0015) {
     const dx = Math.floor(rng() * 3) - 1;
     const dy = Math.floor(rng() * 3) - 1;
     const nx = x + dx, ny = y + dy;
@@ -1745,17 +1768,7 @@ function getPlantGroupId(i) {
   return plantIdGrid[i] || 0;
 }
 
-// Hilfsfunktion: Zähle Stamm-Blöcke einer Pflanze
-function countPlantBlocks(plantId, type) {
-  let count = 0;
-  for (let i = 0; i < N; i++) {
-    if (plantIdGrid[i] === plantId) {
-      const mat = grid[i];
-      if (!type || mat === type) count++;
-    }
-  }
-  return count;
-}
+// countPlantBlocks entfernt (zu teuer) – stattdessen lokale Checks nutzen.
 
 // --- updatePlantSeed(): Samen-System ---
 function updatePlantSeed(x, y, matId) {
@@ -1877,14 +1890,15 @@ function updatePlantStem(x, y, matId) {
   const i = y * W + x;
   ageGrid[i]++;
   
-  // Gesundheit und Saft aktualisieren
-  plantHealthGrid[i] = calculatePlantHealth(x, y, i);
+  // Gesundheit und Saft aktualisieren (nur alle 5 Ticks)
+  if (tick % 5 === 0) {
+    plantHealthGrid[i] = calculatePlantHealth(x, y, i);
+  }
   updateSapTransport(x, y, i);
   absorbSoilNutrients(x, y, i);
   
   // Nach oben wachsen (Haupttrieb - sehr langsam)
-  // DEUTLICHER VERLANGSAMT: 0.002 statt 0.003
-  const growthRate = 0.002 * (plantHealthGrid[i] / 100) * (1 + getSunlightIntensity() * 0.3) * getSeasonGrowthFactor();
+  const growthRate = 0.0012 * (plantHealthGrid[i] / 100) * (1 + getSunlightIntensity() * 0.3) * getSeasonGrowthFactor();
   if (plantStageGrid[i] < 3 && plantHealthGrid[i] > 25) {
     if (y > 0 && grid[(y - 1) * W + x] === EMPTY && rng() < growthRate) {
       grid[(y - 1) * W + x] = PLANT_STEM;
@@ -1896,8 +1910,8 @@ function updatePlantStem(x, y, matId) {
     }
   }
   
-  // Blätter bilden seitlich (kontrolliert, alle 8-12 Ticks)
-  if (ageGrid[i] > 15 && ageGrid[i] % 8 === 0 && rng() < 0.006 * getSeasonGrowthFactor()) {
+  // Blätter bilden seitlich (sehr kontrolliert, alle 10-14 Ticks)
+  if (ageGrid[i] > 20 && ageGrid[i] % 10 === 0 && rng() < 0.003 * getSeasonGrowthFactor()) {
     // Nur 1 Blatt pro Tick, abwechselnd links/rechts
     const dir = (ageGrid[i] / 8 % 2 === 0) ? -1 : 1;
     if (x + dir >= 0 && x + dir < W && grid[y * W + (x + dir)] === EMPTY) {
@@ -1930,16 +1944,17 @@ function updatePlantMature(x, y, matId) {
   const i = y * W + x;
   ageGrid[i]++;
   
-  // Gesundheit und Saft aktualisieren
-  plantHealthGrid[i] = calculatePlantHealth(x, y, i);
+  // Gesundheit und Saft aktualisieren (nur alle 5 Ticks)
+  if (tick % 5 === 0) {
+    plantHealthGrid[i] = calculatePlantHealth(x, y, i);
+  }
   updateSapTransport(x, y, i);
   absorbSoilNutrients(x, y, i);
   
   // KEIN seitliches Wachsen mehr! Nur noch Blüte oben
   
   // Kann BLÜTEN bilden (am Haupttrieb, sehr kontrolliert)
-  // DEUTLICHER VERLANGSAMT: 0.002 statt 0.008
-  if (plantHealthGrid[i] > 30 && ageGrid[i] > 40 && rng() < 0.002 * getSeasonGrowthFactor()) {
+  if (plantHealthGrid[i] > 35 && ageGrid[i] > 60 && rng() < 0.001 * getSeasonGrowthFactor()) {
     // Nur wenn oben frei ist
     if (y > 0 && grid[(y - 1) * W + x] === EMPTY) {
       const flowerType = rng();
@@ -2196,8 +2211,8 @@ function updateRootSystem(x, y, matId) {
     }
   }
   
-  // Wuchs: Wurzeln bilden sich weiter
-  if (plantHealthGrid[i] > 20 && rng() < 0.008 * getSeasonGrowthFactor()) {
+  // Wuchs: Wurzeln bilden sich weiter (langsamer)
+  if (plantHealthGrid[i] > 25 && rng() < 0.004 * getSeasonGrowthFactor()) {
     // Nach unten
     if (y + 1 < H && grid[(y + 1) * W + x] === EMPTY) {
       grid[(y + 1) * W + x] = ROOT_SYSTEM;
@@ -2254,14 +2269,14 @@ function updatePlantDead(x, y, matId) {
       const nMat = grid[ni];
       if (nMat === BACTERIA || nMat === MOLD || nMat === MYCELIUM) {
         decomposerNearby = true;
-        // DEUTLICH VERLANGSAMT: 0.002 statt 0.02
-        if (rng() < 0.002) {
+        // Very slow decomposition
+        if (rng() < 0.001) {
           grid[i] = DIRT;
-          // Nährstoffe zurück ins Boden
+          // Return nutrients to soil
           if (y + 1 < H) {
             const below = grid[(y + 1) * W + x];
             if (below === DIRT && soilNutrientGrid[(y + 1) * W + x] < 100) {
-              soilNutrientGrid[(y + 1) * W + x] = Math.min(100, soilNutrientGrid[(y + 1) * W + x] + 10);
+              soilNutrientGrid[(y + 1) * W + x] = Math.min(100, soilNutrientGrid[(y + 1) * W + x] + 3);
             }
           }
           return;
@@ -2269,11 +2284,10 @@ function updatePlantDead(x, y, matId) {
       }
     }
   }
-  
-  // Langsame natürliche Zersetzung (DEUTLICH VERLANGSAMT)
-  // Alte Pflanzen bleiben jahrelang liegen
-  const decomposeRate = decomposerNearby ? 0.001 : 0.0002; // 10x langsamer
-  if (ageGrid[i] > 200 && rng() < decomposeRate) { // Braucht 200 Ticks statt 30
+
+  // Very slow natural decomposition; dead plants persist a long time
+  const decomposeRate = decomposerNearby ? 0.0005 : 0.0001;
+  if (ageGrid[i] > 400 && rng() < decomposeRate) {
     grid[i] = DIRT;
     // Nährstoffe zurück
     if (y + 1 < H) {
@@ -2437,7 +2451,7 @@ function checkChemicalReactions(x, y, matId) {
     if (nId === METAL && matId === OXYGEN) {
       // Feuchtigkeit beschleunigt Rostbildung
       const moistureFactor = phGrid[i] > 0 ? 2 : 1;
-      if (rng() < 0.002 * moistureFactor) {
+      if (rng() < 0.001 * moistureFactor) {
         grid[ni] = RUST;
         tempGrid[i] += 10; // Leicht exotherm
       }
@@ -2560,7 +2574,7 @@ function checkChemicalReactions(x, y, matId) {
     // === URANIUM RADIATION ===
     if (nId === URANIUM) {
       // Uranium emits radiation continuously - slower, more realistic
-      if (rng() < 0.003) {
+      if (rng() < 0.002) {
         // Radiation spreads in a cross pattern (realistic radiation diffusion)
         const radDirs = [{dx:0,dy:-1},{dx:0,dy:1},{dx:-1,dy:0},{dx:1,dy:0}];
         for (const {dx: d2x, dy: d2y} of radDirs) {
@@ -2689,8 +2703,8 @@ function checkChemicalReactions(x, y, matId) {
         }
       }
       
-      // Radiation decays over time
-      if (rng() < 0.15) grid[i] = EMPTY;
+      // Radiation decays over time (slower)
+      if (rng() < 0.06) grid[i] = EMPTY;
     }
     
     // === ALCOHOL + FIRE ===
@@ -2878,26 +2892,26 @@ function detonateTNT(x, y) {
 }
 
 /**
- * THERMAL PHYSICS
+ * THERMAL PHYSICS - coupled to sun cycle and seasons
  */
 function updateThermal(x, y, matId) {
   const i = y * W + x;
   const mat = MATS[matId];
   if (!mat || mat.heatCapacity === 0) return;
-  
+
   // Heat conduction to neighbors
-  if (mat.conductivity > 0 && rng() < 0.2) {
+  if (mat.conductivity > 0 && rng() < 0.15) {
     const neighbors = [];
     if (x > 0) neighbors.push(i - 1);
     if (x < W - 1) neighbors.push(i + 1);
     if (y > 0) neighbors.push(i - W);
     if (y < H - 1) neighbors.push(i + W);
-    
+
     if (neighbors.length > 0) {
       const ni = neighbors[Math.floor(rng() * neighbors.length)];
       const nMat = MATS[grid[ni]];
       if (!nMat) return;
-      
+
       const tempDiff = tempGrid[i] - tempGrid[ni];
       if (Math.abs(tempDiff) > 0.5) {
         const transfer = tempDiff * 0.05 * Math.sqrt(mat.conductivity * nMat.conductivity);
@@ -2906,12 +2920,27 @@ function updateThermal(x, y, matId) {
       }
     }
   }
-  
-  // Ambient temperature regulation (room temp ~20°C)
-  const ambientRate = 0.002 / mat.heatCapacity;
-  if (tempGrid[i] > 25) {
+
+  // Ambient temperature influenced by sun cycle and season
+  let ambientBase = 20;
+
+  if (sunCycleEnabled) {
+    // Season effect
+    const s = getCurrentSeason();
+    if (s === 0) ambientBase += 2;    // Frühling
+    else if (s === 1) ambientBase += 8; // Sommer
+    else if (s === 2) ambientBase -= 2; // Herbst
+    else if (s === 3) ambientBase -= 10; // Winter
+
+    // Day/night effect
+    const sunlight = getSunlightIntensity();
+    ambientBase += (sunlight - 0.5) * 6; // +3 at day, -3 at night
+  }
+
+  const ambientRate = 0.0015 / mat.heatCapacity;
+  if (tempGrid[i] > ambientBase + 3) {
     tempGrid[i] -= ambientRate;
-  } else if (tempGrid[i] < 18) {
+  } else if (tempGrid[i] < ambientBase - 3) {
     tempGrid[i] += ambientRate;
   }
   
@@ -3383,12 +3412,22 @@ function simulate() {
  * RENDERING
  */
 function render() {
+  // Global brightness based on sun cycle
+  const nightFactor = sunCycleEnabled ? (1.0 - getSunlightIntensity()) * 0.25 : 0;
+
   for (let i = 0; i < N; i++) {
     const matId = grid[i];
     const ci = i * 4;
-    
+
     if (matId === EMPTY) {
-      pix[ci] = 12; pix[ci+1] = 12; pix[ci+2] = 15; pix[ci+3] = 255;
+      // Slightly adjust background for day/night
+      let r = 12, g = 12, b = 15;
+      if (sunCycleEnabled && nightFactor > 0) {
+        r = Math.max(0, r - nightFactor * 10);
+        g = Math.max(0, g - nightFactor * 10);
+        b = Math.max(0, b + nightFactor * 5);
+      }
+      pix[ci] = r; pix[ci+1] = g; pix[ci+2] = b; pix[ci+3] = 255;
       continue;
     }
     
@@ -3656,6 +3695,13 @@ function render() {
       r = 80 + pulse;
     }
     
+    // Apply night dimming
+    if (nightFactor > 0) {
+      r = Math.max(0, r - nightFactor * 60);
+      g = Math.max(0, g - nightFactor * 60);
+      b = Math.max(0, b - nightFactor * 40);
+    }
+
     pix[ci]   = Math.max(0, Math.min(255, r));
     pix[ci+1] = Math.max(0, Math.min(255, g));
     pix[ci+2] = Math.max(0, Math.min(255, b));
@@ -3857,6 +3903,15 @@ function initUI() {
   document.getElementById("brushR").oninput = function() { bsz = parseInt(this.value); };
   document.getElementById("speedR").oninput = function() { spd = parseInt(this.value); };
   document.getElementById("photoR").oninput = function() { photoActivity = parseInt(this.value) / 100; };
+
+  // Sun cycle speed slider
+  document.getElementById("sunSpeedR").oninput = function() {
+    const v = parseInt(this.value);
+    // Map 1-100 to a reasonable speed range
+    sunCycleSpeed = 0.05 + (v / 100) * 2.0;
+  };
+  // Initialize speed from default slider value
+  sunCycleSpeed = 0.05 + (30 / 100) * 2.0;
   
   const pauseBtn = document.getElementById("pauseBtn");
   if (pauseBtn) {
@@ -3972,18 +4027,16 @@ function initUI() {
     };
   }
   
-  // Sonnenzyklus-Button Handler
-  const sunCycleBtn = document.createElement("button");
-  sunCycleBtn.textContent = "☀️ Aktivieren";
-  sunCycleBtn.style.cssText = "margin-left: 8px; font-size: 11px; padding: 4px 8px;";
-  sunCycleBtn.onclick = () => {
-    sunCycleEnabled = !sunCycleEnabled;
-    sunCycleBtn.textContent = sunCycleEnabled ? "✅ Deaktivieren" : "☀️ Aktivieren";
-    document.getElementById("sunCycleIndicator").style.display = sunCycleEnabled ? "flex" : "none";
-    document.getElementById("seasonIndicator").style.display = sunCycleEnabled ? "flex" : "none";
-    document.getElementById("sunCycleStatus").textContent = sunCycleEnabled ? "✅ Aktiviert" : "❌ Deaktiviert";
-  };
-  document.getElementById("seedBtn").parentNode.appendChild(sunCycleBtn);
+  // Sonnenzyklus-Button Handler (uses HTML button)
+  const sunCycleToggle = document.getElementById("sunCycleToggle");
+  if (sunCycleToggle) {
+    sunCycleToggle.onclick = () => {
+      sunCycleEnabled = !sunCycleEnabled;
+      sunCycleToggle.textContent = sunCycleEnabled ? "✅ Deaktivieren" : "☀️ Aktivieren";
+      document.getElementById("sunCycleIndicator").style.display = sunCycleEnabled ? "flex" : "none";
+      document.getElementById("seasonIndicator").style.display = sunCycleEnabled ? "flex" : "none";
+    };
+  }
   
   document.getElementById("toggleUI").onclick = () => {
     const ui = document.getElementById("ui");
