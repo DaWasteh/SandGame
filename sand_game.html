@@ -169,6 +169,9 @@
     .sun-cycle-indicator.day { border-color: var(--sun); }
     .sun-cycle-indicator.night { border-color: var(--moon); }
     .sun-icon { font-size: 16px; }
+    #seasonIndicator {
+      top: 60px;
+    }
 
     .info-panel {
       position: fixed;
@@ -312,7 +315,8 @@ PLANT_SEED = 58, PLANT_SPROUT = 59, PLANT_STEM = 60, PLANT_MATURE = 61,
 FLOWER_DANDELION = 62, FLOWER_TULIP = 63, FLOWER_POPPY = 64,
 LEAF_OAK = 65, LEAF_MAPLE = 66, ROOT_SYSTEM = 67,
 PLANT_SAP = 68, POLLEN = 69,
-SEED_SUNFLOWER = 70, SEED_WHEAT = 71;
+SEED_SUNFLOWER = 70, SEED_WHEAT = 71,
+FLOWER_SEED = 72, MUSHROOM = 73;
 
 /**
  * MATERIAL DEFINITIONS
@@ -322,17 +326,17 @@ const MATS = {
   [EMPTY]:      { id: EMPTY,     name: "Radierer", type: TYPE.SPECIAL, color: [0,0,0], density: 0, melting: 0, boiling: 0, heatCapacity: 0, conductivity: 0, flammability: 0, ph: 7.0, electrical: 0, radioactivity: 0 },
   
   // Powders
-  [SAND]:       { id: SAND,      name: "Sand", type: TYPE.POWDER, color: [210,190,130], density: 35, melting: 1710, boiling: 2500, heatCapacity: 0.8, conductivity: 0.3, flammability: 0, ph: 7.0, electrical: 0, radioactivity: 0, capillary: 0.1 },
-  [SAND_DARK]:  { id: SAND_DARK, name: "Dunkler Sand", type: TYPE.POWDER, color: [80,70,60], density: 40, melting: 1500, boiling: 2400, heatCapacity: 0.9, conductivity: 0.4, flammability: 0, ph: 6.5, electrical: 0, radioactivity: 0, capillary: 0.1 },
-  [DIRT]:       { id: DIRT,      name: "Erde", type: TYPE.POWDER, color: [107,79,45], density: 30, melting: 800, boiling: 1200, heatCapacity: 1.2, conductivity: 0.2, flammability: 0.1, ph: 6.0, electrical: 0.1, radioactivity: 0, capillary: 0.6, nutrient: 0.5 },
-  [GRAVEL]:     { id: GRAVEL,    name: "Kies", type: TYPE.POWDER, color: [140,140,145], density: 50, melting: 1400, boiling: 2300, heatCapacity: 0.7, conductivity: 0.4, flammability: 0, ph: 7.5, electrical: 0, radioactivity: 0 },
-  [ASH]:        { id: ASH,       name: "Asche", type: TYPE.POWDER, color: [130,130,135], density: 8, melting: 600, boiling: 1200, heatCapacity: 1.0, conductivity: 0.1, flammability: 0.05, ph: 9.0, electrical: 0, radioactivity: 0, capillary: 0.8 },
-  [SALT]:       { id: SALT,      name: "Salz", type: TYPE.POWDER, color: [245,245,245], density: 40, melting: 801, boiling: 1413, heatCapacity: 0.9, conductivity: 0.05, flammability: 0, ph: 7.0, electrical: 0.2, radioactivity: 0, soluble: true },
-  [SULFUR]:     { id: SULFUR,    name: "Schwefel", type: TYPE.POWDER, color: [230,210,50], density: 30, melting: 115, boiling: 444, heatCapacity: 0.8, conductivity: 0.05, flammability: 0.9, ph: 4.0, electrical: 0, radioactivity: 0 },
-  [COAL]:       { id: COAL,      name: "Kohle", type: TYPE.POWDER, color: [35,35,35], density: 45, melting: 350, boiling: 700, heatCapacity: 1.2, conductivity: 0.3, flammability: 1.0, ph: 6.5, electrical: 0.5, radioactivity: 0 },
-  [SPAN]:       { id: SPAN,      name: "Späne", type: TYPE.POWDER, color: [170,175,185], density: 50, melting: 1300, boiling: 3000, heatCapacity: 0.5, conductivity: 1.5, flammability: 0.3, ph: 7.0, electrical: 1.5, radioactivity: 0 },
-  [CEMENT]:     { id: CEMENT,    name: "Zement", type: TYPE.POWDER, color: [160,160,165], density: 45, melting: 1500, boiling: 2500, heatCapacity: 0.8, conductivity: 0.4, flammability: 0, ph: 12.0, electrical: 0.1, radioactivity: 0, hygroscopic: true },
-  [PHOSPHORUS]: { id: PHOSPHORUS, name: "Phosphor", type: TYPE.POWDER, color: [255,255,220], density: 20, melting: 44, boiling: 280, heatCapacity: 0.8, conductivity: 0.05, flammability: 1.0, ph: 0, electrical: 0, radioactivity: 0, autoFlammable: true },
+  [SAND]:       { id: SAND,      name: "Sand", type: TYPE.POWDER, color: [210,190,130], density: 35, melting: 1710, boiling: 2500, heatCapacity: 0.8, conductivity: 0.3, flammability: 0, ph: 7.0, electrical: 0, radioactivity: 0, capillary: 0.1, angleOfRepose: 34, friction: 0.4, cohesion: 0.0 },
+  [SAND_DARK]:  { id: SAND_DARK, name: "Dunkler Sand", type: TYPE.POWDER, color: [80,70,60], density: 40, melting: 1500, boiling: 2400, heatCapacity: 0.9, conductivity: 0.4, flammability: 0, ph: 6.5, electrical: 0, radioactivity: 0, capillary: 0.1, angleOfRepose: 34, friction: 0.4, cohesion: 0.0 },
+  [DIRT]:       { id: DIRT,      name: "Erde", type: TYPE.POWDER, color: [107,79,45], density: 30, melting: 800, boiling: 1200, heatCapacity: 1.2, conductivity: 0.2, flammability: 0.1, ph: 6.0, electrical: 0.1, radioactivity: 0, capillary: 0.6, nutrient: 0.5, angleOfRepose: 45, friction: 0.6, cohesion: 0.2 },
+  [GRAVEL]:     { id: GRAVEL,    name: "Kies", type: TYPE.POWDER, color: [140,140,145], density: 50, melting: 1400, boiling: 2300, heatCapacity: 0.7, conductivity: 0.4, flammability: 0, ph: 7.5, electrical: 0, radioactivity: 0, angleOfRepose: 40, friction: 0.5, cohesion: 0.0 },
+  [ASH]:        { id: ASH,       name: "Asche", type: TYPE.POWDER, color: [130,130,135], density: 8, melting: 600, boiling: 1200, heatCapacity: 1.0, conductivity: 0.1, flammability: 0.05, ph: 9.0, electrical: 0, radioactivity: 0, capillary: 0.8, angleOfRepose: 20, friction: 0.2, cohesion: 0.0 },
+  [SALT]:       { id: SALT,      name: "Salz", type: TYPE.POWDER, color: [245,245,245], density: 40, melting: 801, boiling: 1413, heatCapacity: 0.9, conductivity: 0.05, flammability: 0, ph: 7.0, electrical: 0.2, radioactivity: 0, soluble: true, angleOfRepose: 30, friction: 0.3, cohesion: 0.1 },
+  [SULFUR]:     { id: SULFUR,    name: "Schwefel", type: TYPE.POWDER, color: [230,210,50], density: 30, melting: 115, boiling: 444, heatCapacity: 0.8, conductivity: 0.05, flammability: 0.9, ph: 4.0, electrical: 0, radioactivity: 0, angleOfRepose: 30, friction: 0.3, cohesion: 0.0 },
+  [COAL]:       { id: COAL,      name: "Kohle", type: TYPE.POWDER, color: [35,35,35], density: 45, melting: 350, boiling: 700, heatCapacity: 1.2, conductivity: 0.3, flammability: 1.0, ph: 6.5, electrical: 0.5, radioactivity: 0, angleOfRepose: 35, friction: 0.4, cohesion: 0.0 },
+  [SPAN]:       { id: SPAN,      name: "Späne", type: TYPE.POWDER, color: [170,175,185], density: 50, melting: 1300, boiling: 3000, heatCapacity: 0.5, conductivity: 1.5, flammability: 0.3, ph: 7.0, electrical: 1.5, radioactivity: 0, angleOfRepose: 25, friction: 0.2, cohesion: 0.1 },
+  [CEMENT]:     { id: CEMENT,    name: "Zement", type: TYPE.POWDER, color: [160,160,165], density: 45, melting: 1500, boiling: 2500, heatCapacity: 0.8, conductivity: 0.4, flammability: 0, ph: 12.0, electrical: 0.1, radioactivity: 0, hygroscopic: true, angleOfRepose: 32, friction: 0.3, cohesion: 0.2 },
+  [PHOSPHORUS]: { id: PHOSPHORUS, name: "Phosphor", type: TYPE.POWDER, color: [255,255,220], density: 20, melting: 44, boiling: 280, heatCapacity: 0.8, conductivity: 0.05, flammability: 1.0, ph: 0, electrical: 0, radioactivity: 0, autoFlammable: true, angleOfRepose: 28, friction: 0.3, cohesion: 0.0 },
   [RADIATION]:  { id: RADIATION, name: "Strahlung", type: TYPE.SPECIAL, color: [100,255,100], density: 0, melting: 0, boiling: 0, heatCapacity: 0, conductivity: 0, flammability: 0, ph: 0, electrical: 0, radioactivity: 100 },
   
   // Liquids
@@ -466,6 +470,16 @@ const MATS = {
     melting: 50, boiling: 150, heatCapacity: 1.5, conductivity: 0.05, flammability: 0.3,
     ph: 6.5, electrical: 0, radioactivity: 0, organic: true, seedType: true
   },
+  [FLOWER_SEED]: {
+    id: FLOWER_SEED, name: "Blumen-Samen", type: TYPE.POWDER, color: [180,120,60], density: 15,
+    melting: 50, boiling: 150, heatCapacity: 1.5, conductivity: 0.05, flammability: 0.1,
+    ph: 6.0, electrical: 0, radioactivity: 0, organic: true, seedType: true, flowerSeed: true
+  },
+  [MUSHROOM]: {
+    id: MUSHROOM, name: "Pilz", type: TYPE.SPECIAL, color: [220,210,190], density: 12,
+    melting: 80, boiling: 150, heatCapacity: 2.5, conductivity: 0.05, flammability: 0.2,
+    ph: 6.5, electrical: 0, radioactivity: 0, organic: true, mushroom: true
+  },
 };
 
 // pH color interpolation helper
@@ -504,6 +518,8 @@ const KEY_MAP = {
   'Z': POLLEN,
   'L': SEED_SUNFLOWER,
   'K': SEED_WHEAT,
+  'W': FLOWER_SEED,
+  'Q': MUSHROOM,
 };
 
 /**
@@ -511,16 +527,352 @@ const KEY_MAP = {
  */
 let W, H, N;
 let grid, tempGrid, ageGrid, colorSeedGrid;
-let phGrid, soluteGrid, electricalGrid, radiationGrid;
+let phGrid, radiationGrid;
+// REMOVED: soluteGrid, electricalGrid, myceliumGrid (unbenutzt)
 let canvas, ctx, img, pix;
 let curMat = SAND, bsz = 5, spd = 5, paused = false;
 let targetGridWidth = 500; // Maximaler Startwert für Grid-Größe
 let rainActive = false, fireActive = false, windActive = false, windDir = 1;
-let myceliumGrid = null; // Für Myzel-Netzwerk-Tracking
 let ecosystemActive = false;
+
+/**
+ * WETTERSYSTEM Phase 5.1
+ * Dynamisches Wetter mit Regen, Schnee, Sturm und Verdunstung
+ */
+let weather = 'clear'; // 'clear', 'rain', 'snow', 'storm'
+let weatherTimer = 0;
+let weatherDuration = 2000;
+let windSpeed = 0;
+let windDirection = 1; // 1 = rechts, -1 = links
+let humidity = 50; // 0-100%
 let frameCount = 0, fpsTimer = 0, lastFps = 0;
 let photoActivity = 0.7;
 let tick = 0;
+
+/**
+ * IMPULS-BASIERTE FLUIDDYNAMIK - Phase 3.3
+ * Geschwindigkeitsfelder für realistischere Strömungen und Wirbelbildung
+ */
+let velXGrid, velYGrid; // Float32Array: X/Y-Geschwindigkeit pro Zelle
+
+/**
+ * ELEKTROLYSE-SYSTEM - Phase 4.2
+ * Elektrische Leitfähigkeit + Grid für Spannungsquelle
+ */
+let electricalGrid; // Float32Array: Elektrische Ladung pro Zelle
+
+/**
+ * N-P-K NÄHRSTOFFSYSTEM - Phase 5.1
+ * Drei separate Nährstoffwerte: Stickstoff, Phosphor, Kalium
+ */
+let nitrogenGrid;     // Uint8Array: Stickstoff (0-255)
+let phosphorusGrid;   // Uint8Array: Phosphor (0-255)
+let potassiumGrid;    // Uint8Array: Kalium (0-255)
+
+/**
+ * MYKORRIZA-NÄHRSTOFFTRANSFER - Phase 5.3
+ * Mycelium-Grid für Pilznetzwerk-Tracking
+ */
+let myceliumGrid; // Uint8Array: Mycelium-Stärke (0-100)
+
+/**
+ * ACTIVE CELL LIST - Performance-Optimierung Phase 1.1
+ * Zwei-Buffer-System mit Hash-Set Deduplizierung
+ * Verarbeitet nur Zellen, die sich im letzten Tick geändert haben
+ */
+let activeCells = new Uint32Array(8192);   // Current active cells buffer
+let activeCellsCount = 0;
+let nextActiveCells = new Uint32Array(8192); // Next frame buffer
+let nextActiveCellsCount = 0;
+let activeCellHash = new Uint32Array(65536); // Dedup hash table
+// Ruhe-Backoff: zählt aufeinanderfolgende Wake-Scans, die nichts gefunden haben.
+// Eine vollständig ruhende Szene muss nicht jeden Tick gescannt werden.
+let __quietScans = 0;
+let __nextScanTick = 0;
+// PERF: wiederverwendbare Puffer für den Counting-Sort der aktiven Zellen nach Y
+// (vermeidet H neue Arrays pro Tick).
+let __rowStart = null;   // Int32Array(H+1): CSR-Offsets
+let __rowFill  = null;   // Int32Array(H):   Füllzeiger pro Reihe
+let __sortedCells = null;// Uint32Array:     nach Reihe gruppierte Indizes
+function ensureSortBuffers() {
+  if (!__rowStart || __rowStart.length < H + 1) __rowStart = new Int32Array(H + 1);
+  if (!__rowFill  || __rowFill.length  < H)     __rowFill  = new Int32Array(H);
+  if (!__sortedCells || __sortedCells.length < activeCells.length)
+    __sortedCells = new Uint32Array(activeCells.length);
+}
+let activeCellHashTick = 0; // Tick-based invalidation
+
+// Maximum active cells before resizing buffers
+const MAX_ACTIVE_CELLS_INITIAL = 8192;
+const HASH_TABLE_SIZE = 65536;
+
+/**
+ * SPATIAL HASH GRID - Performance-Optimierung Phase 1.2
+ * Beschleunigt Nachbarschaftsabfragen von O(r²) auf O(1) pro Sub-Cell
+ * Verwendet 8x8 Zellen große Sub-Cells für optimale Granularität
+ */
+const SPATIAL_CELL_SIZE = 8;
+let spatialHashGridW, spatialHashGridH;
+let spatialHashCounts;    // Uint32Array: Anzahl Partikel pro Sub-Cell
+let spatialHashLists;     // Map: "cx,cy" → Uint32Array von Index-Listen
+let spatialHashListCaps;  // Map: "cx,cy" → Kapazität der Listen
+let spatialHashVersion = 0; // Version für Invalidierung
+
+/**
+ * Spatial Hash Grid API
+ */
+function spatialHashInit() {
+  spatialHashGridW = Math.ceil(W / SPATIAL_CELL_SIZE);
+  spatialHashGridH = Math.ceil(H / SPATIAL_CELL_SIZE);
+  spatialHashCounts = new Uint32Array(spatialHashGridW * spatialHashGridH);
+  spatialHashLists = new Map();
+  spatialHashListCaps = new Map();
+  spatialHashVersion++;
+}
+
+function spatialHashClear() {
+  spatialHashCounts.fill(0);
+  spatialHashVersion++;
+}
+
+function spatialHashAdd(x, y, idx) {
+  const cx = Math.floor(x / SPATIAL_CELL_SIZE);
+  const cy = Math.floor(y / SPATIAL_CELL_SIZE);
+  if (cx < 0 || cx >= spatialHashGridW || cy < 0 || cy >= spatialHashGridH) return;
+  const key = cy * spatialHashGridW + cx;
+  spatialHashCounts[key]++;
+  
+  if (!spatialHashLists.has(key)) {
+    spatialHashLists.set(key, new Uint32Array(64));
+    spatialHashListCaps.set(key, 64);
+  }
+  const list = spatialHashLists.get(key);
+  if (spatialHashCounts[key] > list.length) {
+    const newBuf = new Uint32Array(list.length * 2);
+    newBuf.set(list);
+    spatialHashLists.set(key, newBuf);
+    spatialHashListCaps.set(key, newBuf.length);
+  }
+  list[spatialHashCounts[key] - 1] = idx;
+}
+
+/**
+ * Query neighbors in radius using spatial hash - O(1) per sub-cell
+ * Returns array of {x, y, idx, matId} for matching cells
+ */
+function spatialHashQuery(x, y, radius, matFilter) {
+  const results = [];
+  const cx = Math.floor(x / SPATIAL_CELL_SIZE);
+  const cy = Math.floor(y / SPATIAL_CELL_SIZE);
+  const cellRadius = Math.ceil(radius / SPATIAL_CELL_SIZE);
+  
+  for (let dy = -cellRadius; dy <= cellRadius; dy++) {
+    for (let dx = -cellRadius; dx <= cellRadius; dx++) {
+      const nx = cx + dx, ny = cy + dy;
+      if (nx < 0 || nx >= spatialHashGridW || ny < 0 || ny >= spatialHashGridH) continue;
+      const key = ny * spatialHashGridW + nx;
+      const count = spatialHashCounts[key];
+      if (count === 0) continue;
+      
+      const list = spatialHashLists.get(key);
+      for (let i = 0; i < count; i++) {
+        const idx = list[i];
+        const matId = grid[idx];
+        if (matFilter && !matFilter(matId)) continue;
+        
+        // Check actual distance
+        const px = idx % W;
+        const py = (idx - px) / W;
+        const distX = px - x, distY = py - y;
+        if (distX * distX + distY * distY <= radius * radius) {
+          results.push({ x: px, y: py, idx: idx, matId: matId });
+        }
+      }
+    }
+  }
+  return results;
+}
+
+/**
+ * Quick count of materials in radius using spatial hash - O(1) per sub-cell
+ */
+function spatialHashCountInRadius(x, y, radius, matFilter) {
+  let count = 0;
+  const cx = Math.floor(x / SPATIAL_CELL_SIZE);
+  const cy = Math.floor(y / SPATIAL_CELL_SIZE);
+  const cellRadius = Math.ceil(radius / SPATIAL_CELL_SIZE);
+  
+  for (let dy = -cellRadius; dy <= cellRadius; dy++) {
+    for (let dx = -cellRadius; dx <= cellRadius; dx++) {
+      const nx = cx + dx, ny = cy + dy;
+      if (nx < 0 || nx >= spatialHashGridW || ny < 0 || ny >= spatialHashGridH) continue;
+      const key = ny * spatialHashGridW + nx;
+      count += spatialHashCounts[key];
+    }
+  }
+  return count;
+}
+
+/**
+ * Active Cell List API
+ */
+function aclAdd(x, y) {
+  if (x < 0 || x >= W || y < 0 || y >= H) return;
+  const idx = y * W + x;
+  const hash = idx & (HASH_TABLE_SIZE - 1);
+  if (activeCellHash[hash] === activeCellHashTick) return; // Already added
+  activeCellHash[hash] = activeCellHashTick;
+  if (nextActiveCellsCount >= nextActiveCells.length) {
+    // Resize buffer
+    const newBuf = new Uint32Array(nextActiveCells.length * 2);
+    newBuf.set(nextActiveCells);
+    nextActiveCells = newBuf;
+  }
+  nextActiveCells[nextActiveCellsCount++] = idx;
+}
+
+function aclAddCell(x, y) {
+  aclAdd(x, y);
+}
+
+function aclAddNeighbors(x, y, radius) {
+  radius = radius || 1;
+  for (let dy = -radius; dy <= radius; dy++) {
+    for (let dx = -radius; dx <= radius; dx++) {
+      aclAdd(x + dx, y + dy);
+    }
+  }
+}
+
+function aclSwapBuffers() {
+  // Swap current and next buffers
+  const tmpCells = activeCells;
+  const tmpCount = activeCellsCount;
+  activeCells = nextActiveCells;
+  activeCellsCount = nextActiveCellsCount;
+  nextActiveCells = tmpCells;
+  nextActiveCellsCount = 0;
+  activeCellHashTick++;
+}
+
+function aclClear() {
+  activeCellsCount = 0;
+  nextActiveCellsCount = 0;
+  activeCellHashTick++;
+}
+
+function aclIterate(callback) {
+  for (let i = 0; i < activeCellsCount; i++) {
+    const idx = activeCells[i];
+    const x = idx % W;
+    const y = (idx - x) / W;
+    callback(x, y, idx);
+  }
+}
+
+// === BUGFIX: Bewegungs-Klassifikation + Wake-Scan ============================
+// Materialien, die sich von selbst bewegen können (Pulver/Flüssigkeit/Gas/Spezial-
+// fallende). Statisch verankerte Stoffe (WALL, STONE, METAL, Pflanzenteile ...) sind
+// NICHT mobil und müssen nicht aufgeweckt werden.
+let __mobileLUT = null;
+function buildMobileLUT() {
+  __mobileLUT = new Uint8Array(256);
+  for (const k in MATS) {
+    const m = MATS[k]; if (!m) continue;
+    const t = m.type;
+    // Pulver, Flüssigkeit und Gas fallen/strömen immer.
+    if (t === TYPE.POWDER || t === TYPE.LIQUID || t === TYPE.GAS) __mobileLUT[m.id] = 1;
+  }
+  // Spezielle bewegliche Stoffe explizit markieren.
+  [SMOKE, STEAM, FIRE, FIREBALL, POLLEN, SPORE, RADIATION].forEach(id => { __mobileLUT[id] = 1; });
+}
+function isMobileMat(m) {
+  if (m === EMPTY) return false;
+  if (!__mobileLUT) buildMobileLUT();
+  return __mobileLUT[m] === 1;
+}
+// Kann sich die Zelle (x,y) potentiell bewegen? (Nachbar frei / verdrängbar)
+function cellCanMove(x, y, m) {
+  if (!isMobileMat(m)) return false;
+  const below = y + 1 < H ? grid[(y + 1) * W + x] : -1;
+  const above = y - 1 >= 0 ? grid[(y - 1) * W + x] : -1;
+  const left  = x - 1 >= 0 ? grid[y * W + (x - 1)] : -1;
+  const right = x + 1 < W ? grid[y * W + (x + 1)] : -1;
+  const isG = isGas(m) || m === SMOKE || m === STEAM || m === FIRE;
+  if (isG) {
+    // Gase wollen nach oben oder zur Seite.
+    if (above === 0 || (above >= 0 && canDisplace(above, m))) return true;
+    if (left === 0 || right === 0) return true;
+    if (below === -1) return false;
+    return false;
+  }
+  // Fallende Stoffe (Pulver/Flüssigkeit/Fireball).
+  if (below === 0 || (below >= 0 && canDisplace(below, m))) return true;
+  // Diagonal nach unten.
+  if (y + 1 < H) {
+    const bl = x - 1 >= 0 ? grid[(y + 1) * W + (x - 1)] : -1;
+    const br = x + 1 < W ? grid[(y + 1) * W + (x + 1)] : -1;
+    if (bl === 0 || (bl >= 0 && canDisplace(bl, m))) return true;
+    if (br === 0 || (br >= 0 && canDisplace(br, m))) return true;
+  }
+  // Flüssigkeiten/Gase fließen auch seitlich aus.
+  if (isLiquid(m)) {
+    if (left === 0 || right === 0) return true;
+  }
+  return false;
+}
+// LUT: Materialien, die "lebendig"/reaktiv sind und sich selbst aktiv halten
+// müssen, auch wenn sie sich nicht bewegen (Pflanzen wachsen, Feuer brennt,
+// Säure ätzt, Bakterien/Schimmel breiten sich aus ...). Ohne das fielen sie
+// nach 1 Tick aus der Aktivliste und "froren" als Standbild ein – der Grund,
+// warum die Biologie bisher kaum lief.
+let __aliveLUT = null;
+function buildAliveLUT() {
+  __aliveLUT = new Uint8Array(256);
+  [PLANT, PLANT_SEED, PLANT_SPROUT, PLANT_STEM, PLANT_MATURE, PLANT_FLOWER,
+   PLANT_DEAD, PLANT_ROOT, PLANT_LEAF, ROOT_SYSTEM,
+   FLOWER_DANDELION, FLOWER_TULIP, FLOWER_POPPY, FLOWER_SEED,
+   LEAF_OAK, LEAF_MAPLE, SEED_SUNFLOWER, SEED_WHEAT,
+   SPORE, MOLD, MYCELIUM, MUSHROOM, BACTERIA, POLLEN,
+   FIRE, FIREBALL, LAVA, ACID, TNT, URANIUM, RADIATION, PHOSPHORUS,
+   ICE, COAL, SULFUR, WOOD, OIL].forEach(id => { if (id !== undefined) __aliveLUT[id] = 1; });
+}
+function isAliveMat(m) {
+  if (m === EMPTY) return false;
+  if (!__aliveLUT) buildAliveLUT();
+  return __aliveLUT[m] === 1;
+}
+// Periodischer Voll-Scan: weckt alle beweglichen ODER lebenden/reaktiven Zellen.
+// Selbstheilend gegenüber jedem rohen grid[]-Schreibzugriff.
+// Gibt zurück, wie viele Zellen aufgeweckt wurden (für Ruhe-Backoff).
+function wakeScan() {
+  if (__aliveLUT === null) buildAliveLUT();
+  const before = nextActiveCellsCount;
+  for (let y = H - 1; y >= 0; y--) {
+    const row = y * W;
+    for (let x = 0; x < W; x++) {
+      const m = grid[row + x];
+      if (m === EMPTY) continue;
+      if (__aliveLUT[m] === 1 || cellCanMove(x, y, m)) aclAddNeighbors(x, y, 1);
+    }
+  }
+  return nextActiveCellsCount - before;
+}
+// Setzt den Ruhe-Backoff zurück: erzwingt sofortigen Scan im nächsten Tick.
+function wakeReset() { __quietScans = 0; __nextScanTick = 0; }
+// Markiert alle nicht-leeren Zellen als aktiv (nach Import/Resize/Clear-Reset).
+function aclSeedAllOccupied() {
+  wakeReset();
+  activeCellHashTick++;
+  nextActiveCellsCount = 0;
+  for (let i = 0; i < N; i++) {
+    if (grid[i] !== EMPTY) {
+      const x = i % W; const y = (i - x) / W;
+      aclAddNeighbors(x, y, 1);
+    }
+  }
+  aclSwapBuffers();
+}
 
 // === Biologie-Erweiterung: Neue Grid-Systeme ===
 let plantTypeGrid;     // Pflanzenart: 0=keine, 1=Blume, 2=Gras, 3=Pilz, 4=Baum
@@ -617,9 +969,8 @@ function swap(x1, y1, x2, y2) {
   tmp = ageGrid[i2]; ageGrid[i2] = ageGrid[i1]; ageGrid[i1] = tmp;
   tmp = colorSeedGrid[i2]; colorSeedGrid[i2] = colorSeedGrid[i1]; colorSeedGrid[i1] = tmp;
   tmp = phGrid[i2]; phGrid[i2] = phGrid[i1]; phGrid[i1] = tmp;
-  tmp = soluteGrid[i2]; soluteGrid[i2] = soluteGrid[i1]; soluteGrid[i1] = tmp;
-  tmp = electricalGrid[i2]; electricalGrid[i2] = electricalGrid[i1]; electricalGrid[i1] = tmp;
   tmp = radiationGrid[i2]; radiationGrid[i2] = radiationGrid[i1]; radiationGrid[i1] = tmp;
+  tmp = electricalGrid[i2]; electricalGrid[i2] = electricalGrid[i1]; electricalGrid[i1] = tmp;
   
   // === Biologie-Erweiterung: Neue Grids tauschen ===
   tmp = plantTypeGrid[i2]; plantTypeGrid[i2] = plantTypeGrid[i1]; plantTypeGrid[i1] = tmp;
@@ -629,7 +980,18 @@ function swap(x1, y1, x2, y2) {
   tmp = plantWaterGrid[i2]; plantWaterGrid[i2] = plantWaterGrid[i1]; plantWaterGrid[i1] = tmp;
   tmp = plantIdGrid[i2]; plantIdGrid[i2] = plantIdGrid[i1]; plantIdGrid[i1] = tmp;
   // Nährstoffe bleiben am Ort (Boden-Eigenschaft)
-  // soilNutrientGrid wird nicht getauscht
+  // soilNutrientGrid, nitrogenGrid, phosphorusGrid, potassiumGrid werden nicht getauscht
+  
+  // Mykorrhiza-Grid tauschen
+  tmp = myceliumGrid[i2]; myceliumGrid[i2] = myceliumGrid[i1]; myceliumGrid[i1] = tmp;
+  
+  // Impuls-Felder tauschen (Phase 3.3)
+  tmp = velXGrid[i2]; velXGrid[i2] = velXGrid[i1]; velXGrid[i1] = tmp;
+  tmp = velYGrid[i2]; velYGrid[i2] = velYGrid[i1]; velYGrid[i1] = tmp;
+  
+  // Active Cell List: Beide Positionen + Nachbarn für nächsten Tick markieren
+  aclAddNeighbors(x1, y1, 1);
+  aclAddNeighbors(x2, y2, 1);
   
   return true;
 }
@@ -712,12 +1074,53 @@ function updatePowder(x, y, matId) {
     }
   }
   
-  // Normal powder movement
+  // === SCHÜTTWINKEL-MODELL (Angle of Repose) Phase 3.1 ===
+  // Prüfe lokalen Hangwinkel: Wenn zu steil, rutscht das Partikel zur tieferen Seite
+  const angleOfRepose = mat.angleOfRepose || 30; // Standard: 30°
+  const friction = mat.friction || 0.4;
+  const cohesion = mat.cohesion || 0.0;
+  
+  // Lokalen Hangwinkel berechnen (Höhe der linken/rechten Nachbarn)
+  let leftHeight = 0, rightHeight = 0;
+  for (let dy = 0; dy <= 4; dy++) {
+    if (y - dy < 0) break;
+    if (x - 1 >= 0 && grid[(y - dy) * W + (x - 1)] !== EMPTY && !isGas(grid[(y - dy) * W + (x - 1)])) {
+      leftHeight = dy;
+      break;
+    }
+    if (x + 1 < W && grid[(y - dy) * W + (x + 1)] !== EMPTY && !isGas(grid[(y - dy) * W + (x + 1)])) {
+      rightHeight = dy;
+      break;
+    }
+  }
+  
+  // Kohäsion: Partikel haften zusammen, wenn der Hang flach ist
+  if (cohesion > 0 && leftHeight === rightHeight && y + 1 >= H) {
+    if (rng() < cohesion * 0.3) return false; // Kohäsion hält das Partikel
+  }
+  
+  const heightDiff = Math.abs(leftHeight - rightHeight);
+  // Vereinfachter Winkel: heightDiff / 2 (Breite zwischen den Messpunkten)
+  const localAngle = Math.atan2(heightDiff, 2) * (180 / Math.PI);
+  
   if (y + 1 < H) {
+    // Direkt nach unten
     if (tryMove(x, y, x, y + 1, matId)) return true;
-    const dir = rng() < 0.5 ? -1 : 1;
-    if (tryMove(x, y, x + dir, y + 1, matId)) return true;
-    if (tryMove(x, y, x - dir, y + 1, matId)) return true;
+    
+    // Schüttwinkel-Prüfung: Nur diagonal bewegen, wenn Hang steiler als Schüttwinkel
+    if (localAngle > angleOfRepose) {
+      // Zur tieferen Seite rutschen
+      const dir = leftHeight > rightHeight ? -1 : 1;
+      if (tryMove(x, y, x + dir, y + 1, matId)) return true;
+      if (tryMove(x, y, x - dir, y + 1, matId)) return true;
+    } else {
+      // Hang stabil: nur mit Reibungswahrscheinlichkeit diagonal bewegen
+      if (rng() < (1 - friction)) {
+        const dir = rng() < 0.5 ? -1 : 1;
+        if (tryMove(x, y, x + dir, y + 1, matId)) return true;
+        if (tryMove(x, y, x - dir, y + 1, matId)) return true;
+      }
+    }
   }
   
   // Capillary action: powders with high capillary value can move upward
@@ -734,9 +1137,12 @@ function updatePowder(x, y, matId) {
 }
 
 /**
- * LIQUID PHYSICS
+ * LIQUID PHYSICS - Stabilisiert mit korrekter Schwerkraft
+ * Flüssigkeiten fallen nach unten und breiten sich seitlich aus
+ * KEIN Aufsteigen ausser beim Sieden (Dampf)
  */
 function updateLiquid(x, y, matId) {
+  const i = y * W + x;
   const mat = MATS[matId];
   const viscosity = mat.viscosity || 1.0;
   const prob = Math.max(0.1, 1.0 - viscosity * 0.1);
@@ -758,20 +1164,99 @@ function updateLiquid(x, y, matId) {
     }
   }
   
-  // Normal liquid movement
-  if (y + 1 < H) {
-    if (tryMove(x, y, x, y + 1, matId)) return true;
+  // === TEMPERATUR-PRÜFUNG: Bei Siedetemperatur wird Flüssigkeit zu Dampf ===
+  const temp = tempGrid[i];
+  const boilTemp = mat.boiling || 100;
+  if (temp >= boilTemp) {
+    grid[i] = STEAM;
+    tempGrid[i] = boilTemp + 10;
+    aclAddNeighbors(x, y, 2);
+    return true;
   }
   
-  // Flow sideways with preference for spreading
-  const dir = rng() < 0.5 ? -1 : 1;
-  if (tryMove(x, y, x + dir, y, matId)) return true;
-  if (tryMove(x, y, x - dir, y, matId)) return true;
+  // === KORREKTE FLÜSSIGKEITS_PHYSIK ===
+  // Flüssigkeiten fallen NACH UNTEN und breiten sich SEITLICH aus
+  // KEIN Aufsteigen (ausser bei Dampf - das ist eine Gas-Funktion)
   
-  // Diagonal flow
+  // Zufällige seitliche Richtung für natürliche Ausbreitung
+  const dir = rng() < 0.5 ? -1 : 1;
+  
+  // 1. Direkt nach unten fallen (Hauptbewegung)
   if (y + 1 < H) {
-    if (tryMove(x, y, x + dir, y + 1, matId)) return true;
-    if (tryMove(x, y, x - dir, y + 1, matId)) return true;
+    const below = grid[(y + 1) * W + x];
+    // Flüssigkeiten können in leere Zellen ODER in Gase fallen (Gase sind leichter)
+    if (isEmpty(below) || isGas(below)) {
+      if (tryMove(x, y, x, y + 1, matId)) {
+        // Wenn wir durch Gas gefallen sind, das Gas nach oben bewegen
+        if (isGas(below)) {
+          aclAddNeighbors(x, y + 1, 1);
+        }
+        return true;
+      }
+    }
+    
+    // 2. Diagonal nach unten links/rechts (zur Seite rutschen)
+    // Zufällige Richtung priorisieren
+    if (rng() < 0.5) {
+      const d1 = dir, d2 = -dir;
+      if (y + 1 < H) {
+        if (grid[(y + 1) * W + (x + d1)] === EMPTY || isGas(grid[(y + 1) * W + (x + d1)])) {
+          if (tryMove(x, y, x + d1, y + 1, matId)) {
+            if (isGas(grid[(y + 1) * W + (x + d1)])) {
+              aclAddNeighbors(x + d1, y + 1, 1);
+            }
+            return true;
+          }
+        }
+        if (grid[(y + 1) * W + (x + d2)] === EMPTY || isGas(grid[(y + 1) * W + (x + d2)])) {
+          if (tryMove(x, y, x + d2, y + 1, matId)) {
+            if (isGas(grid[(y + 1) * W + (x + d2)])) {
+              aclAddNeighbors(x + d2, y + 1, 1);
+            }
+            return true;
+          }
+        }
+      }
+    } else {
+      const d1 = -dir, d2 = dir;
+      if (y + 1 < H) {
+        if (grid[(y + 1) * W + (x + d1)] === EMPTY || isGas(grid[(y + 1) * W + (x + d1)])) {
+          if (tryMove(x, y, x + d1, y + 1, matId)) {
+            if (isGas(grid[(y + 1) * W + (x + d1)])) {
+              aclAddNeighbors(x + d1, y + 1, 1);
+            }
+            return true;
+          }
+        }
+        if (grid[(y + 1) * W + (x + d2)] === EMPTY || isGas(grid[(y + 1) * W + (x + d2)])) {
+          if (tryMove(x, y, x + d2, y + 1, matId)) {
+            if (isGas(grid[(y + 1) * W + (x + d2)])) {
+              aclAddNeighbors(x + d2, y + 1, 1);
+            }
+            return true;
+          }
+        }
+      }
+    }
+  }
+  
+  // 3. Seitliche Bewegung (breiten sich aus, wenn sie auf Boden treffen)
+  // Flüssigkeiten fließen horizontal wenn sie nicht mehr fallen können
+  if (grid[y * W + (x + dir)] === EMPTY || isGas(grid[y * W + (x + dir)])) {
+    if (tryMove(x, y, x + dir, y, matId)) {
+      if (isGas(grid[y * W + (x + dir)])) {
+        aclAddNeighbors(x + dir, y, 1);
+      }
+      return true;
+    }
+  }
+  if (grid[y * W + (x - dir)] === EMPTY || isGas(grid[y * W + (x - dir)])) {
+    if (tryMove(x, y, x - dir, y, matId)) {
+      if (isGas(grid[y * W + (x - dir)])) {
+        aclAddNeighbors(x - dir, y, 1);
+      }
+      return true;
+    }
   }
   
   // Surface tension: liquids tend to stick together
@@ -786,24 +1271,98 @@ function updateLiquid(x, y, matId) {
 }
 
 /**
- * GAS PHYSICS - density-aware, convection, wind
+ * GAS PHYSICS - density-aware, pressure-based, convection, wind
+ * Phase 3.2: Druckbasierte Gas-Dynamik
+ * Phase 3.3: Thermische Konvektion
  */
 function updateGas(x, y, matId) {
   const mat = MATS[matId];
   const buoyancy = mat.buodyancy ?? mat.buoyancy ?? 0;
-  const temp = tempGrid[y * W + x];
+  const i = y * W + x;
+  const temp = tempGrid[i];
 
+  // === ALTERUNG: SMOKE und STEAM verschwinden nach Zeit ===
+  if (matId === SMOKE) {
+    // Rauch altert basierend auf Alter und Temperatur
+    const burnOffRate = tempGrid[i] > 50 ? 0.02 : 0.005;
+    if (rng() < burnOffRate) {
+      grid[i] = EMPTY;
+      return true;
+    }
+  }
+  if (matId === STEAM) {
+    // Dampf kondensiert oder verflüchtigt sich
+    if (y - 1 >= 0 && grid[(y - 1) * W + x] === WATER) {
+      // Dampf kondensiert zu Wasser oben drauf -> verschwindet
+      grid[i] = EMPTY;
+      return true;
+    }
+    // Allgemeine Alterung
+    if (rng() < 0.008) {
+      grid[i] = EMPTY;
+      return true;
+    }
+  }
+  // FIRE verflüchtigt sich ebenfalls
+  if (matId === FIRE) {
+    // Feuer brennt sich selbst aus
+    const fuel = MATS[grid[(y + 1) * W + x]]?.flammability || 0;
+    const selfExtinct = 0.01 + (1 - fuel) * 0.02;
+    if (rng() < selfExtinct) {
+      grid[i] = rng() < 0.3 ? SMOKE : EMPTY;
+      if (grid[i] === SMOKE) ageGrid[i] = 0;
+      return true;
+    }
+  }
+
+  // === DRUCKBERECHNUNG basierend auf lokaler Gaskonzentration ===
+  let gasCount = 0;
+  let gasLeft = 0, gasRight = 0, gasUp = 0, gasDown = 0;
+  
+  for (let dy = -2; dy <= 2; dy++) {
+    for (let dx = -2; dx <= 2; dx++) {
+      const nx = x + dx, ny = y + dy;
+      if (nx >= 0 && nx < W && ny >= 0 && ny < H) {
+        const nMat = grid[ny * W + nx];
+        if (isGas(nMat) || nMat === SMOKE || nMat === STEAM) {
+          gasCount++;
+          if (dx < 0) gasLeft++;
+          if (dx > 0) gasRight++;
+          if (dy < 0) gasUp++;
+          if (dy > 0) gasDown++;
+        }
+      }
+    }
+  }
+  
+  // Druckgradienten: Bewegung vom hohen zum niedrigen Druck
+  const pressureX = (gasLeft - gasRight) * 0.1;
+  const pressureY = (gasUp - gasDown) * 0.1;
+  
+  // === THERMISCHE KONVEKTION ===
+  const ambientTemp = 20;
+  const thermalBuoyancy = (temp - ambientTemp) * 0.003;
+  
   // Convection: hotter gases rise faster
   const heatBoost = temp > 40 ? Math.min(0.4, (temp - 40) / 800) : 0;
 
-  // Density-based behavior:
-  // - Light gases (H2, O2): prefer up
-  // - Heavy gases (CO2, Cl2): prefer down or stay low
+  // Density-based behavior
   const isLight = buoyancy < -0.3;
   const isHeavy = buoyancy > 0.3;
 
+  // Druckgradient-basierte Bewegung
+  if (Math.abs(pressureX) > 0.15 || Math.abs(pressureY) > 0.15) {
+    const moveX = pressureX > 0 ? 1 : -1;
+    const moveY = pressureY > 0 ? 1 : -1;
+    if (Math.abs(pressureX) > Math.abs(pressureY)) {
+      if (x + moveX >= 0 && x + moveX < W && tryMove(x, y, x + moveX, y, matId)) return true;
+    } else {
+      if (y + moveY >= 0 && y + moveY < H && tryMove(x, y, x, y + moveY, matId)) return true;
+    }
+  }
+  
   if (isLight || (!isHeavy)) {
-    // Primary: rise
+    // Primary: rise (with thermal boost)
     if (y - 1 >= 0) {
       if (tryMove(x, y, x, y - 1, matId)) return true;
       const dir = rng() < 0.5 ? -1 : 1;
@@ -824,7 +1383,7 @@ function updateGas(x, y, matId) {
     if (tryMove(x, y, x - dir, y + 1, matId)) return true;
   }
 
-  // Horizontal spread (slightly reduced to avoid chaos)
+  // Horizontal spread
   const dir = rng() < 0.5 ? -1 : 1;
   if (rng() < 0.6 && tryMove(x, y, x + dir, y, matId)) return true;
   if (rng() < 0.4 && tryMove(x, y, x - dir, y, matId)) return true;
@@ -1369,8 +1928,8 @@ function updatePlant(x, y, matId) {
       }
     }
     
-    // Myzel breitet sich im Boden aus (langsamer, kontrolliert)
-    if (moistureLevel >= 2 && nutrientsLevel >= 1 && rng() < 0.004) {
+    // Myzel breitet sich im Boden aus (Phase 4.1: schneller, in mehr Bodentypen)
+    if (moistureLevel >= 2 && nutrientsLevel >= 1 && rng() < 0.01) {
       const dx = Math.floor(rng() * 3) - 1;
       const dy = Math.floor(rng() * 3) - 1;
       const nx = x + dx, ny = y + dy;
@@ -1408,11 +1967,68 @@ function updatePlant(x, y, matId) {
       }
     }
     
-    // Knospen bilden an der Oberfläche (wenn Myzel nahe Oberfläche)
-    if (y < H * 0.3 && moistureLevel >= 3 && nutrientsLevel >= 2 && rng() < 0.002) {
-      // Pilz-Knospe wächst nach oben
+    // === MYKORRHIZA-NÄHRSTOFFTRANSFER Phase 5.3 ===
+    // Myzel verbindet Pflanzenwurzeln und ermöglicht Nährstofftransfer
+    if (tick % 20 === 0) { // Nicht jeden Tick -性能优化
+      // Suche nach verbundenen Wurzeln
+      let rootConnections = [];
+      for (const ni of neighbors) {
+        if (ni >= 0 && ni < N) {
+          const nMatId = grid[ni];
+          if (nMatId === ROOT_SYSTEM || nMatId === PLANT_ROOT) {
+            const rootPlantId = plantIdGrid[ni];
+            if (rootPlantId > 0) {
+              rootConnections.push({ ni: ni, plantId: rootPlantId, x: ni % W, y: (ni - ni % W) / W });
+            }
+          }
+        }
+      }
+      
+      // Nährstofftransfer zwischen verbundenen Pflanzen
+      if (rootConnections.length >= 2) {
+        for (let a = 0; a < rootConnections.length; a++) {
+          for (let b = a + 1; b < rootConnections.length; b++) {
+            if (rootConnections[a].plantId !== rootConnections[b].plantId) {
+              // Transfer von Nährstoffen von gesunder zu kranke Pflanze
+              const healthA = plantHealthGrid[rootConnections[a].ni];
+              const healthB = plantHealthGrid[rootConnections[b].ni];
+              if (healthA > 60 && healthB < 40) {
+                // Gesundheit transferieren
+                plantHealthGrid[rootConnections[b].ni] = Math.min(100, healthB + 1);
+                plantHealthGrid[rootConnections[a].ni] = Math.max(0, healthA - 1);
+                
+                // N-P-K Nährstoffe transferieren (Boden-Eigenschaft bleibt, aber Pflanze profitiert)
+                const ax = rootConnections[a].x, ay = rootConnections[a].y;
+                const bx = rootConnections[b].x, by = rootConnections[b].y;
+                const aIdx = ay * W + ax, bIdx = by * W + bx;
+                
+                // Transfer von N-P-K von gesunder zu kranke Pflanze
+                if (nitrogenGrid[aIdx] > 30) {
+                  nitrogenGrid[aIdx] -= 2;
+                  nitrogenGrid[bIdx] = Math.min(255, nitrogenGrid[bIdx] + 2);
+                }
+                if (phosphorusGrid[aIdx] > 20) {
+                  phosphorusGrid[aIdx] -= 1;
+                  phosphorusGrid[bIdx] = Math.min(255, phosphorusGrid[bIdx] + 1);
+                }
+                if (potassiumGrid[aIdx] > 25) {
+                  potassiumGrid[aIdx] -= 1;
+                  potassiumGrid[bIdx] = Math.min(255, potassiumGrid[bIdx] + 1);
+                }
+                
+                myceliumGrid[i] = Math.min(100, myceliumGrid[i] + 1); // Myzel wächst
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    // Knospen bilden an der Oberfläche (Phase 3.2: MUSHROOM statt MOLD)
+    if (y < H * 0.35 && moistureLevel >= 3 && nutrientsLevel >= 2 && rng() < 0.02) {
+      // Pilz wächst nach oben
       if (y > 0 && grid[(y - 1) * W + x] === EMPTY) {
-        grid[(y - 1) * W + x] = MOLD; // Oberfläche-Pilz
+        grid[(y - 1) * W + x] = MUSHROOM;
         ageGrid[(y - 1) * W + x] = 0;
       }
     }
@@ -1485,7 +2101,7 @@ function updatePlant(x, y, matId) {
         if (ni >= 0 && ni < N) {
           const nMat = grid[ni];
           if ((isOrganic(nMat) || nMat === PLANT_DEAD) && nMat !== MOLD && rng() < decomposeChance) {
-            if (rng() < 0.3) {
+            if (rng() < 0.6) {
               grid[ni] = BACTERIA;
             } else {
               grid[ni] = DIRT;
@@ -1495,8 +2111,8 @@ function updatePlant(x, y, matId) {
       }
     }
     
-    // Ausbreitung (langsam)
-    if (moistureLevel >= 3 && rng() < 0.015) {
+    // Ausbreitung (Phase 3.1: schneller)
+    if (moistureLevel >= 3 && rng() < 0.03) {
       const dx = Math.floor(rng() * 3) - 1;
       const dy = Math.floor(rng() * 3) - 1;
       const nx = x + dx, ny = y + dy;
@@ -1594,14 +2210,14 @@ function updateBacteria(x, y, matId) {
     if (ni >= 0 && ni < N) {
       const nMat = grid[ni];
       
-      // Organische Materie zersetzen (sehr langsam!)
+      // Organische Materie zersetzen (beschleunigt!)
       if ((isOrganic(nMat) || nMat === PLANT_DEAD) && nMat !== BACTERIA && moistureLevel >= 1) {
-        const decomposeRate = 0.0005 + moistureLevel * 0.0003;
+        const decomposeRate = 0.002 + moistureLevel * 0.001;
         if (rng() < decomposeRate) {
           // Schrittweise Zersetzung: erst zu Schimmel/Myzel, dann zu Erde
-          if (rng() < 0.4) {
+          if (rng() < 0.7) {
             grid[ni] = MOLD;
-          } else if (rng() < 0.7) {
+          } else if (rng() < 0.9) {
             grid[ni] = MYCELIUM;
           } else {
             grid[ni] = DIRT; // Direkt zu Kompost
@@ -1611,7 +2227,7 @@ function updateBacteria(x, y, matId) {
       
       // Myzel und Schimmel können auch zersetzt werden
       if ((nMat === MOLD || nMat === MYCELIUM) && moistureLevel >= 1) {
-        if (rng() < 0.002) {
+        if (rng() < 0.01) {
           grid[ni] = DIRT;
         }
       }
@@ -1763,6 +2379,53 @@ function absorbSoilNutrients(x, y, i) {
 // === ÜBERARBEITES PFLANZEN-WACHSTUM ===
 // Langsamer, strukturierter Wachstum mit klarem Haupttrieb und Blättern
 
+// === Pflanzen-Höhenlimit (gegen 'Wuchern') ================================
+// Maximale Wuchshöhe je Pflanzentyp (plantTypeGrid): 1=Blume,2=Gras,3=Pilz,4=Baum.
+function maxPlantHeight(plantType) {
+  switch (plantType) {
+    case 1: return 6;    // Blume: niedrig
+    case 2: return 4;    // Gras: sehr niedrig
+    case 3: return 3;    // Pilz
+    case 4: return 26;   // Baum: hoch
+    default: return 8;
+  }
+}
+// Misst die Höhe eines Triebs als Abstand bis zum tragenden Boden (durch kleine
+// Lücken hindurch). So wird auch ein leicht lückiger Stamm korrekt als zu hoch
+// erkannt, statt unbegrenzt weiterzuwachsen.
+function plantStackHeight(x, y) {
+  let groundY = H; // tiefste gefundene Bodenzelle
+  for (let dy = 0; dy < 64; dy++) {
+    const ny = y + dy;
+    if (ny >= H) { groundY = H; break; }
+    const m = grid[ny * W + x];
+    if (m === DIRT || m === SAND || m === SAND_WET || m === SAND_DARK ||
+        m === ROOT_SYSTEM || m === PLANT_ROOT || m === STONE || m === WALL) {
+      groundY = ny; break;
+    }
+  }
+  return groundY - y; // Anzahl Zellen über dem Boden
+}
+// Hat die Zelle eine (annähernd) durchgehende Stamm-Verbindung zum Boden?
+function plantConnectedToGround(x, y) {
+  let gaps = 0;
+  for (let dy = 1; dy < 64; dy++) {
+    const ny = y + dy;
+    if (ny >= H) return false;
+    const m = grid[ny * W + x];
+    if (m === PLANT || m === PLANT_STEM || m === PLANT_MATURE || m === PLANT_SPROUT) {
+      gaps = 0; // Stamm setzt sich fort
+    } else if (m === DIRT || m === SAND || m === SAND_WET || m === SAND_DARK ||
+               m === ROOT_SYSTEM || m === PLANT_ROOT) {
+      return true; // Boden erreicht
+    } else {
+      gaps++;
+      if (gaps > 1) return false; // mehr als eine Lücke -> freischwebend
+    }
+  }
+  return false;
+}
+
 // Hilfsfunktion: Prüfe ob eine Pflanze zu einer Gruppe gehört
 function getPlantGroupId(i) {
   return plantIdGrid[i] || 0;
@@ -1795,11 +2458,11 @@ function updatePlantSeed(x, y, matId) {
     onSuitableGround = (below === DIRT || below === SAND_WET || below === SAND || below === SAND_DARK);
   }
   
-  // Keimung: Samen wird zum Keimling (sehr langsam, braucht mehrere Bedingungen)
+  // Keimung: Samen wird zum Keimling (beschleunigt)
   if (onSuitableGround && moistureLevel >= 2) {
-    const germinationChance = 0.003 * getSeasonGrowthFactor(); // DEUTLICHER VERLANGSAMT
+    const germinationChance = 0.02 * getSeasonGrowthFactor(); // Beschleunigt
     const temp = tempGrid[i];
-    if (temp >= 10 && temp <= 30 && ageGrid[i] > 10 && rng() < germinationChance) {
+    if (temp >= 10 && temp <= 30 && ageGrid[i] > 5 && rng() < germinationChance) {
       grid[i] = PLANT_SPROUT;
       plantTypeGrid[i] = rng() < 0.5 ? 1 : 2; // Blume oder Gras
       plantStageGrid[i] = 1;
@@ -1840,8 +2503,8 @@ function updatePlantSprout(x, y, matId) {
     return;
   }
   
-  // Wurzeln bilden (sehr langsam, nur 1 Wurzel)
-  if (y + 1 < H && grid[(y + 1) * W + x] === EMPTY && ageGrid[i] > 15 && rng() < 0.005) {
+  // Wurzeln bilden (beschleunigt)
+  if (y + 1 < H && grid[(y + 1) * W + x] === EMPTY && ageGrid[i] > 5 && rng() < 0.02) {
     grid[(y + 1) * W + x] = ROOT_SYSTEM;
     plantTypeGrid[(y + 1) * W + x] = plantTypeGrid[i];
     plantStageGrid[(y + 1) * W + x] = 2;
@@ -1850,23 +2513,24 @@ function updatePlantSprout(x, y, matId) {
     ageGrid[(y + 1) * W + x] = 0;
   }
   
-  // Wächst NACH OBEN zum Haupttrieb (sehr kontrolliert)
+  // Wächst NACH OBEN zum Haupttrieb (beschleunigt)
   const healthFactor = plantHealthGrid[i] / 100;
   const light = hasUnobstructedLight(x, y);
-  // DEUTLICHER VERLANGSAMT: 0.005 statt 0.04
-  const growChance = healthFactor * 0.005 * (1 + light * 0.3) * getSeasonGrowthFactor();
+  const growChance = healthFactor * 0.03 * (1 + light * 0.3) * getSeasonGrowthFactor();
   
   if (y > 0 && grid[(y - 1) * W + x] === EMPTY && rng() < growChance) {
-    grid[(y - 1) * W + x] = PLANT_STEM;
-    plantTypeGrid[(y - 1) * W + x] = plantTypeGrid[i];
-    plantStageGrid[(y - 1) * W + x] = 2;
-    plantHealthGrid[(y - 1) * W + x] = plantHealthGrid[i];
-    plantIdGrid[(y - 1) * W + x] = plantIdGrid[i];
-    ageGrid[(y - 1) * W + x] = 0;
+    const ti = (y - 1) * W + x;
+    grid[ti] = PLANT_STEM;
+    plantTypeGrid[ti] = plantTypeGrid[i];
+    plantStageGrid[ti] = 2;
+    plantHealthGrid[ti] = plantHealthGrid[i];
+    plantIdGrid[ti] = plantIdGrid[i];
+    ageGrid[ti] = 0;
+    aclAddNeighbors(x, y - 1, 1);
   }
   
-  // Seitliche Blätter (nur alle 5-8 Ticks, nur 1 Blatt)
-  if (ageGrid[i] > 10 && ageGrid[i] % 6 === 0 && rng() < 0.008 * getSeasonGrowthFactor()) {
+  // Seitliche Blätter (beschleunigt)
+  if (ageGrid[i] > 5 && ageGrid[i] % 4 === 0 && rng() < 0.02 * getSeasonGrowthFactor()) {
     const dir = rng() < 0.5 ? -1 : 1;
     if (x + dir >= 0 && x + dir < W && grid[y * W + (x + dir)] === EMPTY) {
       grid[y * W + (x + dir)] = LEAF_OAK;
@@ -1877,11 +2541,94 @@ function updatePlantSprout(x, y, matId) {
     }
   }
   
-  // Alterung: Wächst zum erwachsenen Stamm (sehr langsam)
-  if (ageGrid[i] > 120 && rng() < 0.008) {
+  // Alterung: Wächst zum erwachsenen Stamm (beschleunigt)
+  if (ageGrid[i] > 60 && rng() < 0.02) {
     grid[i] = PLANT_STEM;
     plantStageGrid[i] = 2;
     ageGrid[i] = 0;
+  }
+}
+
+// Hilfsfunktion: Dicken Stamm wachsen lassen (nur am unteren Teil des Baums)
+function growThickStem(x, y, i) {
+  const age = ageGrid[i];
+  const health = plantHealthGrid[i] / 100 || 0.5;
+  // Nur dicke Stämme bei älteren, gesunden Bäumen
+  if (age < 40 || health < 0.5) return;
+  // Stamm-Breite basierend auf Alter (max 3 Pixel)
+  const thickness = Math.min(3, 1 + Math.floor(age / 80));
+
+  // Nur seitlich ausfüllen (nicht nach oben – das macht updatePlantStem)
+  for (let dx = -thickness; dx <= thickness; dx++) {
+    if (dx === 0) continue;
+    const nx = x + dx;
+    if (nx < 0 || nx >= W) continue;
+    const ni = y * W + nx;
+    if (grid[ni] !== EMPTY) continue;
+    // Parabolischer Querschnitt: dicker in der Mitte
+    const dist = Math.abs(dx);
+    const prob = 1 - (dist / (thickness + 1)) * 0.7;
+    if (rng() > prob) continue;
+    grid[ni] = PLANT_STEM;
+    plantTypeGrid[ni] = plantTypeGrid[i];
+    plantStageGrid[ni] = plantStageGrid[i];
+    plantHealthGrid[ni] = plantHealthGrid[i];
+    plantIdGrid[ni] = plantIdGrid[i];
+    ageGrid[ni] = 0;
+  }
+}
+
+// Hilfsfunktion: Verzweigungssystem (nur am oberen Teil des Baums)
+function growBranches(x, y, i) {
+  const age = ageGrid[i];
+  if (age < 60) return;
+  if (plantHealthGrid[i] < 40) return;
+  // Sehr selten: nur bei erwachsenen Bäumen
+  if (plantStageGrid[i] < 3) return;
+  if (age % 20 !== 0) return;
+  if (rng() > 0.005 * getSeasonGrowthFactor()) return;
+
+  const dir = rng() < 0.5 ? -1 : 1;
+  // Ast wächst seitlich und leicht nach oben
+  const ay = y - 1;
+  const ax = x + dir;
+  if (ax < 0 || ax >= W || ay < 0 || ay >= H) return;
+  if (grid[ay * W + ax] !== EMPTY) return;
+
+  grid[ay * W + ax] = PLANT_STEM;
+  plantTypeGrid[ay * W + ax] = plantTypeGrid[i];
+  plantStageGrid[ay * W + ax] = 3;
+  plantHealthGrid[ay * W + ax] = plantHealthGrid[i];
+  plantIdGrid[ay * W + ax] = plantIdGrid[i];
+  ageGrid[ay * W + ax] = 0;
+}
+
+// Hilfsfunktion: Baumkrone (nur am oberen Teil, über dem Stamm)
+function growCanopy(x, y, i) {
+  const age = ageGrid[i];
+  if (age < 80) return;
+  if (plantHealthGrid[i] < 40) return;
+  if (plantStageGrid[i] < 3) return;
+  // Radius basierend auf Baumgröße (max 4)
+  const radius = Math.min(4, 1 + Math.floor(age / 100));
+  // Sehr selten
+  if (age % 15 !== 0) return;
+  if (rng() > 0.008 * getSeasonGrowthFactor()) return;
+
+  // Blätter nur in einem Halbkreis über dem Stamm (nicht seitlich)
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const angle = -Math.PI + rng() * Math.PI; // Oben
+    const dist = 1 + Math.floor(rng() * radius);
+    const lx = x + Math.round(Math.cos(angle) * dist);
+    const ly = y + Math.round(Math.sin(angle) * dist);
+    if (lx < 0 || lx >= W || ly < 0 || ly >= H) continue;
+    if (grid[ly * W + lx] !== EMPTY) continue;
+    const leafType = rng() < 0.6 ? LEAF_OAK : LEAF_MAPLE;
+    grid[ly * W + lx] = leafType;
+    plantTypeGrid[ly * W + lx] = plantTypeGrid[i];
+    plantHealthGrid[ly * W + lx] = plantHealthGrid[i];
+    plantIdGrid[ly * W + lx] = plantIdGrid[i];
+    ageGrid[ly * W + lx] = 0;
   }
 }
 
@@ -1889,73 +2636,111 @@ function updatePlantSprout(x, y, matId) {
 function updatePlantStem(x, y, matId) {
   const i = y * W + x;
   ageGrid[i]++;
-  
+
   // Gesundheit und Saft aktualisieren (nur alle 5 Ticks)
   if (tick % 5 === 0) {
     plantHealthGrid[i] = calculatePlantHealth(x, y, i);
   }
   updateSapTransport(x, y, i);
   absorbSoilNutrients(x, y, i);
-  
-  // Nach oben wachsen (Haupttrieb - sehr langsam)
-  const growthRate = 0.0012 * (plantHealthGrid[i] / 100) * (1 + getSunlightIntensity() * 0.3) * getSeasonGrowthFactor();
-  if (plantStageGrid[i] < 3 && plantHealthGrid[i] > 25) {
+
+  // Nach oben wachsen (Haupttrieb) – klarer vertikaler Stamm, MIT Höhenlimit.
+  const growthRate = 0.02 * (plantHealthGrid[i] / 100) * (1 + getSunlightIntensity() * 0.3) * getSeasonGrowthFactor();
+  const __hMax = maxPlantHeight(plantTypeGrid[i]);
+  const __curH = plantStackHeight(x, y);
+  // Nur die Spitze wächst weiter (oben frei), nur unter Maximalhöhe UND nur,
+  // wenn der Trieb durchgehend mit dem Boden verbunden ist (kein Wuchern in der Luft).
+  if (plantStageGrid[i] < 3 && plantHealthGrid[i] > 25 && __curH < __hMax &&
+      plantConnectedToGround(x, y)) {
     if (y > 0 && grid[(y - 1) * W + x] === EMPTY && rng() < growthRate) {
-      grid[(y - 1) * W + x] = PLANT_STEM;
-      plantTypeGrid[(y - 1) * W + x] = plantTypeGrid[i];
-      plantStageGrid[(y - 1) * W + x] = plantStageGrid[i];
-      plantHealthGrid[(y - 1) * W + x] = plantHealthGrid[i];
-      plantIdGrid[(y - 1) * W + x] = plantIdGrid[i];
-      ageGrid[(y - 1) * W + x] = 0;
+      const ti = (y - 1) * W + x;
+      grid[ti] = PLANT_STEM;
+      plantTypeGrid[ti] = plantTypeGrid[i];
+      plantStageGrid[ti] = plantStageGrid[i];
+      plantHealthGrid[ti] = plantHealthGrid[i];
+      plantIdGrid[ti] = plantIdGrid[i];
+      ageGrid[ti] = 0;
+      aclAddNeighbors(x, y - 1, 1);
     }
   }
-  
-  // Blätter bilden seitlich (sehr kontrolliert, alle 10-14 Ticks)
-  if (ageGrid[i] > 20 && ageGrid[i] % 10 === 0 && rng() < 0.003 * getSeasonGrowthFactor()) {
-    // Nur 1 Blatt pro Tick, abwechselnd links/rechts
-    const dir = (ageGrid[i] / 8 % 2 === 0) ? -1 : 1;
-    if (x + dir >= 0 && x + dir < W && grid[y * W + (x + dir)] === EMPTY) {
-      grid[y * W + (x + dir)] = LEAF_OAK;
-      plantTypeGrid[y * W + (x + dir)] = plantTypeGrid[i];
-      plantHealthGrid[y * W + (x + dir)] = plantHealthGrid[i];
-      plantIdGrid[y * W + (x + dir)] = plantIdGrid[i];
-      ageGrid[y * W + (x + dir)] = 0;
+  // An der Maximalhöhe angekommen: Trieb reift aus, statt weiter zu wuchern.
+  if (__curH >= __hMax && plantStageGrid[i] < 3 && rng() < 0.05) {
+    grid[i] = PLANT_MATURE; plantStageGrid[i] = 3; ageGrid[i] = 0;
+    aclAddNeighbors(x, y, 1);
+    return;
+  }
+
+  // Dicken Stamm nur am unteren Teil (nahe der Erde)
+  // Prüfen, ob wir nahe der Basis sind (mindestens 3 Zellen unter uns ist Stamm/Wurzel)
+  let depth = 0;
+  for (let dy = 1; dy <= 10; dy++) {
+    if (y + dy >= H) break;
+    const below = grid[(y + dy) * W + x];
+    if (below === PLANT_STEM || below === PLANT_MATURE || below === ROOT_SYSTEM || below === PLANT_ROOT) {
+      depth++;
+    } else if (below === DIRT || below === SAND || below === SAND_WET || below === SAND_DARK) {
+      break;
+    } else {
+      break;
     }
   }
-  
-  // KEINE Wurzeln nach unten vom Stamm - das war zu viel
-  // Wurzelbildung nur vom Keimling
-  
-  // Wird zur erwachsenen Pflanze (sehr langsam)
-  if (ageGrid[i] > 80 && plantStageGrid[i] < 3 && rng() < 0.008) {
+  // Nur verdicken, wenn nahe der Basis (depth >= 3)
+  if (depth >= 3 && ageGrid[i] > 10 && plantHealthGrid[i] > 30 && rng() < 0.01) {
+    growThickStem(x, y, i);
+  }
+
+  // Blätter nur am oberen Teil (wenn oben frei)
+  if (ageGrid[i] > 20 && ageGrid[i] % 6 === 0 && rng() < 0.01 * getSeasonGrowthFactor()) {
+    // Prüfen, ob wir am oberen Ende des Stamms sind
+    if (y > 0 && grid[(y - 1) * W + x] === EMPTY) {
+      const dir = (ageGrid[i] / 4 % 2 === 0) ? -1 : 1;
+      if (x + dir >= 0 && x + dir < W && grid[y * W + (x + dir)] === EMPTY) {
+        grid[y * W + (x + dir)] = LEAF_OAK;
+        plantTypeGrid[y * W + (x + dir)] = plantTypeGrid[i];
+        plantHealthGrid[y * W + (x + dir)] = plantHealthGrid[i];
+        plantIdGrid[y * W + (x + dir)] = plantIdGrid[i];
+        ageGrid[y * W + (x + dir)] = 0;
+      }
+    }
+  }
+
+  // Wird zur erwachsenen Pflanze (nur am unteren Teil)
+  if (ageGrid[i] > 50 && plantStageGrid[i] < 3 && rng() < 0.02) {
     grid[i] = PLANT_MATURE;
     plantStageGrid[i] = 3;
     ageGrid[i] = 0;
   }
-  
+
   // Alterung (sehr langsam)
   if (ageGrid[i] > 500 && rng() < 0.001) {
     plantStageGrid[i] = 5; // Alt
   }
 }
 
-// --- updatePlantMature(): Erwachsen-Pflanze (kein seitliches Wuchern mehr!) ---
+// --- updatePlantMature(): Erwachsen-Pflanze mit Verzweigungen und Krone ---
 function updatePlantMature(x, y, matId) {
   const i = y * W + x;
   ageGrid[i]++;
-  
+
   // Gesundheit und Saft aktualisieren (nur alle 5 Ticks)
   if (tick % 5 === 0) {
     plantHealthGrid[i] = calculatePlantHealth(x, y, i);
   }
   updateSapTransport(x, y, i);
   absorbSoilNutrients(x, y, i);
-  
-  // KEIN seitliches Wachsen mehr! Nur noch Blüte oben
-  
-  // Kann BLÜTEN bilden (am Haupttrieb, sehr kontrolliert)
-  if (plantHealthGrid[i] > 35 && ageGrid[i] > 60 && rng() < 0.001 * getSeasonGrowthFactor()) {
-    // Nur wenn oben frei ist
+
+  // Phase 1.2: Verzweigungssystem – nur Bäume (Typ 4), seltener (anti-Wuchern).
+  if (plantTypeGrid[i] === 4 && rng() < 0.002) {
+    growBranches(x, y, i);
+  }
+
+  // Phase 1.3: Baumkrone – nur Bäume (Typ 4).
+  if (plantTypeGrid[i] === 4 && rng() < 0.004) {
+    growCanopy(x, y, i);
+  }
+
+  // Kann BLÜTEN bilden (am Haupttrieb, kontrolliert)
+  if (plantHealthGrid[i] > 35 && ageGrid[i] > 40 && rng() < 0.01 * getSeasonGrowthFactor()) {
     if (y > 0 && grid[(y - 1) * W + x] === EMPTY) {
       const flowerType = rng();
       let flowerMat;
@@ -1974,14 +2759,9 @@ function updatePlantMature(x, y, matId) {
       ageGrid[(y - 1) * W + x] = 0;
     }
   }
-  
-  // KEIN weiteres Wachstum nach oben als PLANT_MATURE
-  // Die Pflanze bleibt in der Größe
-  
-  // KEINE seitlichen Äste mehr!
-  
-  // Ab und zu noch Blätter am Stamm (sehr selten)
-  if (ageGrid[i] > 30 && rng() < 0.001 * getSeasonGrowthFactor()) {
+
+  // Ab und zu noch Blätter am Stamm (selten)
+  if (ageGrid[i] > 30 && rng() < 0.002 * getSeasonGrowthFactor()) {
     const dir = rng() < 0.5 ? -1 : 1;
     if (x + dir >= 0 && x + dir < W && grid[y * W + (x + dir)] === EMPTY) {
       grid[y * W + (x + dir)] = LEAF_OAK;
@@ -1991,13 +2771,13 @@ function updatePlantMature(x, y, matId) {
       ageGrid[y * W + (x + dir)] = 0;
     }
   }
-  
+
   // Herbst-Färbung
   const autumnFactor = getAutumnColorFactor();
   if (autumnFactor > 0.5 && rng() < 0.0005) {
     plantHealthGrid[i] = Math.max(20, plantHealthGrid[i] - 2);
   }
-  
+
   // Winter: Stirbt sehr langsam
   if (getCurrentSeason() === 3 && ageGrid[i] > 200 && rng() < 0.002) {
     plantHealthGrid[i] -= 5;
@@ -2043,8 +2823,47 @@ function updateFlower(x, y, matId) {
     }
   }
   
-  // Samen produzieren (nach "Bestäubung" - hier: einfach mit Zeit)
-  if (ageGrid[i] > 15 && plantHealthGrid[i] > 20 && rng() < 0.015 * getSeasonGrowthFactor()) {
+  // === BESTÄUBUNGSSYSTEM Phase 5.2 ===
+  // Pollen trifft auf andere Blume → Samenproduktion
+  if (tick % 10 === 0) { // Nicht jeden Tick prüfen
+    for (let dy = -3; dy <= 3; dy++) {
+      for (let dx = -3; dx <= 3; dx++) {
+        const nx = x + dx, ny = y + dy;
+        if (nx >= 0 && nx < W && ny >= 0 && ny < H) {
+          const ni = ny * W + nx;
+          if (grid[ni] === POLLEN) {
+            // Pollen wird von Blume aufgenommen
+            grid[ni] = EMPTY;
+            // Bestäubung erfolgreich → Samenproduktion
+            if (rng() < 0.4) {
+              // FLOWER_SEED direkt neben der Blume produzieren
+              const seedDir = Math.floor(rng() * 4);
+              const sdx = [0, 0, -1, 1][seedDir];
+              const sdy = [1, -1, 0, 0][seedDir];
+              const sx = x + sdx, sy = y + sdy;
+              if (sx >= 0 && sx < W && sy >= 0 && sy < H) {
+                const syBelow = sy + 1;
+                if (syBelow >= 0 && syBelow < H && grid[sy * W + sx] === EMPTY) {
+                  const ground = grid[syBelow * W + sx];
+                  if (ground === DIRT || ground === SAND || ground === SAND_WET || ground === SAND_DARK) {
+                    grid[sy * W + sx] = FLOWER_SEED;
+                    plantTypeGrid[sy * W + sx] = plantTypeGrid[i];
+                    ageGrid[sy * W + sx] = 0;
+                    plantHealthGrid[i] = Math.min(100, plantHealthGrid[i] + 10); // Bestäubung stärkt Pflanze
+                  }
+                }
+              }
+            }
+            aclAddNeighbors(x, y, 1);
+            break;
+          }
+        }
+      }
+    }
+  }
+  
+  // Samen produzieren (Phase 2.2: Blumenwiesen-Logik, häufiger + FLOWER_SEED)
+  if (ageGrid[i] > 10 && plantHealthGrid[i] > 20 && rng() < 0.05 * getSeasonGrowthFactor()) {
     const mat = MATS[matId];
     const windEffect = windActive ? windDir * 2 : 0;
     
@@ -2169,50 +2988,50 @@ function updateLeaf(x, y, matId) {
   }
 }
 
-// --- updateRootSystem(): Wurzel-System mit Safttransport ---
+// --- updateRootSystem(): Wurzel-System mit Safttransport (Phase 1.4) ---
 function updateRootSystem(x, y, matId) {
   const i = y * W + x;
   ageGrid[i]++;
-  
+
   // Gesundheit
   plantHealthGrid[i] = calculatePlantHealth(x, y, i);
-  
+
   // Wasser aus dem Boden aufnehmen
   let waterAbsorbed = false;
-  for (let dy = 1; dy <= 4; dy++) {
+  for (let dy = 1; dy <= 5; dy++) {
     if (y + dy >= H) break;
     const ni = (y + dy) * W + x;
     if (grid[ni] === WATER) {
-      plantWaterGrid[i] = Math.min(100, plantWaterGrid[i] + 10);
+      plantWaterGrid[i] = Math.min(100, plantWaterGrid[i] + 12);
       soilNutrientGrid[ni] = Math.min(100, soilNutrientGrid[ni] + 1);
-      if (rng() < 0.01) {
+      if (rng() < 0.015) {
         grid[ni] = SAND_WET;
         waterAbsorbed = true;
       }
       break;
     } else if (grid[ni] === SAND_WET) {
-      if (rng() < 0.005) {
+      if (rng() < 0.008) {
         grid[ni] = SAND;
-        plantWaterGrid[i] = Math.min(100, plantWaterGrid[i] + 5);
+        plantWaterGrid[i] = Math.min(100, plantWaterGrid[i] + 6);
         waterAbsorbed = true;
       }
     }
   }
-  
+
   // Nährstoffe aus DIRT aufnehmen
   if (!waterAbsorbed) {
-    for (let dy = 1; dy <= 3; dy++) {
+    for (let dy = 1; dy <= 4; dy++) {
       if (y + dy >= H) break;
       const ni = (y + dy) * W + x;
       if (grid[ni] === DIRT && soilNutrientGrid[ni] > 5) {
         soilNutrientGrid[ni] -= 2;
-        plantSapGrid[i] = Math.min(100, plantSapGrid[i] + 3);
+        plantSapGrid[i] = Math.min(100, plantSapGrid[i] + 4);
       }
     }
   }
-  
-  // Wuchs: Wurzeln bilden sich weiter (langsamer)
-  if (plantHealthGrid[i] > 25 && rng() < 0.004 * getSeasonGrowthFactor()) {
+
+  // Wuchs: Wurzeln bilden sich weiter (breiter und tiefer)
+  if (plantHealthGrid[i] > 25 && rng() < 0.006 * getSeasonGrowthFactor()) {
     // Nach unten
     if (y + 1 < H && grid[(y + 1) * W + x] === EMPTY) {
       grid[(y + 1) * W + x] = ROOT_SYSTEM;
@@ -2221,8 +3040,8 @@ function updateRootSystem(x, y, matId) {
       plantIdGrid[(y + 1) * W + x] = plantIdGrid[i];
       ageGrid[(y + 1) * W + x] = 0;
     }
-    // Seitlich
-    if (rng() < 0.5 && x > 0 && grid[y * W + (x - 1)] === EMPTY) {
+    // Seitlich (beidseitig, mehr Verzweigung)
+    if (rng() < 0.6 && x > 0 && grid[y * W + (x - 1)] === EMPTY) {
       grid[y * W + (x - 1)] = ROOT_SYSTEM;
       plantTypeGrid[y * W + (x - 1)] = plantTypeGrid[i];
       plantHealthGrid[y * W + (x - 1)] = plantHealthGrid[i];
@@ -2236,18 +3055,18 @@ function updateRootSystem(x, y, matId) {
       ageGrid[y * W + (x + 1)] = 0;
     }
   }
-  
+
   // Transportiere Wasser nach oben zur Pflanze
   if (y > 0 && plantWaterGrid[i] > 30) {
     const above = grid[(y - 1) * W + x];
     if (above === PLANT || above === PLANT_STEM || above === PLANT_MATURE ||
         above === PLANT_SPROUT || above === PLANT_ROOT || above === ROOT_SYSTEM) {
       const ni = (y - 1) * W + x;
-      plantWaterGrid[ni] = Math.min(100, plantWaterGrid[ni] + plantWaterGrid[i] * 0.3);
-      plantWaterGrid[i] *= 0.7;
+      plantWaterGrid[ni] = Math.min(100, plantWaterGrid[ni] + plantWaterGrid[i] * 0.35);
+      plantWaterGrid[i] *= 0.65;
     }
   }
-  
+
   // Sterben wenn zu trocken
   if (plantWaterGrid[i] <= 0 && ageGrid[i] > 50 && rng() < 0.01) {
     grid[i] = PLANT_DEAD;
@@ -2324,6 +3143,101 @@ function updatePlantDead(x, y, matId) {
   }
 }
 
+// --- updateFlowerSeed(): Blumen-Samen (Phase 2.1) ---
+function updateFlowerSeed(x, y, matId) {
+  const i = y * W + x;
+  ageGrid[i]++;
+
+  // Feuchtigkeit
+  let moistureLevel = 0;
+  for (let dy = -2; dy <= 2; dy++) {
+    for (let dx = -2; dx <= 2; dx++) {
+      const nx = x + dx, ny = y + dy;
+      if (nx >= 0 && nx < W && ny >= 0 && ny < H) {
+        const ni = ny * W + nx;
+        if (grid[ni] === WATER) moistureLevel += 3;
+        if (grid[ni] === SAND_WET || grid[ni] === DIRT) moistureLevel += 1;
+      }
+    }
+  }
+
+  // Bodenkontakt
+  let onSoil = false;
+  if (y + 1 < H) {
+    const below = grid[(y + 1) * W + x];
+    onSoil = (below === DIRT || below === SAND_WET || below === SAND || below === SAND_DARK);
+  }
+
+  // Keimung zu Blume
+  if (onSoil && moistureLevel >= 2 && ageGrid[i] > 5) {
+    const temp = tempGrid[i];
+    if (temp >= 10 && temp <= 30 && rng() < 0.006 * getSeasonGrowthFactor()) {
+      const r = rng();
+      if (r < 0.4) {
+        grid[i] = FLOWER_DANDELION;
+      } else if (r < 0.7) {
+        grid[i] = FLOWER_TULIP;
+      } else {
+        grid[i] = FLOWER_POPPY;
+      }
+      plantTypeGrid[i] = 1;
+      plantStageGrid[i] = 4;
+      plantHealthGrid[i] = 60;
+      ageGrid[i] = 0;
+      return;
+    }
+  }
+
+  // Verdirbt bei Stauwasser
+  if (moistureLevel >= 6 && ageGrid[i] > 100 && rng() < 0.005) {
+    grid[i] = DIRT;
+  }
+
+  // Alterung
+  if (ageGrid[i] > 1000 && rng() < 0.001) {
+    grid[i] = DIRT;
+  }
+}
+
+// --- updateMushroom(): Pilz (Phase 3.2) ---
+function updateMushroom(x, y, matId) {
+  const i = y * W + x;
+  ageGrid[i]++;
+
+  // Feuchtigkeit
+  let moistureLevel = 0;
+  for (let dy = -2; dy <= 2; dy++) {
+    for (let dx = -2; dx <= 2; dx++) {
+      const nx = x + dx, ny = y + dy;
+      if (nx >= 0 && nx < W && ny >= 0 && ny < H) {
+        const ni = ny * W + nx;
+        if (grid[ni] === WATER) moistureLevel += 3;
+        if (grid[ni] === SAND_WET) moistureLevel += 2;
+        if (grid[ni] === STEAM) moistureLevel += 1;
+      }
+    }
+  }
+
+  // Ohne Feuchtigkeit stirbt Pilz langsam
+  if (moistureLevel === 0 && ageGrid[i] > 100 && rng() < 0.01) {
+    grid[i] = DIRT;
+    return;
+  }
+
+  // Sporen produzieren
+  if (ageGrid[i] > 20 && moistureLevel >= 2 && rng() < 0.02) {
+    if (y > 0 && grid[(y - 1) * W + x] === EMPTY) {
+      grid[(y - 1) * W + x] = SPORE;
+      ageGrid[(y - 1) * W + x] = 0;
+    }
+  }
+
+  // Alterung
+  if (ageGrid[i] > 300 && rng() < 0.003) {
+    grid[i] = DIRT;
+  }
+}
+
 /**
  * CHEMICAL REACTIONS - Biologisch/chemisch korrekte Reaktionen
  */
@@ -2344,16 +3258,23 @@ function checkChemicalReactions(x, y, matId) {
     const nMat = MATS[nId];
     if (!nMat) continue;
     
-    // === COMBUSTION (Verbrennung) ===
+    // === COMBUSTION (Verbrennung) - Arrhenius-Kinetik Phase 4.1 ===
+    // Reaktionsrate: k = A * exp(-Ea / (R * T))
     // Verbrennung benötigt: Brennstoff + Sauerstoff + Zündtemperatur
     if (matId === FIRE || tempGrid[i] > 300) {
-      // Entzündung von brennbaren Materialien
+      // Entzündung von brennbaren Materialien mit Arrhenius-Kinetik
       if (nMat.flammability > 0 && nId !== FIRE && nId !== SMOKE && nId !== ASH) {
-        // Zündtemperatur muss erreicht sein
         const ignitionTemp = nMat.ignitionTemperature || 300;
-        if (tempGrid[i] >= ignitionTemp && rng() < nMat.flammability * 0.03) {
+        const T = Math.max(1, tempGrid[i] + 273.15); // Kelvin
+        const R = 8.314; // Gaskonstante
+        const Ea = ignitionTemp * R; // Aktivierungsenergie aus Zündtemperatur
+        const A = nMat.flammability; // Präexponentieller Faktor
+        // Arrhenius-Rate: exponentiell temperaturabhängig
+        const rate = A * Math.exp(-Ea / (R * T)) * 0.01;
+        if (rng() < rate) {
           grid[ni] = FIRE;
           tempGrid[ni] = 700;
+          aclAddNeighbors(nx, ny, 2); // Feuer breitet sich aus
         }
       }
       // Wasser -> Dampf (bei >100°C)
@@ -2371,6 +3292,70 @@ function checkChemicalReactions(x, y, matId) {
         grid[ni] = EMPTY;
         // Salzwasser ist leicht sauer
         phGrid[i] = Math.max(phGrid[i] - 0.1, 5.5);
+      }
+    }
+    
+    // === ELEKTROLYSE-SYSTEM Phase 4.2 ===
+    // Elektrische Leitfähigkeit ermöglicht Elektrolyse von Wasser
+    // 2H₂O → 2H₂ + O₂ (bei Stromfluss)
+    if (matId === WATER && nMat.electrical > 0.5 && electricalGrid[i] > 0.5) {
+      // Prüfe ob elektrische Verbindung zu einer Spannungsquelle
+      let hasCurrent = false;
+      const checkNeighbors = [i-1, i+1, i-W, i+W];
+      for (const cn of checkNeighbors) {
+        if (cn >= 0 && cn < N) {
+          const cnMat = MATS[grid[cn]];
+          if (cnMat && cnMat.electrical > 1.0 && electricalGrid[cn] > 0.5) {
+            hasCurrent = true;
+            break;
+          }
+        }
+      }
+      
+      if (hasCurrent && rng() < 0.002 * electricalGrid[i]) {
+        // Elektrolyse: Wasser wird in Wasserstoff und Sauerstoff gespalten
+        grid[i] = EMPTY;
+        electricalGrid[i] = 0;
+        // Wasserstoff steigt auf
+        if (y > 0 && grid[(y-1) * W + x] === EMPTY) {
+          grid[(y-1) * W + x] = HYDROGEN;
+          electricalGrid[(y-1) * W + x] = 0;
+        }
+        // Sauerstoff bleibt etwas darunter
+        if (y > 1 && grid[(y-2) * W + x] === EMPTY) {
+          grid[(y-2) * W + x] = OXYGEN;
+          electricalGrid[(y-2) * W + x] = 0;
+        }
+        aclAddNeighbors(x, y, 2);
+      }
+    }
+    
+    // === DYNAMISCHE LEGIERUNGSBILDUNG Phase 4.4 ===
+    // Metalle können bei hoher Temperatur legieren
+    if (isSolid(matId) && nMat.oxidizable && nId !== matId && nMat.oxidizable) {
+      // Beide Metalle müssen schmelzfähig sein
+      if (tempGrid[i] > Math.min(MATS[matId].melting, nMat.melting) * 0.8) {
+        // Prüfe auf mögliche Legierungskombinationen
+        const alloyMap = {
+          [METAL + '_' + SAND]: BRASS, // Kupfer + Zink → Messing (vereinfacht)
+        };
+        // Generische Legierungsbildung: Zwei verschiedene Metalle → BRASS
+        if ((matId === METAL || matId === BRASS) && (nId === METAL || nId === BRASS) && matId !== nId) {
+          if (rng() < 0.001) {
+            grid[i] = BRASS;
+            grid[ni] = BRASS;
+            tempGrid[i] = tempGrid[i];
+            tempGrid[ni] = tempGrid[ni];
+            aclAddNeighbors(x, y, 1);
+          }
+        }
+        // Metall + Lava → geschmolzene Legierung
+        if ((matId === METAL && matId === BRASS) && nId === LAVA) {
+          if (rng() < 0.002) {
+            grid[i] = BRASS;
+            aclAddNeighbors(x, y, 1);
+          }
+        }
       }
     }
     
@@ -2445,15 +3430,36 @@ function checkChemicalReactions(x, y, matId) {
       }
     }
     
+    // === pH-SENSITIVE REACTIONS Phase 4.2 ===
+    // Säure frisst Metall (schneller bei niedrigem pH)
+    if (nId === METAL && phGrid[i] < 4 && matId !== METAL) {
+      const phRate = (4 - phGrid[i]) * 0.001;
+      if (rng() < phRate) {
+        grid[ni] = RUST;
+        phGrid[i] = Math.min(7, phGrid[i] + 0.5); // Säure verbraucht
+        aclAddNeighbors(nx, ny, 1);
+      }
+    }
+    // Base löst Fett/Öl (schneller bei hohem pH)
+    if (nId === OIL && phGrid[i] > 10 && matId !== OIL) {
+      const phRate = (phGrid[i] - 10) * 0.001;
+      if (rng() < phRate) {
+        grid[ni] = WATER; // Verseifung
+        phGrid[i] = Math.max(7, phGrid[i] - 0.5);
+        aclAddNeighbors(nx, ny, 1);
+      }
+    }
+    
     // === OXIDATION (Rostbildung) ===
     // 4Fe + 3O₂ -> 2Fe₂O₃ (Rost)
     // Benötigt: Metall + Sauerstoff + Feuchtigkeit (beschleunigt)
     if (nId === METAL && matId === OXYGEN) {
-      // Feuchtigkeit beschleunigt Rostbildung
-      const moistureFactor = phGrid[i] > 0 ? 2 : 1;
+      // Feuchtigkeit + pH beschleunigen Rostbildung
+      const moistureFactor = (phGrid[i] < 6) ? 3 : 1; // Saures Wasser rostet schneller
       if (rng() < 0.001 * moistureFactor) {
         grid[ni] = RUST;
         tempGrid[i] += 10; // Leicht exotherm
+        aclAddNeighbors(nx, ny, 1);
       }
     }
     // Rost kann durch Wasserstoff reduziert werden (bei hoher Temperatur)
@@ -2746,6 +3752,8 @@ function explode(cx, cy, radius, isTNT) {
       const nx = cx + dx, ny = cy + dy;
       if (nx < 0 || nx >= W || ny < 0 || ny >= H) continue;
       const ni = ny * W + nx;
+      // Active Cell List: Explosions markieren alle betroffenen Zellen
+      aclAddNeighbors(nx, ny, 1);
       const mat = MATS[grid[ni]];
       if (!mat) continue;
       
@@ -2894,6 +3902,36 @@ function detonateTNT(x, y) {
 /**
  * THERMAL PHYSICS - coupled to sun cycle and seasons
  */
+/**
+ * WETTERSYSTEM UPDATE Phase 5.1
+ */
+function updateWeather() {
+  weatherTimer++;
+  
+  // Wetter ändert sich periodisch
+  if (weatherTimer >= weatherDuration) {
+    weatherTimer = 0;
+    weatherDuration = 1500 + Math.floor(rng() * 2000);
+    
+    // Saisonabhängige Wetterwahrscheinlichkeiten
+    const r = rng();
+    
+    if (season === 0) { // Frühling
+      weather = r < 0.4 ? 'rain' : 'clear';
+    } else if (season === 1) { // Sommer
+      weather = r < 0.15 ? 'storm' : (r < 0.25 ? 'rain' : 'clear');
+    } else if (season === 2) { // Herbst
+      weather = r < 0.5 ? 'rain' : 'clear';
+    } else { // Winter
+      weather = r < 0.35 ? 'snow' : (r < 0.55 ? 'rain' : 'clear');
+    }
+    
+    // Wind
+    windSpeed = weather === 'storm' ? 0.8 : (rng() < 0.3 ? 0.3 : 0.1);
+    windDirection = rng() < 0.5 ? 1 : -1;
+  }
+}
+
 function updateThermal(x, y, matId) {
   const i = y * W + x;
   const mat = MATS[matId];
@@ -3096,65 +4134,48 @@ function updateThermal(x, y, matId) {
 }
 
 /**
- * MAIN SIMULATION
+ * MAIN SIMULATION - Optimiert mit Active Cell List (Phase 1.1 + 1.3)
+ * Konsolidiert 5 Grid-Passes in 2 konsolidierte Passes über Active Cells
  */
 function simulate() {
   tick++;
+  // BUGFIX + PERF: Wake-Scan reaktiviert hängengebliebene Partikel, aber mit
+  // Ruhe-Backoff. Solange die Aktivliste lebt, läuft der Voll-Scan nur als
+  // seltenes Auffangnetz. Wird die Liste leer (ruhende Szene), prüfen wir, ob
+  // sich überhaupt noch etwas bewegen KANN – wenn nicht, vergrößern wir den
+  // Scan-Abstand exponentiell (bis ~64 Ticks). So bleibt eine ruhige Szene
+  // billig, ein neues Partikel/Mausstrich weckt sofort alles wieder auf.
+  if (grid && W && H) {
+    const basePeriod = N > 120000 ? 31 : (N > 40000 ? 15 : 7);
+    const listEmpty = activeCellsCount === 0;
+    const due = listEmpty ? (tick >= __nextScanTick) : ((tick & basePeriod) === 0);
+    if (due) {
+      const woke = wakeScan();
+      aclSwapBuffers();
+      if (woke === 0 && listEmpty) {
+        // Nichts Bewegliches/Lebendiges -> Szene ruht: Abstand vergrößern.
+        __quietScans = Math.min(__quietScans + 1, 6);
+        __nextScanTick = tick + (1 << __quietScans); // 2,4,8,...,64 Ticks
+      } else {
+        __quietScans = 0;
+        __nextScanTick = tick + 1;
+      }
+    }
+  }
   
   // Safety check to prevent crashes
   if (!grid || !tempGrid || !ageGrid || !W || !H) {
     return;
   }
   
+  // PERF-FIX: Der Spatial-Hash wurde früher jeden Tick über das GESAMTE Grid neu
+  // aufgebaut, aber von keiner Funktion abgefragt (spatialHashQuery/CountInRadius
+  // werden nirgends genutzt). Dieser Voll-Scan + die Map-Allokationen waren der
+  // größte Kostenpunkt pro Tick und wurden ersatzlos entfernt.
+
   // Wind direction changes occasionally
   if (windActive && rng() < 0.01) {
     windDir = rng() < 0.5 ? -1 : 1;
-  }
-  
-  // Process bottom-up for powders and liquids
-  for (let y = H - 1; y >= 0; y--) {
-    const reverse = rng() < 0.5;
-    const xStart = reverse ? W - 1 : 0;
-    const xEnd = reverse ? -1 : W;
-    const xStep = reverse ? -1 : 1;
-    
-    for (let x = xStart; x !== xEnd; x += xStep) {
-      const i = y * W + x;
-      const matId = grid[i];
-      if (matId === EMPTY) continue;
-      
-      const mat = MATS[matId];
-      if (!mat) continue;
-      
-      // Update thermal physics
-      updateThermal(x, y, matId);
-      
-      // Check chemical reactions
-      checkChemicalReactions(x, y, matId);
-      
-      // Material-specific updates
-      if (isPowder(matId)) {
-        updatePowder(x, y, matId);
-      } else if (isLiquid(matId)) {
-        updateLiquid(x, y, matId);
-      }
-    }
-  }
-  
-  // Process top-down for gases
-  for (let y = 0; y < H; y++) {
-    const reverse = rng() < 0.5;
-    const xStart = reverse ? W - 1 : 0;
-    const xEnd = reverse ? -1 : W;
-    const xStep = reverse ? -1 : 1;
-    
-    for (let x = xStart; x !== xEnd; x += xStep) {
-      const i = y * W + x;
-      const matId = grid[i];
-      if (!isGas(matId) && matId !== SMOKE && matId !== STEAM) continue;
-      
-      updateGas(x, y, matId);
-    }
   }
   
   // === Saison-System aktualisieren ===
@@ -3167,16 +4188,163 @@ function simulate() {
     seasonProgress = seasonTime / seasonLength;
   }
   
-  // Process plants and organic matter
-  for (let y = 0; y < H; y++) {
-    const reverse = rng() < 0.5;
-    const xStart = reverse ? W - 1 : 0;
-    const xEnd = reverse ? -1 : W;
-    const xStep = reverse ? -1 : 1;
+  // === WETTERSYSTEM Phase 5.1 ===
+  // Nur aktivieren, wenn Ökosystem aktiv ist
+  if (ecosystemActive) {
+    updateWeather();
     
-    for (let x = xStart; x !== xEnd; x += xStep) {
-      const i = y * W + x;
-      const matId = grid[i];
+    // Wettereffekte anwenden - Reduzierte Intensität für stabiles Ökosystem
+    if (weather === 'rain' || weather === 'storm') {
+      const intensity = weather === 'storm' ? 15 : 8; // Deutlich reduziert (war 80/120)
+      for (let i = 0; i < intensity; i++) {
+        const rx = Math.floor(rng() * W);
+        const ry = 0;
+        if (grid[ry * W + rx] === EMPTY) {
+          grid[ry * W + rx] = WATER;
+          tempGrid[ry * W + rx] = weather === 'storm' ? 8 : 15;
+          aclAddNeighbors(rx, ry, 1);
+        }
+      }
+      humidity = Math.min(100, humidity + 0.1); // Reduzierte Feuchtigkeitszunahme
+    } else if (weather === 'snow') {
+      // Schnee: Eis-Partikel von oben
+      for (let i = 0; i < 50; i++) {
+        const rx = Math.floor(rng() * W);
+        const ry = 0;
+        if (grid[ry * W + rx] === EMPTY) {
+          grid[ry * W + rx] = ICE;
+          tempGrid[ry * W + rx] = -5;
+          aclAddNeighbors(rx, ry, 1);
+        }
+      }
+      humidity = Math.min(100, humidity + 0.2);
+    }
+    
+    // Verdunstung bei klarem Wetter + Sonne
+    if (weather === 'clear' && sunIntensity > 0.5) {
+      for (let i = 0; i < 20; i++) {
+        const rx = Math.floor(rng() * W);
+        const ry = Math.floor(rng() * H);
+        const ri = ry * W + rx;
+        if (grid[ri] === WATER && tempGrid[ri] > 25 && rng() < 0.001 * sunIntensity) {
+          grid[ri] = STEAM;
+          tempGrid[ri] = 100;
+          aclAddNeighbors(rx, ry, 1);
+          humidity = Math.max(0, humidity - 0.05);
+        }
+      }
+    }
+  }
+  
+  // Manuelles Regen-Feuer (backward compatibility)
+  if (rainActive) {
+    for (let i = 0; i < 80; i++) {
+      const rx = Math.floor(rng() * W);
+      const ry = 0;
+      if (grid[ry * W + rx] === EMPTY) {
+        grid[ry * W + rx] = WATER;
+        tempGrid[ry * W + rx] = 18;
+        aclAddNeighbors(rx, ry, 1);
+      }
+    }
+  }
+  
+  // Fire rain effect
+  if (fireActive) {
+    for (let i = 0; i < 30; i++) {
+      const rx = Math.floor(rng() * W);
+      const ry = 0;
+      if (grid[ry * W + rx] === EMPTY) {
+        grid[ry * W + rx] = FIREBALL;
+        tempGrid[ry * W + rx] = 1000;
+        ageGrid[ry * W + rx] = 0;
+        aclAddNeighbors(rx, ry, 1);
+      }
+    }
+  }
+  
+  // === PASS 1: Bottom-Up (Powder, Liquid, Gas, Fireball, TNT) ===
+  // PERF: Counting-Sort der aktiven Zellen nach Y in wiederverwendete Puffer.
+  ensureSortBuffers();
+  __rowStart.fill(0, 0, H + 1);
+  // Zählen pro Reihe
+  let __valid = 0;
+  for (let i = 0; i < activeCellsCount; i++) {
+    const idx = activeCells[i];
+    const y = (idx - (idx % W)) / W;
+    if (y >= 0 && y < H) { __rowStart[y + 1]++; __valid++; }
+  }
+  // Präfixsumme -> CSR-Offsets
+  for (let y = 0; y < H; y++) { __rowStart[y + 1] += __rowStart[y]; __rowFill[y] = __rowStart[y]; }
+  // Einsortieren
+  for (let i = 0; i < activeCellsCount; i++) {
+    const idx = activeCells[i];
+    const y = (idx - (idx % W)) / W;
+    if (y >= 0 && y < H) __sortedCells[__rowFill[y]++] = idx;
+  }
+  
+  // Bottom-up: Process from H-1 to 0
+  for (let y = H - 1; y >= 0; y--) {
+    const s0 = __rowStart[y], s1 = __rowStart[y + 1];
+    if (s1 === s0) continue;
+    
+    for (let c = s0; c < s1; c++) {
+      const idx = __sortedCells[c];
+      const x = idx % W;
+      const matId = grid[idx];
+      
+      if (matId === EMPTY) continue;
+      
+      // Thermal physics
+      updateThermal(x, y, matId);
+      
+      // Chemical reactions
+      checkChemicalReactions(x, y, matId);
+      
+      // Material-specific physics
+      if (isPowder(matId)) {
+        updatePowder(x, y, matId);
+      } else if (isLiquid(matId)) {
+        updateLiquid(x, y, matId);
+      } else if (isGas(matId) || matId === SMOKE || matId === STEAM) {
+        updateGas(x, y, matId);
+      } else if (matId === FIREBALL) {
+        ageGrid[idx]++;
+        if (y + 1 < H && grid[(y + 1) * W + x] === EMPTY && rng() < 0.5) {
+          swap(x, y, x, y + 1);
+        } else if (rng() < 0.3) {
+          explode(x, y, 12, false);
+        }
+        if (ageGrid[idx] > 100) {
+          explode(x, y, 8, false);
+        }
+      } else if (matId === TNT) {
+        if (tempGrid[idx] > 300 || idx > 0 && grid[idx-1] === FIRE || idx < N-1 && grid[idx+1] === FIRE ||
+            idx >= W && grid[idx-W] === FIRE || idx < N-W && grid[idx+W] === FIRE ||
+            idx > 0 && grid[idx-1] === FIREBALL || idx < N-1 && grid[idx+1] === FIREBALL ||
+            idx >= W && grid[idx-W] === FIREBALL || idx < N-W && grid[idx+W] === FIREBALL) {
+          detonateTNT(x, y);
+        }
+        if (ageGrid[idx] > 10000 && rng() < 0.001) {
+          grid[idx] = ASH;
+          aclAddNeighbors(x, y, 1);
+        }
+      }
+    }
+  }
+  
+  // === PASS 2: Top-Down (Plants, Organic, Biology) ===
+  // PERF: gleiche sortierte Puffer wiederverwenden (von oben nach unten).
+  for (let y = 0; y < H; y++) {
+    const s0 = __rowStart[y], s1 = __rowStart[y + 1];
+    if (s1 === s0) continue;
+    
+    for (let c = s0; c < s1; c++) {
+      const idx = __sortedCells[c];
+      const x = idx % W;
+      const matId = grid[idx];
+      
+      if (matId === EMPTY) continue;
       
       // === Biologie-Erweiterung: Dispatch zu spezifischen Update-Funktionen ===
       if (matId === PLANT_SEED) {
@@ -3194,17 +4362,15 @@ function simulate() {
       } else if (matId === ROOT_SYSTEM) {
         updateRootSystem(x, y, matId);
       } else if (matId === POLLEN) {
-        // Pollen verfliegt
-        ageGrid[i]++;
-        if (ageGrid[i] > 30 || rng() < 0.05) {
-          grid[i] = EMPTY;
+        ageGrid[idx]++;
+        if (ageGrid[idx] > 30 || rng() < 0.05) {
+          grid[idx] = EMPTY;
         } else if (y > 0 && grid[(y - 1) * W + x] === EMPTY && rng() < 0.1) {
           swap(x, y, x, y - 1);
         }
       } else if (matId === PLANT_DEAD) {
         updatePlantDead(x, y, matId);
       } else if (isPlant(matId)) {
-        // Alte Pflanzen (PLANT, PLANT_FLOWER, PLANT_ROOT, PLANT_LEAF) - backward compatibility
         updatePlant(x, y, matId);
       } else if (matId === SPORE) {
         updateSpore(x, y, matId);
@@ -3212,76 +4378,10 @@ function simulate() {
         updateMold(x, y, matId);
       } else if (matId === BACTERIA) {
         updateBacteria(x, y, matId);
-      }
-    }
-  }
-  
-  // Rain effect
-  if (rainActive) {
-    for (let i = 0; i < 80; i++) {
-      const x = Math.floor(rng() * W);
-      if (grid[x] === EMPTY) {
-        grid[x] = WATER;
-        tempGrid[x] = 18;
-      }
-    }
-  }
-  
-  // Fire rain effect
-  if (fireActive) {
-    for (let i = 0; i < 30; i++) {
-      const x = Math.floor(rng() * W);
-      if (grid[x] === EMPTY) {
-        grid[x] = FIREBALL;
-        tempGrid[x] = 1000;
-        ageGrid[x] = 0;
-      }
-    }
-  }
-  
-  // Fireball physics
-  for (let y = 0; y < H; y++) {
-    for (let x = 0; x < W; x++) {
-      const i = y * W + x;
-      if (grid[i] === FIREBALL) {
-        ageGrid[i]++;
-        // Fireballs fall fast
-        if (y + 1 < H && grid[(y + 1) * W + x] === EMPTY && rng() < 0.5) {
-          swap(x, y, x, y + 1);
-        } else if (rng() < 0.3) {
-          // Explode on impact or after time
-          explode(x, y, 12, false);
-        }
-        if (ageGrid[i] > 100) {
-          explode(x, y, 8, false);
-        }
-      }
-    }
-  }
-  
-  // TNT physics - realistic detonation
-  for (let y = 0; y < H; y++) {
-    for (let x = 0; x < W; x++) {
-      const i = y * W + x;
-      if (grid[i] === TNT) {
-        // TNT detonates when:
-        // 1. Exposed to high temperature (>300°C)
-        // 2. Hit by fire or explosion
-        // 3. Hit by shock wave (adjacent explosion)
-        // 4. Struck by lightning (rare)
-        
-        if (tempGrid[i] > 300 || grid[i-1] === FIRE || grid[i+1] === FIRE ||
-            grid[i-W] === FIRE || grid[i+W] === FIRE ||
-            grid[i-1] === FIREBALL || grid[i+1] === FIREBALL ||
-            grid[i-W] === FIREBALL || grid[i+W] === FIREBALL) {
-          detonateTNT(x, y);
-          break;
-        }
-        
-        // TNT slowly degrades over very long time
-        if (ageGrid[i] > 10000 && rng() < 0.001) {
-          grid[i] = ASH; // Decomposes to harmless ash
-        }
+      } else if (matId === FLOWER_SEED) {
+        updateFlowerSeed(x, y, matId);
+      } else if (matId === MUSHROOM) {
+        updateMushroom(x, y, matId);
       }
     }
   }
@@ -3325,9 +4425,11 @@ function simulate() {
             // Set new seed types
             const seedType = rng();
             let seedMat;
-            if (seedType < 0.5) {
+            if (seedType < 0.3) {
+              seedMat = FLOWER_SEED;
+            } else if (seedType < 0.6) {
               seedMat = PLANT_SEED;
-            } else if (seedType < 0.8) {
+            } else if (seedType < 0.85) {
               seedMat = SEED_SUNFLOWER;
             } else {
               seedMat = SEED_WHEAT;
@@ -3335,36 +4437,75 @@ function simulate() {
             grid[ny * W + nx] = seedMat;
             plantTypeGrid[ny * W + nx] = Math.floor(rng() * 2) + 1;
             ageGrid[ny * W + nx] = 0;
+            plantStageGrid[ny * W + nx] = 0;
+            plantStageGrid[ny * W + nx] = 0;
+            plantStageGrid[ny * W + nx] = 0;
           }
         }
       }
       
-      // Some mature plants
-      if (rng() < 0.3) {
+      // BUGFIX: neu generierte Ökosystem-Zellen aktivieren.
+      for (let ay = -2; ay <= 8; ay++) {
+        for (let ax = -10; ax <= 10; ax++) {
+          aclAdd(px + ax, py + ay);
+        }
+      }
+
+      // Some mature trees (with proper structure: roots, trunk, canopy)
+      if (rng() < 0.2) {
         const mx = px + Math.floor(rng() * 10) - 5;
         const my = py - 1;
         if (mx >= 0 && mx < W && my >= 0 && my < H && grid[my * W + mx] === EMPTY) {
-          // Create a complete plant structure
-          grid[my * W + mx] = PLANT_MATURE;
-          plantTypeGrid[my * W + mx] = 1;
-          plantStageGrid[my * W + mx] = 3;
-          plantHealthGrid[my * W + mx] = 70 + rng() * 30;
-          plantSapGrid[my * W + mx] = 50 + rng() * 50;
-          plantIdGrid[my * W + mx] = nextPlantId++;
-          ageGrid[my * W + mx] = 0;
-          
-          // Add leaves
-          if (mx + 1 < W && grid[my * W + (mx + 1)] === EMPTY) {
-            grid[my * W + (mx + 1)] = LEAF_OAK;
-            plantTypeGrid[my * W + (mx + 1)] = 1;
-            plantHealthGrid[my * W + (mx + 1)] = 70;
-            ageGrid[my * W + (mx + 1)] = 0;
+          const treeId = nextPlantId++;
+          const height = 4 + Math.floor(rng() * 4); // 4-7 cells tall
+          const canopyRadius = 2 + Math.floor(rng() * 2); // 2-3 radius
+
+          // Roots (1-2 cells below ground)
+          for (let r = 0; r < 2; r++) {
+            const ry = my + 1 + r;
+            if (ry < H && grid[ry * W + mx] === DIRT) {
+              grid[ry * W + mx] = ROOT_SYSTEM;
+              plantTypeGrid[ry * W + mx] = 4; // Baum
+              plantStageGrid[ry * W + mx] = 1;
+              plantHealthGrid[ry * W + mx] = 80;
+              plantIdGrid[ry * W + mx] = treeId;
+              ageGrid[ry * W + mx] = 50 + r * 10;
+            }
           }
-          if (mx > 0 && grid[my * W + (mx - 1)] === EMPTY) {
-            grid[my * W + (mx - 1)] = LEAF_MAPLE;
-            plantTypeGrid[my * W + (mx - 1)] = 1;
-            plantHealthGrid[my * W + (mx - 1)] = 70;
-            ageGrid[my * W + (mx - 1)] = 0;
+
+          // Trunk (vertical line)
+          for (let ty = my; ty >= my - height + 1; ty--) {
+            if (ty < 0) break;
+            const ti = ty * W + mx;
+            if (grid[ti] !== EMPTY) continue;
+            grid[ti] = (ty >= my - 2) ? PLANT_MATURE : PLANT_STEM; // Bottom mature, top stem
+            plantTypeGrid[ti] = 4;
+            plantStageGrid[ti] = 1;
+            plantHealthGrid[ti] = 70 + rng() * 30;
+            plantSapGrid[ti] = 60;
+            plantIdGrid[ti] = treeId;
+            ageGrid[ti] = 80 + (my - ty) * 5;
+          }
+
+          // Canopy (leaves in circle around top)
+          const topY = my - height + 1;
+          for (let cy = topY - canopyRadius; cy <= topY + canopyRadius; cy++) {
+            for (let cx = mx - canopyRadius; cx <= mx + canopyRadius; cx++) {
+              if (cx < 0 || cx >= W || cy < 0 || cy >= H) continue;
+              const ci = cy * W + cx;
+              if (grid[ci] !== EMPTY) continue;
+              const dx = cx - mx, dy = cy - topY;
+              if (dx * dx + dy * dy > canopyRadius * canopyRadius) continue;
+              if (rng() < 0.7) { // Not fully solid
+                grid[ci] = (rng() < 0.6) ? LEAF_OAK : LEAF_MAPLE;
+                plantTypeGrid[ci] = 4;
+                plantHealthGrid[ci] = 70;
+                plantStageGrid[ci] = 1;
+                plantStageGrid[ci] = 1;
+                plantIdGrid[ci] = treeId;
+                ageGrid[ci] = 20;
+              }
+            }
           }
         }
       }
@@ -3374,7 +4515,7 @@ function simulate() {
   // === Sonnenzyklus-Simulation ===
   if (sunCycleEnabled) {
     sunCycleTime += sunCycleSpeed;
-    const cycleLength = 100; // Vollständiger Tag/Nacht-Zyklus
+    const cycleLength = 600; // Vollständiger Tag/Nacht-Zyklus (langsamer)
     const phase = (sunCycleTime % cycleLength) / cycleLength;
     isDaytime = phase < 0.5;
     
@@ -3406,6 +4547,9 @@ function simulate() {
       seasonIndicator.textContent = seasonNames[getCurrentSeason()];
     }
   }
+  
+  // Swap Active Cell List buffers für nächsten Tick
+  aclSwapBuffers();
 }
 
 /**
@@ -3644,6 +4788,27 @@ function render() {
       g = 165 + baseNoise;
       b = 32 + baseNoise;
     }
+
+    if (matId === FLOWER_SEED) {
+      // Blumen-Samen: warmes Braun
+      r = 180 + baseNoise;
+      g = 120 + baseNoise;
+      b = 60 + baseNoise;
+    }
+
+    if (matId === MUSHROOM) {
+      // Pilz: cremefarben mit Variation
+      const age = ageGrid[i];
+      if (age < 30) {
+        r = 230 + baseNoise;
+        g = 220 + baseNoise;
+        b = 200 + baseNoise;
+      } else {
+        r = 200 + baseNoise;
+        g = 180 + baseNoise;
+        b = 150 + baseNoise;
+      }
+    }
     
     if (matId === PLANT_FLOWER) {
       // Colorful flower
@@ -3716,37 +4881,38 @@ function render() {
  */
 function resize() {
   // Use user-settable grid width, calculate height based on aspect ratio
-  // Optimiert für Performance: Maximalgröße reduziert auf 320 (102.400 Zellen statt 250.000)
-  W = Math.max(320, targetGridWidth);
+  // Maximales Spielfeld: 1080x720 (777.600 Zellen)
+  const newW = Math.max(50, Math.min(1080, targetGridWidth));
   const aspectRatio = window.innerHeight / window.innerWidth;
-  H = Math.floor(W * aspectRatio);
+  const newH = Math.max(50, Math.min(720, Math.floor(newW * aspectRatio)));
   
-  // Clamp grid size für optimale Performance
-  W = Math.max(50, Math.min(320, W));
-  H = Math.max(50, Math.min(320, H));
-  
-  // Grid-Größe in UI aktualisieren
-  const gridSlider = document.getElementById("gridR");
-  if (gridSlider) {
-    gridSlider.max = "320";
-    gridSlider.value = Math.min(W, 320);
-  }
-  
-  N = W * H;
-  canvas.width = W;
-  canvas.height = H;
+  // Nur resize wenn sich die Größe tatsächlich geändert hat
+  if (newW === W && newH === H) return;
   
   // Preserve existing data if resizing
   const oldGrid = grid, oldTemp = tempGrid, oldAge = ageGrid;
+  const oldPh = phGrid, oldRad = radiationGrid;
+  const oldPlantType = plantTypeGrid, oldPlantStage = plantStageGrid;
+  const oldPlantHealth = plantHealthGrid, oldPlantSap = plantSapGrid;
+  const oldSoilNutrient = soilNutrientGrid, oldPlantWater = plantWaterGrid;
+  const oldPlantId = plantIdGrid, oldVelX = velXGrid, oldVelY = velYGrid;
+  const oldElectrical = electricalGrid, oldNitrogen = nitrogenGrid;
+  const oldPhosphorus = phosphorusGrid, oldPotassium = potassiumGrid;
+  const oldMycelium = myceliumGrid;
+  const oldColorSeed = colorSeedGrid;
   const oldW = W, oldH = H;
+  
+  W = newW;
+  H = newH;
+  N = W * H;
+  canvas.width = W;
+  canvas.height = H;
   
   grid = new Uint8Array(N);
   tempGrid = new Float32Array(N).fill(20);
   ageGrid = new Uint16Array(N);
   colorSeedGrid = new Uint16Array(N);
   phGrid = new Float32Array(N).fill(7.0);
-  soluteGrid = new Float32Array(N);
-  electricalGrid = new Float32Array(N);
   radiationGrid = new Float32Array(N);
   
   // === Biologie-Erweiterung: Neue Grid-Systeme ===
@@ -3758,12 +4924,40 @@ function resize() {
   plantWaterGrid = new Uint8Array(N);
   plantIdGrid = new Uint32Array(N);
   
+  // === IMPULS-FELDER Phase 3.3 ===
+  velXGrid = new Float32Array(N);
+  velYGrid = new Float32Array(N);
+  
+  // === ELEKTROLYSE-GRID Phase 4.2 ===
+  electricalGrid = new Float32Array(N);
+  
+  // === N-P-K NÄHRSTOFFSYSTEM Phase 5.1 ===
+  nitrogenGrid = new Uint8Array(N);
+  phosphorusGrid = new Uint8Array(N);
+  potassiumGrid = new Uint8Array(N);
+  
+  // === MYKORRIZA-GRID Phase 5.3 ===
+  myceliumGrid = new Uint8Array(N);
+  
+  // Grid-Größe in UI aktualisieren
+  const gridSlider = document.getElementById("gridR");
+  if (gridSlider) {
+    gridSlider.max = "1080";
+    gridSlider.value = Math.min(W, 1080);
+  }
+  
   // Initialisiere Bodennährstoffe für DIRT-Zellen
   for (let i = 0; i < N; i++) {
     if (grid[i] === DIRT) {
       soilNutrientGrid[i] = 50 + rng() * 30; // 50-80 Nährstoffe
+      nitrogenGrid[i] = Math.floor(40 + rng() * 40); // 40-80 Stickstoff
+      phosphorusGrid[i] = Math.floor(20 + rng() * 30); // 20-50 Phosphor
+      potassiumGrid[i] = Math.floor(30 + rng() * 35); // 30-65 Kalium
     }
   }
+  
+  // Initialisiere Spatial Hash Grid
+  spatialHashInit();
   
   // Copy old data to new grid
   if (oldGrid && oldGrid.length > 0) {
@@ -3776,6 +4970,23 @@ function resize() {
         grid[newIdx] = oldGrid[oldIdx];
         tempGrid[newIdx] = oldTemp ? oldTemp[oldIdx] : 20;
         ageGrid[newIdx] = oldAge ? oldAge[oldIdx] : 0;
+        colorSeedGrid[newIdx] = oldColorSeed ? oldColorSeed[oldIdx] : 0;
+        phGrid[newIdx] = oldPh ? oldPh[oldIdx] : 7.0;
+        radiationGrid[newIdx] = oldRad ? oldRad[oldIdx] : 0;
+        plantTypeGrid[newIdx] = oldPlantType ? oldPlantType[oldIdx] : 0;
+        plantStageGrid[newIdx] = oldPlantStage ? oldPlantStage[oldIdx] : 0;
+        plantHealthGrid[newIdx] = oldPlantHealth ? oldPlantHealth[oldIdx] : 50;
+        plantSapGrid[newIdx] = oldPlantSap ? oldPlantSap[oldIdx] : 50;
+        soilNutrientGrid[newIdx] = oldSoilNutrient ? oldSoilNutrient[oldIdx] : 0;
+        plantWaterGrid[newIdx] = oldPlantWater ? oldPlantWater[oldIdx] : 50;
+        plantIdGrid[newIdx] = oldPlantId ? oldPlantId[oldIdx] : 0;
+        velXGrid[newIdx] = oldVelX ? oldVelX[oldIdx] : 0;
+        velYGrid[newIdx] = oldVelY ? oldVelY[oldIdx] : 0;
+        electricalGrid[newIdx] = oldElectrical ? oldElectrical[oldIdx] : 0;
+        nitrogenGrid[newIdx] = oldNitrogen ? oldNitrogen[oldIdx] : 0;
+        phosphorusGrid[newIdx] = oldPhosphorus ? oldPhosphorus[oldIdx] : 0;
+        potassiumGrid[newIdx] = oldPotassium ? oldPotassium[oldIdx] : 0;
+        myceliumGrid[newIdx] = oldMycelium ? oldMycelium[oldIdx] : 0;
       }
     }
   }
@@ -3786,6 +4997,9 @@ function resize() {
     }
   }
   
+  // BUGFIX: nach Resize alle übernommenen Partikel reaktivieren.
+  aclSeedAllOccupied();
+
   img = ctx.createImageData(W, H);
   pix = img.data;
 }
@@ -3838,6 +5052,7 @@ function getPos(e) {
 }
 
 function paintAt(x, y) {
+  wakeReset(); // Eingabe -> Ruhe-Backoff sofort beenden, damit alles direkt reagiert.
   for (let dy = -bsz; dy <= bsz; dy++) {
     for (let dx = -bsz; dx <= bsz; dx++) {
       if (dx * dx + dy * dy > bsz * bsz) continue;
@@ -3850,12 +5065,34 @@ function paintAt(x, y) {
           grid[idx] = EMPTY;
           tempGrid[idx] = 20;
           ageGrid[idx] = 0;
+          phGrid[idx] = 7.0;
+          radiationGrid[idx] = 0;
+          plantTypeGrid[idx] = 0;
+          plantStageGrid[idx] = 0;
+          plantHealthGrid[idx] = 0;
+          plantSapGrid[idx] = 0;
+          plantWaterGrid[idx] = 0;
+          plantIdGrid[idx] = 0;
+          velXGrid[idx] = 0;
+          velYGrid[idx] = 0;
+          electricalGrid[idx] = 0;
+          myceliumGrid[idx] = 0;
         } else {
           grid[idx] = curMat;
           tempGrid[idx] = MATS[curMat].temp || 20;
           ageGrid[idx] = 0;
           phGrid[idx] = MATS[curMat].ph || 7.0;
+          // Initialisiere neue Grids für gemalte Zellen
+          if (isLiquid(curMat)) {
+            velXGrid[idx] = 0;
+            velYGrid[idx] = 0;
+          }
+          if (curMat === WATER) {
+            electricalGrid[idx] = MATS[curMat].electrical || 0;
+          }
         }
+        // Active Cell List: Gemalte Zellen + Nachbarn markieren
+        aclAddNeighbors(nx, ny, 1);
       }
     }
   }
@@ -3933,8 +5170,6 @@ function initUI() {
         if (tempGrid) tempGrid.fill(20);
         if (ageGrid) ageGrid.fill(0);
         if (phGrid) phGrid.fill(7.0);
-        if (soluteGrid) soluteGrid.fill(0);
-        if (electricalGrid) electricalGrid.fill(0);
         if (radiationGrid) radiationGrid.fill(0);
         // === Biologie-Erweiterung: Neue Grids zurücksetzen ===
         if (plantTypeGrid) plantTypeGrid.fill(0);
@@ -3944,6 +5179,15 @@ function initUI() {
         if (plantWaterGrid) plantWaterGrid.fill(0);
         if (plantIdGrid) plantIdGrid.fill(0);
         if (soilNutrientGrid) soilNutrientGrid.fill(0);
+        // === Neue Grids zurücksetzen ===
+        if (velXGrid) velXGrid.fill(0);
+        if (velYGrid) velYGrid.fill(0);
+        if (electricalGrid) electricalGrid.fill(0);
+        if (nitrogenGrid) nitrogenGrid.fill(0);
+        if (phosphorusGrid) phosphorusGrid.fill(0);
+        if (potassiumGrid) potassiumGrid.fill(0);
+        if (myceliumGrid) myceliumGrid.fill(0);
+        aclClear();
         nextPlantId = 1;
         season = 0;
         seasonTime = 0;
@@ -4053,10 +5297,27 @@ function initUI() {
       document.getElementById("pauseBtn").textContent = paused ? "Fortsetzen" : "Pause";
     }
     if (key === "c") {
-      grid.fill(EMPTY);
-      tempGrid.fill(20);
-      ageGrid.fill(0);
-      phGrid.fill(7.0);
+      if (grid) grid.fill(EMPTY);
+      if (tempGrid) tempGrid.fill(20);
+      if (ageGrid) ageGrid.fill(0);
+      if (phGrid) phGrid.fill(7.0);
+      if (radiationGrid) radiationGrid.fill(0);
+      if (plantTypeGrid) plantTypeGrid.fill(0);
+      if (plantStageGrid) plantStageGrid.fill(0);
+      if (plantHealthGrid) plantHealthGrid.fill(0);
+      if (plantSapGrid) plantSapGrid.fill(0);
+      if (plantWaterGrid) plantWaterGrid.fill(0);
+      if (plantIdGrid) plantIdGrid.fill(0);
+      if (soilNutrientGrid) soilNutrientGrid.fill(0);
+      if (velXGrid) velXGrid.fill(0);
+      if (velYGrid) velYGrid.fill(0);
+      if (electricalGrid) electricalGrid.fill(0);
+      if (nitrogenGrid) nitrogenGrid.fill(0);
+      if (phosphorusGrid) phosphorusGrid.fill(0);
+      if (potassiumGrid) potassiumGrid.fill(0);
+      if (myceliumGrid) myceliumGrid.fill(0);
+      aclClear();
+      nextPlantId = 1;
     }
     if (key === "h") document.getElementById("toggleUI").click();
     
@@ -4381,6 +5642,9 @@ function applyImageToGrid() {
     }
   }
   
+  // BUGFIX: importierte Zellen in die Aktivliste aufnehmen, sonst frieren sie ein.
+  aclSeedAllOccupied();
+
   // Update button state
   const playBtn = document.getElementById('playMappingBtn');
   if (playBtn) {
