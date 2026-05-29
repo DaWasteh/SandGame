@@ -90,9 +90,9 @@
       font-size: 10px;
       cursor: pointer;
       transition: all 0.2s;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      white-space: normal;
+      word-break: break-word;
+      line-height: 1.2;
     }
     button:hover { background: rgba(255,255,255,0.1); }
     button.active {
@@ -266,7 +266,7 @@
     <button id="rainBtn">Regen</button>
     <button id="fireBtn">Feuerregen</button>
     <button id="windBtn">Wind</button>
-    <button id="seedBtn">Ökosystem</button>
+    <button id="seedBtn">Ökosystem + Boden</button>
   </div>
 
   <div class="kbd-hint">
@@ -349,7 +349,7 @@ const MATS = {
   [BLOOD]:      { id: BLOOD,     name: "Blut", type: TYPE.LIQUID, color: [160,25,25], density: 10.5, melting: -5, boiling: 100, heatCapacity: 3.8, conductivity: 0.6, flammability: 0, ph: 7.4, electrical: 0.5, radioactivity: 0, viscosity: 1.5, surfaceTension: 0.65, organic: true },
   [EGGS]:       { id: EGGS,      name: "Eier", type: TYPE.LIQUID, color: [245,245,230], density: 9, melting: 62, boiling: 100, heatCapacity: 3.5, conductivity: 0.4, flammability: 0, ph: 8.0, electrical: 0.2, radioactivity: 0, viscosity: 2.0, surfaceTension: 0.55, organic: true, coagulationTemp: 62, raw: true },
   [BLOOD_ALKALI]: { id: BLOOD_ALKALI, name: "Lauge", type: TYPE.LIQUID, color: [180,100,200], density: 11, melting: -10, boiling: 110, heatCapacity: 3.8, conductivity: 0.9, flammability: 0, ph: 13.0, electrical: 0.7, radioactivity: 0, viscosity: 1.2, surfaceTension: 0.6 },
-  [HONEY]:      { id: HONEY,     name: "Honig", type: TYPE.LIQUID, color: [240,180,40], density: 1.4, melting: 50, boiling: 140, heatCapacity: 2.5, conductivity: 0.1, flammability: 0.2, ph: 3.9, electrical: 0.1, radioactivity: 0, viscosity: 10.0, surfaceTension: 0.5, organic: true, sugar: true },
+  [HONEY]:      { id: HONEY,     name: "Honig", type: TYPE.LIQUID, color: [240,180,40], density: 1.2, melting: 50, boiling: 140, heatCapacity: 2.5, conductivity: 0.1, flammability: 0.2, ph: 3.9, electrical: 0.1, radioactivity: 0, viscosity: 10.0, surfaceTension: 0.5, organic: true, sugar: true },
   [ALCOHOL]:    { id: ALCOHOL,   name: "Alkohol", type: TYPE.LIQUID, color: [200,220,255], density: 5, melting: -114, boiling: 78, heatCapacity: 2.5, conductivity: 0.1, flammability: 1.0, ph: 7.0, electrical: 0, radioactivity: 0, viscosity: 1.2, surfaceTension: 0.22 },
   [MERCURY]:    { id: MERCURY,   name: "Quecksilber", type: TYPE.LIQUID, color: [180,190,200], density: 135, melting: -39, boiling: 357, heatCapacity: 0.14, conductivity: 1.5, flammability: 0, ph: 7.0, electrical: 3.0, radioactivity: 0, viscosity: 1.5, surfaceTension: 1.5 },
   [SODA]:       { id: SODA,      name: "Natronlauge", type: TYPE.LIQUID, color: [200,255,200], density: 12, melting: -10, boiling: 140, heatCapacity: 3.5, conductivity: 1.0, flammability: 0, ph: 13.5, electrical: 1.0, radioactivity: 0, viscosity: 1.0, surfaceTension: 0.6 },
@@ -483,7 +483,7 @@ const MATS = {
     ph: 6.5, electrical: 0, radioactivity: 0, organic: true, mushroom: true
   },
   [TREE_WOOD]: {
-    id: TREE_WOOD, name: "Baum", type: TYPE.SOLID, color: [110,72,42], density: 60,
+    id: TREE_WOOD, name: "Baum", type: TYPE.SPECIAL, color: [110,72,42], density: 60,
     melting: 400, boiling: 700, heatCapacity: 1.6, conductivity: 0.12, flammability: 0.6,
     ph: 6.5, electrical: 0, radioactivity: 0, organic: true, tree: true
   },
@@ -550,6 +550,9 @@ let canvas, ctx, img, pix;
 let curMat = SAND, bsz = 5, spd = 5, paused = false;
 let targetGridWidth = 500; // Maximaler Startwert für Grid-Größe
 let rainActive = false, fireActive = false, windActive = false, windDir = 1;
+let windDirTimer = 0;
+let windDirDuration = 300;
+let windSpeedVariation = 0;
 let ecosystemActive = false;
 
 /**
@@ -965,8 +968,21 @@ function canDisplace(target, source) {
   // Liquids sink in powders if denser
   if (isLiquid(source) && isPowder(target)) return s.density > t.density * 0.5;
   
-  // Gases rise above everything
-  if (isGas(source) && (isLiquid(target) || isPowder(target) || isSolid(target))) return false;
+  // Liquids can flow through plant materials (permeable)
+  if (isLiquid(source) && isPlant(target)) return true;
+  
+  // === FLÜSSIGKEITEN FALLEN DURCH GASE (Flüssigkeiten sind immer dichter) ===
+  // Wasser, Öl, Säure etc. fallen durch Gas-Zellen hindurch nach unten
+  // Das Gas wird dabei nach oben verdrängt.
+  if (isLiquid(source) && isGas(target)) return true;
+  
+  // === GASE STEIGEN DURCH FLÜSSIGKEITEN NUR WENN SICHT LEICHTER ===
+  // Leichte Gase (H₂, O₂, Steams) steigen durch Flüssigkeiten auf
+  // Schwere Gase (Cl₂, CO₂) sinken durch Flüssigkeiten oder bleiben liegen
+  if (isGas(source) && isLiquid(target)) return s.density < t.density;
+  
+  // Gase können nicht durch Feststoffe oder Pulver dringen
+  if (isGas(source) && (isPowder(target) || isSolid(target))) return false;
   
   // Fire rises through everything
   if (source === FIRE) return true;
@@ -1016,10 +1032,9 @@ function swap(x1, y1, x2, y2) {
 
 function tryMove(x, y, tx, ty, matId) {
   if (tx < 0 || tx >= W || ty < 0 || ty >= H) {
-    // OFFENE RÄNDER: Boden ist offen -> fallende Stoffe verlassen unten die
-    // Simulation. Gase verlassen oben. Seiten sind offen für Wind-Advektion.
+    // OFFENE RÄNDER:
+    // Unten: Pulver/Flüssigkeit/Gas/Feuer fallen hinaus.
     if (ty >= H) {
-      // Unten offen: Pulver/Flüssigkeit/Gas/Feuer fallen/fliessen hinaus.
       if (isPowder(matId) || isLiquid(matId) || isGas(matId) ||
           matId === FIRE || matId === STEAM || matId === SMOKE || matId === FIREBALL ||
           matId === CLOUD || matId === SPORE || matId === POLLEN ||
@@ -1028,17 +1043,21 @@ function tryMove(x, y, tx, ty, matId) {
       }
       return false;
     }
+    // Oben: Gase entweichen.
     if (ty < 0 && (isGas(matId) || matId === STEAM || matId === SMOKE || matId === CLOUD || matId === FIRE)) {
-      // Oben offen: Gase entweichen.
       grid[y * W + x] = EMPTY; aclAddNeighbors(x, y, 1); return true;
     }
-    if ((tx < 0 || tx >= W) && windActive) {
-      // Seiten offen NUR bei aktivem Wind: leichte Stoffe werden hinausgeweht.
-      if (isGas(matId) || matId === SMOKE || matId === STEAM || matId === CLOUD ||
-          matId === SPORE || matId === POLLEN || matId === FIRE ||
-          matId === PLANT_SEED || matId === FLOWER_SEED) {
+    // Seiten: IMMER offen für fließende Stoffe (Wasser, Sand, Pulver, Gase) –
+    // damit Wasser seitlich ablaufen kann.
+    if (tx < 0 || tx >= W) {
+      if (isLiquid(matId) || isPowder(matId) || isGas(matId) ||
+          matId === FIRE || matId === STEAM || matId === SMOKE ||
+          matId === CLOUD || matId === SPORE || matId === POLLEN ||
+          matId === PLANT_SEED || matId === FLOWER_SEED ||
+          matId === SEED_SUNFLOWER || matId === SEED_WHEAT) {
         grid[y * W + x] = EMPTY; aclAddNeighbors(x, y, 1); return true;
       }
+      return false;
     }
     return false;
   }
@@ -1060,7 +1079,17 @@ function updatePowder(x, y, matId) {
   // aus der Welt – nicht aber eine ruhende, zusammenhängende Bodenschicht
   // (gezeichneter Boden bleibt 'echter Boden'). Kriterium: ist die Zelle darüber
   // leer/luftig, handelt es sich um ein einzelnes fallendes Korn -> fällt hinaus.
+  // AUSNAHME: Samen/Sporen auf geeignetem Boden (Erde/Sand) bleiben liegen!
   if (y === H - 1) {
+    const below = grid[y * W + x]; // Das Material selbst
+    const onGround = (below === DIRT || below === SAND || below === SAND_WET || below === SAND_DARK || below === STONE || below === WALL || below === GRAVEL);
+    // Samen/Sporen/Bakterien auf Boden -> bleiben
+    const isSeedLike = (matId === PLANT_SEED || matId === FLOWER_SEED || matId === SEED_SUNFLOWER ||
+                        matId === SEED_WHEAT || matId === SPORE || matId === POLLEN ||
+                        matId === BACTERIA || matId === MUSHROOM);
+    if (isSeedLike && onGround) {
+      return false; // Samen auf Boden bleibt liegen
+    }
     const above = grid[(y - 1) * W + x];
     if (above === EMPTY || isGas(above) || above === WATER) {
       if (rng() < 0.85) { grid[i] = EMPTY; aclAddNeighbors(x, y, 1); }
@@ -1197,7 +1226,11 @@ function updatePowder(x, y, matId) {
 function updateLiquid(x, y, matId) {
   const i = y * W + x;
   const mat = MATS[matId];
-  const viscosity = mat.viscosity || 1.0;
+  let viscosity = mat.viscosity || 1.0;
+  // FIX: Sehr heiße Lava fließt schneller (niedrigere effektive Viskosität)
+  const temp = tempGrid[i];
+  if (temp > 900) viscosity = Math.max(1.0, viscosity * 0.15);
+  else if (temp > 700) viscosity = Math.max(1.0, viscosity * 0.4);
   const prob = Math.max(0.1, 1.0 - viscosity * 0.1);
 
   // OFFENER BODEN: Flüssigkeit fließt an der untersten Reihe IMMER aus der Welt.
@@ -1226,108 +1259,93 @@ function updateLiquid(x, y, matId) {
   }
   
   // === TEMPERATUR-PRÜFUNG: Bei Siedetemperatur wird Flüssigkeit zu Dampf ===
-  const temp = tempGrid[i];
   const boilTemp = mat.boiling || 100;
-  if (temp >= boilTemp) {
+  if (tempGrid[i] >= boilTemp) {
     grid[i] = STEAM;
     tempGrid[i] = boilTemp + 10;
     aclAddNeighbors(x, y, 2);
     return true;
   }
   
-  // === KORREKTE FLÜSSIGKEITS_PHYSIK ===
-  // Flüssigkeiten fallen NACH UNTEN und breiten sich SEITLICH aus
-  // KEIN Aufsteigen (ausser bei Dampf - das ist eine Gas-Funktion)
-  
-  // Zufällige seitliche Richtung für natürliche Ausbreitung
+  // === Gas-Verdrängung: Gas ZELLE über der Flüssigkeit nach oben schieben ===
+  // Das ist NÖTIG, weil tryMove nur eine Zelle bewegt – wenn direkt über
+  // der Flüssigkeit Gas liegt, kann tryMove nicht fallen (Zelle unten ist Gas,
+  // aber tryMove würde nur swap(x,y,x,y+1) machen und das Gas wäre immer noch
+  // über der Flüssigkeit). Stattdessen: Gas nach oben verdrängen.
   const dir = rng() < 0.5 ? -1 : 1;
-  
+  if (y > 0 && isGas(grid[(y - 1) * W + x])) {
+    const gasAbove = grid[(y - 1) * W + x];
+    // Gas nach oben schieben (1 Zelle)
+    if (y - 2 >= 0) {
+      const above = grid[(y - 2) * W + x];
+      if (isEmpty(above) || isGas(above)) {
+        grid[(y - 2) * W + x] = gasAbove;
+        tempGrid[(y - 2) * W + x] = tempGrid[(y - 1) * W + x];
+        ageGrid[(y - 2) * W + x] = ageGrid[(y - 1) * W + x];
+        grid[(y - 1) * W + x] = above === EMPTY ? EMPTY : gasAbove;
+        if (isEmpty(above)) {
+          grid[(y - 1) * W + x] = EMPTY;
+        } else {
+          // Gas stapelt sich – das ist ok, es wird im Gas-Pass aufsteigen
+        }
+        aclAddNeighbors(x, y - 2, 1);
+        aclAddNeighbors(x, y - 1, 1);
+      } else if (canDisplace(above, gasAbove)) {
+        // Swap gas with whatever is above
+        grid[(y - 1) * W + x] = above;
+        grid[(y - 2) * W + x] = gasAbove;
+        aclAddNeighbors(x, y - 2, 1);
+        aclAddNeighbors(x, y - 1, 1);
+      }
+    }
+  }
+
   // 1. Direkt nach unten fallen (Hauptbewegung)
   if (y + 1 < H) {
     const below = grid[(y + 1) * W + x];
-    // Flüssigkeiten können in leere Zellen ODER in Gase fallen (Gase sind leichter)
-    if (isEmpty(below) || isGas(below)) {
-      if (tryMove(x, y, x, y + 1, matId)) {
-        // Wenn wir durch Gas gefallen sind, das Gas nach oben bewegen
-        if (isGas(below)) {
-          aclAddNeighbors(x, y + 1, 1);
-        }
-        return true;
+    if (isEmpty(below) || isGas(below) || isPlant(below)) {
+      if (tryMove(x, y, x, y + 1, matId)) return true;
+    }
+
+    // 2. Mehrzeller-Fall: Wenn direkt unten ein Blatt ist, aber darunter frei,
+    //    dann durchbricht der Tropfen die Blätter (Regen fällt durch Kronen).
+    if (isPlant(below) && y + 2 < H) {
+      const below2 = grid[(y + 2) * W + x];
+      if (isEmpty(below2) || isGas(below2)) {
+        // Tropfen fällt durch das Blatt hindurch
+        if (tryMove(x, y, x, y + 2, matId)) return true;
       }
     }
-    
-    // 2. Diagonal nach unten links/rechts (zur Seite rutschen)
-    // Zufällige Richtung priorisieren
-    if (rng() < 0.5) {
-      const d1 = dir, d2 = -dir;
+
+    // 3. Diagonal nach unten links/rechts
+    const dirs = [dir, -dir];
+    if (rng() < 0.5) dirs.reverse();
+    for (const d of dirs) {
       if (y + 1 < H) {
-        if (grid[(y + 1) * W + (x + d1)] === EMPTY || isGas(grid[(y + 1) * W + (x + d1)])) {
-          if (tryMove(x, y, x + d1, y + 1, matId)) {
-            if (isGas(grid[(y + 1) * W + (x + d1)])) {
-              aclAddNeighbors(x + d1, y + 1, 1);
-            }
-            return true;
-          }
-        }
-        if (grid[(y + 1) * W + (x + d2)] === EMPTY || isGas(grid[(y + 1) * W + (x + d2)])) {
-          if (tryMove(x, y, x + d2, y + 1, matId)) {
-            if (isGas(grid[(y + 1) * W + (x + d2)])) {
-              aclAddNeighbors(x + d2, y + 1, 1);
-            }
-            return true;
-          }
-        }
-      }
-    } else {
-      const d1 = -dir, d2 = dir;
-      if (y + 1 < H) {
-        if (grid[(y + 1) * W + (x + d1)] === EMPTY || isGas(grid[(y + 1) * W + (x + d1)])) {
-          if (tryMove(x, y, x + d1, y + 1, matId)) {
-            if (isGas(grid[(y + 1) * W + (x + d1)])) {
-              aclAddNeighbors(x + d1, y + 1, 1);
-            }
-            return true;
-          }
-        }
-        if (grid[(y + 1) * W + (x + d2)] === EMPTY || isGas(grid[(y + 1) * W + (x + d2)])) {
-          if (tryMove(x, y, x + d2, y + 1, matId)) {
-            if (isGas(grid[(y + 1) * W + (x + d2)])) {
-              aclAddNeighbors(x + d2, y + 1, 1);
-            }
-            return true;
-          }
+        const diag = grid[(y + 1) * W + (x + d)];
+        if (isEmpty(diag) || isGas(diag) || isPlant(diag)) {
+          if (tryMove(x, y, x + d, y + 1, matId)) return true;
         }
       }
     }
   }
-  
-  // 3. Seitliche Bewegung (breiten sich aus, wenn sie auf Boden treffen)
-  // Flüssigkeiten fließen horizontal wenn sie nicht mehr fallen können
-  if (grid[y * W + (x + dir)] === EMPTY || isGas(grid[y * W + (x + dir)])) {
-    if (tryMove(x, y, x + dir, y, matId)) {
-      if (isGas(grid[y * W + (x + dir)])) {
-        aclAddNeighbors(x + dir, y, 1);
-      }
-      return true;
-    }
+
+  // 3. Seitliche Bewegung
+  if (grid[y * W + (x + dir)] === EMPTY || isGas(grid[y * W + (x + dir)]) || isPlant(grid[y * W + (x + dir)])) {
+    if (tryMove(x, y, x + dir, y, matId)) return true;
   }
-  if (grid[y * W + (x - dir)] === EMPTY || isGas(grid[y * W + (x - dir)])) {
-    if (tryMove(x, y, x - dir, y, matId)) {
-      if (isGas(grid[y * W + (x - dir)])) {
-        aclAddNeighbors(x - dir, y, 1);
-      }
-      return true;
-    }
+  if (grid[y * W + (x - dir)] === EMPTY || isGas(grid[y * W + (x - dir)]) || isPlant(grid[y * W + (x - dir)])) {
+    if (tryMove(x, y, x - dir, y, matId)) return true;
   }
-  
-  // Surface tension: liquids tend to stick together
+
+  // Surface tension (reduziert für Regen/Tropfen - damit Wasser nicht als Block stecken bleibt)
   if (mat.surfaceTension > 0.5 && y + 1 < H && x > 0 && x < W - 1) {
     if (grid[y * W + x - 1] === matId && grid[y * W + x + 1] === matId) {
-      // Surrounded horizontally, less likely to flow
-      if (rng() > mat.surfaceTension * 0.3) return false;
+      // Nur bei hoher Oberflächenspannung und nur 10% der Zeit - Tropfen zerfallen
+      if (rng() > 0.1) return false;
     }
   }
-  
+
   return false;
 }
 
@@ -1338,7 +1356,7 @@ function updateLiquid(x, y, matId) {
  */
 function updateGas(x, y, matId) {
   const mat = MATS[matId];
-  const buoyancy = mat.buodyancy ?? mat.buoyancy ?? 0;
+  const buoyancy = mat.buoyancy ?? 0;
   const i = y * W + x;
   const temp = tempGrid[i];
 
@@ -1462,8 +1480,9 @@ function updateGas(x, y, matId) {
 
   // Wind effect (stronger on light gases, weaker on heavy)
   if (windActive && x + windDir >= 0 && x + windDir < W) {
-    const windStrength = isHeavy ? 0.25 : 0.6;
-    if (rng() < windStrength) {
+    const windStrength = isHeavy ? 0.2 : (isLight ? 0.7 : 0.4);
+    const effectiveStrength = Math.max(0.05, windStrength + windSpeedVariation);
+    if (rng() < effectiveStrength) {
       if (tryMove(x, y, x + windDir, y, matId)) return true;
     }
   }
@@ -1521,7 +1540,7 @@ function updatePlant(x, y, matId) {
     const supported = below !== EMPTY && !isGas(below) && below !== WATER;
     if (!supported && !plantConnectedToGround(x, y)) {
       // taumelnd nach unten fallen
-      if (rng() < 0.5) { const d = rng() < 0.5 ? -1 : 1; if (tryMove(x, y, x + d, y + 1, matId)) return; }
+      if (rng() < 0.85) { const d = rng() < 0.5 ? -1 : 1; if (tryMove(x, y, x + d, y + 1, matId)) return; }
       if (tryMove(x, y, x, y + 1, matId)) return;
     }
   }
@@ -1762,11 +1781,12 @@ function updatePlant(x, y, matId) {
       ageGrid[(y + 1) * W + x] = 0;
     }
 
-    // Side branching - very limited to avoid "bush" effect
+    // Side branching - NUR am oberen Ende (nicht am ganzen Stamm entlang)
     if (ageGrid[i] > 30 && ageGrid[i] % 10 === 0 && rng() < 0.0015) {
-      const dir = rng() < 0.5 ? -1 : 1;
-      if (x + dir >= 0 && x + dir < W && grid[y * W + (x + dir)] === EMPTY) {
-        if (y > 0 && (grid[(y - 1) * W + x] === PLANT || grid[(y - 1) * W + x] === EMPTY)) {
+      // Nur wenn oben frei (wir sind am Stammende)
+      if (y > 0 && grid[(y - 1) * W + x] === EMPTY) {
+        const dir = rng() < 0.5 ? -1 : 1;
+        if (x + dir >= 0 && x + dir < W && grid[y * W + (x + dir)] === EMPTY) {
           grid[y * W + (x + dir)] = PLANT;
           ageGrid[y * W + (x + dir)] = Math.max(1, ageGrid[i] - 3);
         }
@@ -1794,8 +1814,8 @@ function updatePlant(x, y, matId) {
       }
     }
     
-    // Flowers fall if unsupported, but slowly
-    if (falling && y + 1 < H && grid[(y + 1) * W + x] === EMPTY && rng() < 0.03) {
+    // Flowers fall if unsupported
+    if (falling && y + 1 < H && grid[(y + 1) * W + x] === EMPTY && rng() < 0.8) {
       swap(x, y, x, y + 1);
       return;
     }
@@ -1872,21 +1892,21 @@ function updatePlant(x, y, matId) {
       }
     }
     
-    // === SPOREN-BEWEGUNG ===
-    // Sporen sind leicht und steigen auf (wie real airborne Sporen)
-    // But also drift randomly
-    if (y - 1 >= 0 && rng() < 0.15) {
-      if (tryMove(x, y, x, y - 1, matId)) return;
+    // === SPOREN-BEWEGUNG: erst fallen, dann aufsteigen ===
+    // Sporen sind leicht, aber fallen langsam und werden vom Wind erfasst
+    if (y + 1 < H && rng() < 0.12) {
+      if (tryMove(x, y, x, y + 1, matId)) return;
       const dir = rng() < 0.5 ? -1 : 1;
-      if (tryMove(x, y, x + dir, y - 1, matId)) return;
-      if (tryMove(x, y, x - dir, y - 1, matId)) return;
+      if (tryMove(x, y, x + dir, y + 1, matId)) return;
     }
-    
-    // Seitliche Drift (Wind-Effekt) - more frequent
-    if (rng() < 0.1) {
+    // Auftrieb: gelegentlich steigen sie leicht
+    if (y - 1 >= 0 && rng() < 0.06) {
+      if (tryMove(x, y, x, y - 1, matId)) return;
+    }
+    // Seitliche Drift (Wind-Effekt)
+    if (rng() < 0.08) {
       const dir = rng() < 0.5 ? -1 : 1;
       if (tryMove(x, y, x + dir, y, matId)) return;
-      if (tryMove(x, y, x - dir, y, matId)) return;
     }
     
     // Bei hoher Feuchtigkeit werden Sporen schwerer und sinken
@@ -2471,7 +2491,7 @@ function maxPlantHeight(plantType) {
     case 1: return 6;    // Blume: niedrig
     case 2: return 4;    // Gras: sehr niedrig
     case 3: return 3;    // Pilz
-    case 4: return 26;   // Baum: hoch
+    case 4: return 30;   // Baum: hoch (30 Pixel)
     default: return 8;
   }
 }
@@ -2498,7 +2518,8 @@ function plantConnectedToGround(x, y) {
     const ny = y + dy;
     if (ny >= H) return false;
     const m = grid[ny * W + x];
-    if (m === PLANT || m === PLANT_STEM || m === PLANT_MATURE || m === PLANT_SPROUT) {
+    if (m === PLANT || m === PLANT_STEM || m === PLANT_MATURE || m === PLANT_SPROUT ||
+        m === TREE_WOOD) {
       gaps = 0; // Stamm setzt sich fort
     } else if (m === DIRT || m === SAND || m === SAND_WET || m === SAND_DARK ||
                m === ROOT_SYSTEM || m === PLANT_ROOT) {
@@ -2536,20 +2557,20 @@ function updatePlantSeed(x, y, matId) {
     }
   }
   
-  // Samen braucht Erde/Sand darunter
+  // Samen braucht Erde/Sand/Stein darunter
   let onSuitableGround = false;
   if (y + 1 < H) {
     const below = grid[(y + 1) * W + x];
-    onSuitableGround = (below === DIRT || below === SAND_WET || below === SAND || below === SAND_DARK);
+    onSuitableGround = (below === DIRT || below === SAND_WET || below === SAND || below === SAND_DARK || below === STONE || below === WALL || below === GRAVEL);
   }
   
-  // Keimung: Samen wird zum Keimling (beschleunigt)
-  if (onSuitableGround && moistureLevel >= 2) {
-    const germinationChance = 0.02 * getSeasonGrowthFactor(); // Beschleunigt
+  // Keimung: Samen wird zum Keimling (verbessert)
+  if (onSuitableGround && moistureLevel >= 1) {
+    const germinationChance = 0.03 * getSeasonGrowthFactor();
     const temp = tempGrid[i];
-    if (temp >= 10 && temp <= 30 && ageGrid[i] > 5 && rng() < germinationChance) {
+    if (temp >= 5 && temp <= 40 && ageGrid[i] > 3 && rng() < germinationChance) {
       grid[i] = PLANT_SPROUT;
-      plantTypeGrid[i] = rng() < 0.5 ? 1 : 2; // Blume oder Gras
+      plantTypeGrid[i] = rng() < 0.5 ? 1 : 2;
       plantStageGrid[i] = 1;
       plantHealthGrid[i] = 60;
       plantIdGrid[i] = nextPlantId++;
@@ -2663,15 +2684,26 @@ function growThickStem(x, y, i) {
   }
 }
 
-// Hilfsfunktion: Verzweigungssystem (nur am oberen Teil des Baums)
+// Hilfsfunktion: Verzweigungssystem (NUR am oberen Teil des Baums)
 function growBranches(x, y, i) {
   const age = ageGrid[i];
   if (age < 60) return;
   if (plantHealthGrid[i] < 40) return;
   // Sehr selten: nur bei erwachsenen Bäumen
   if (plantStageGrid[i] < 3) return;
-  if (age % 20 !== 0) return;
-  if (rng() > 0.005 * getSeasonGrowthFactor()) return;
+  if (age % 30 !== 0) return; // Weniger häufig
+  if (rng() > 0.003 * getSeasonGrowthFactor()) return; // Reduzierte Chance
+  // Nur im oberen Drittel des Stamms
+  let depth = 0;
+  for (let dy = 1; dy <= 15; dy++) {
+    if (y + dy >= H) break;
+    const below = grid[(y + dy) * W + x];
+    if (below === PLANT_STEM || below === PLANT_MATURE || below === ROOT_SYSTEM)
+      depth++;
+    else
+      break;
+  }
+  if (depth > 6) return; // Zu tief im Stamm → kein Ast hier
 
   const dir = rng() < 0.5 ? -1 : 1;
   // Ast wächst seitlich und leicht nach oben
@@ -2688,20 +2720,34 @@ function growBranches(x, y, i) {
   ageGrid[ay * W + ax] = 0;
 }
 
-// Hilfsfunktion: Baumkrone (nur am oberen Teil, über dem Stamm)
+// Hilfsfunktion: Baumkrone (NUR am oberen Teil des Stamms, über dem Stamm)
 function growCanopy(x, y, i) {
   const age = ageGrid[i];
   if (age < 80) return;
   if (plantHealthGrid[i] < 40) return;
   if (plantStageGrid[i] < 3) return;
-  // Radius basierend auf Baumgröße (max 4)
-  const radius = Math.min(4, 1 + Math.floor(age / 100));
-  // Sehr selten
-  if (age % 15 !== 0) return;
-  if (rng() > 0.008 * getSeasonGrowthFactor()) return;
+  // Prüfe: Nur wenn diese Zelle im oberen Drittel des Stamms liegt.
+  // Ohne diese Prüfung wächst die Krone am gesamten Stamm entlang →
+  // "Lindner Pyramide" (Krone unten, Spitze oben).
+  let depth = 0;
+  for (let dy = 1; dy <= 15; dy++) {
+    if (y + dy >= H) break;
+    const below = grid[(y + dy) * W + x];
+    if (below === PLANT_STEM || below === PLANT_MATURE || below === ROOT_SYSTEM)
+      depth++;
+    else
+      break;
+  }
+  if (depth > 6) return; // Zu tief im Stamm → keine Krone hier
+  // Radius basierend auf Baumgröße (max 3, reduziert)
+  const radius = Math.min(3, 1 + Math.floor(age / 150));
+  // Sehr selten - reduzierte Frequenz
+  if (age % 20 !== 0) return;
+  if (rng() > 0.004 * getSeasonGrowthFactor()) return;
 
   // Blätter nur in einem Halbkreis über dem Stamm (nicht seitlich)
-  for (let attempt = 0; attempt < 2; attempt++) {
+  // Reduziert von 2 auf 1 Versuch
+  for (let attempt = 0; attempt < 1; attempt++) {
     const angle = -Math.PI + rng() * Math.PI; // Oben
     const dist = 1 + Math.floor(rng() * radius);
     const lx = x + Math.round(Math.cos(angle) * dist);
@@ -2845,15 +2891,18 @@ function updatePlantMature(x, y, matId) {
     }
   }
 
-  // Ab und zu noch Blätter am Stamm (selten)
+  // Ab und zu noch Blätter am Stamm (NUR oben, selten)
   if (ageGrid[i] > 30 && rng() < 0.002 * getSeasonGrowthFactor()) {
-    const dir = rng() < 0.5 ? -1 : 1;
-    if (x + dir >= 0 && x + dir < W && grid[y * W + (x + dir)] === EMPTY) {
-      grid[y * W + (x + dir)] = LEAF_OAK;
-      plantTypeGrid[y * W + (x + dir)] = plantTypeGrid[i];
-      plantHealthGrid[y * W + (x + dir)] = plantHealthGrid[i];
-      plantIdGrid[y * W + (x + dir)] = plantIdGrid[i];
-      ageGrid[y * W + (x + dir)] = 0;
+    // Nur wenn oben frei (am oberen Ende des Stamms)
+    if (y > 0 && grid[(y - 1) * W + x] === EMPTY) {
+      const dir = rng() < 0.5 ? -1 : 1;
+      if (x + dir >= 0 && x + dir < W && grid[y * W + (x + dir)] === EMPTY) {
+        grid[y * W + (x + dir)] = LEAF_OAK;
+        plantTypeGrid[y * W + (x + dir)] = plantTypeGrid[i];
+        plantHealthGrid[y * W + (x + dir)] = plantHealthGrid[i];
+        plantIdGrid[y * W + (x + dir)] = plantIdGrid[i];
+        ageGrid[y * W + (x + dir)] = 0;
+      }
     }
   }
 
@@ -2874,7 +2923,7 @@ function updatePlantMature(x, y, matId) {
 }
 
 // --- updateFlower(): Blütensystem mit Bestäubung ---
-// --- updateTree(): Baum wächst in Höhe & Breite, bildet Äste, altert ---
+// --- updateTree(): Baum wächst rechteckig - 5px hoch, dann 1px links/rechts, Äste alle 7 Reihen ---
 function updateTree(x, y, matId) {
   const i = y * W + x;
   ageGrid[i]++;
@@ -2889,82 +2938,195 @@ function updateTree(x, y, matId) {
   const tip = (y > 0 && grid[(y - 1) * W + x] === EMPTY);
   // aktuelle Höhe über Boden
   const stackH = plantStackHeight(x, y);
-  const maxH = maxPlantHeight(4);
+  const maxH = maxPlantHeight(4); // Maximale Baumhöhe (30 Pixel)
 
-  // 1) HÖHE: nur die Spitze wächst nach oben, mit Bodenverbindung & Limit.
+  // 1) HÖHENWACHSTUM: Spitze wächst in Batches von 5 Pixeln
   if (tip && plantStageGrid[i] < 3 && stackH < maxH && plantConnectedToGround(x, y) &&
       health > 0.3) {
-    const rate = 0.02 * health * (0.6 + sun * 0.6) * season;
-    if (rng() < rate) {
-      const ti = (y - 1) * W + x;
-      grid[ti] = TREE_WOOD;
-      plantTypeGrid[ti] = 4; plantStageGrid[ti] = 2;
-      plantHealthGrid[ti] = plantHealthGrid[i]; plantIdGrid[ti] = plantIdGrid[i];
-      plantSapGrid[ti] = plantSapGrid[i]; ageGrid[ti] = 0;
-      colorSeedGrid[ti] = (colorSeedGrid[i] + 53) % 1000;
-      aclAddNeighbors(x, y - 1, 1);
-      // erreichte Höhe -> Spitze reift aus
+    // Zähle zusammenhängende Holzzellen unter dieser Position
+    let consecutiveUp = 0;
+    for (let dy = 1; dy <= 5; dy++) {
+      if (y - dy >= 0 && grid[(y - dy) * W + x] === TREE_WOOD) consecutiveUp++;
+      else break;
+    }
+    // Wächst nur wenn 5 Pixel am Stück verfügbar
+    const rate = 0.06 * health * (0.6 + sun * 0.6) * season;
+    if (consecutiveUp >= 4 && rng() < rate) {
+      // Wachs 5 Pixel hoch
+      for (let dy = 1; dy <= 5; dy++) {
+        const ty = y - dy;
+        if (ty >= 0 && grid[ty * W + x] === EMPTY) {
+          grid[ty * W + x] = TREE_WOOD;
+          plantTypeGrid[ty * W + x] = 4;
+          plantStageGrid[ty * W + x] = 2;
+          plantHealthGrid[ty * W + x] = plantHealthGrid[i];
+          plantIdGrid[ty * W + x] = plantIdGrid[i];
+          plantSapGrid[ty * W + x] = plantSapGrid[i];
+          ageGrid[ty * W + x] = 0;
+          colorSeedGrid[ty * W + x] = (colorSeedGrid[i] + dy * 53) % 1000;
+          aclAddNeighbors(x, ty, 1);
+        }
+      }
+      aclAddNeighbors(x, y - 5, 1);
     } else if (stackH >= maxH - 1 && rng() < 0.02) {
       plantStageGrid[i] = 3;
     }
   }
 
-  // 2) BREITE/RINGE: nahe der Basis verdickt sich der Stamm seitlich.
-  //    depth = Anzahl Holzzellen direkt darunter (je tiefer, desto dicker).
-  let depth = 0;
-  for (let dy = 1; dy <= 12; dy++) {
+  // 2) BREITENWACHSTUM: Nur am Stammende (Boden) wird der Stamm breiter.
+  //    Der Hauptstamm bleibt 1-2 Zellen breit und dominiert visuell.
+  //    Breite wächst nur nach Erreichen signifikanter Höhe.
+  let depthBelow = 0;
+  for (let dy = 1; dy <= 20; dy++) {
     if (y + dy >= H) break;
     const bm = grid[(y + dy) * W + x];
-    if (bm === TREE_WOOD) depth++;
-    else if (bm === ROOT_SYSTEM || bm === PLANT_ROOT || bm === DIRT || bm === SAND ||
-             bm === SAND_WET || bm === SAND_DARK) break;
+    if (bm === TREE_WOOD) depthBelow++;
     else break;
   }
-  const targetW = Math.min(4, 1 + Math.floor(depth / 4) + Math.floor(ageGrid[i] / 600));
-  if (depth >= 2 && targetW >= 1 && health > 0.3 && rng() < 0.02 * season) {
-    const dir = rng() < 0.5 ? -1 : 1;
+  // Gesamtstammhöhe ermitteln (für prozentuale Bodennähe-Prüfung)
+  let totalTrunkH = 0;
+  for (let dy = 1; dy <= 50; dy++) {
+    if (y + dy >= H) break;
+    if (grid[(y + dy) * W + x] === TREE_WOOD) totalTrunkH++;
+    else break;
+  }
+  // Nur im unteren 35% des Stamms darf Breite wachsen
+  const inLowerThird = (depthBelow / Math.max(1, totalTrunkH)) < 0.35;
+  // Basisbreite: erst ab 10 Holzzellen darunter, maximal 3 Zellen
+  const baseWidth = (depthBelow >= 10 && inLowerThird) ? Math.min(3, 1 + Math.floor(depthBelow / 12)) : 0;
+  // Alterswachstum: sehr langsam, nur im unteren Bereich
+  const ageWidth = (inLowerThird && ageGrid[i] > 2000) ? Math.min(2, Math.floor(ageGrid[i] / 3000)) : 0;
+  const targetW = Math.min(3, Math.max(0, baseWidth + ageWidth));
+
+  // Nur jede 5. Zelle im unteren Drittel versucht zu expandieren
+  if (targetW > 0 && inLowerThird && health > 0.3 && rng() < 0.03 * season && (x % 5) === 0) {
+    // Links expandieren
     for (let w = 1; w <= targetW; w++) {
-      const nx = x + dir * w;
-      if (nx < 0 || nx >= W) break;
+      const nx = x - w;
+      if (nx < 0) break;
       const ni = y * W + nx;
       if (grid[ni] === EMPTY || grid[ni] === LEAF_OAK || grid[ni] === LEAF_MAPLE) {
-        // Ringbildung über colorSeed: äußere Ringe heller
         grid[ni] = TREE_WOOD;
         plantTypeGrid[ni] = 4; plantStageGrid[ni] = 3;
         plantHealthGrid[ni] = plantHealthGrid[i]; plantIdGrid[ni] = plantIdGrid[i];
         colorSeedGrid[ni] = (colorSeedGrid[i] + w * 90) % 1000;
         ageGrid[ni] = ageGrid[i];
         aclAddNeighbors(nx, y, 1);
+      } else if (grid[ni] !== TREE_WOOD && grid[ni] !== LEAF_OAK && grid[ni] !== LEAF_MAPLE) {
         break;
-      } else if (grid[ni] !== TREE_WOOD) break;
+      }
+    }
+    // Rechts expandieren
+    for (let w = 1; w <= targetW; w++) {
+      const nx = x + w;
+      if (nx >= W) break;
+      const ni = y * W + nx;
+      if (grid[ni] === EMPTY || grid[ni] === LEAF_OAK || grid[ni] === LEAF_MAPLE) {
+        grid[ni] = TREE_WOOD;
+        plantTypeGrid[ni] = 4; plantStageGrid[ni] = 3;
+        plantHealthGrid[ni] = plantHealthGrid[i]; plantIdGrid[ni] = plantIdGrid[i];
+        colorSeedGrid[ni] = (colorSeedGrid[i] + w * 90) % 1000;
+        ageGrid[ni] = ageGrid[i];
+        aclAddNeighbors(nx, y, 1);
+      } else if (grid[ni] !== TREE_WOOD && grid[ni] !== LEAF_OAK && grid[ni] !== LEAF_MAPLE) {
+        break;
+      }
     }
   }
 
-  // 3) ÄSTE: im oberen Drittel wachsen gelegentlich seitliche Holzäste.
-  if (plantStageGrid[i] >= 3 && stackH > maxH * 0.45 && ageGrid[i] > 40 &&
-      rng() < 0.004 * season) {
-    const dir = rng() < 0.5 ? -1 : 1;
-    const ax = x + dir, ay = y - (rng() < 0.5 ? 0 : 1);
-    if (ax >= 0 && ax < W && ay >= 0 && grid[ay * W + ax] === EMPTY) {
-      grid[ay * W + ax] = TREE_WOOD;
-      plantTypeGrid[ay * W + ax] = 4; plantStageGrid[ay * W + ax] = 3;
-      plantHealthGrid[ay * W + ax] = plantHealthGrid[i]; plantIdGrid[ay * W + ax] = plantIdGrid[i];
-      colorSeedGrid[ay * W + ax] = (colorSeedGrid[i] + 200) % 1000;
-      ageGrid[ay * W + ax] = 80;
-      aclAddNeighbors(ax, ay, 1);
+  // 3) ÄSTE: Regelmäßig alle 12 Reihen Höhe, 0-1 Ast pro Seite
+  //    Mehr Abstand zwischen Ästen = natürlicherer Baum
+  if (plantStageGrid[i] >= 2 && stackH > 12 && health > 0.2) {
+    // Höhe über dem Boden berechnen (nur bis zum nächsten Nicht-Holz)
+    let heightAbove = 0;
+    for (let dy = 1; dy <= 30; dy++) {
+      if (y + dy >= H) break;
+      const below = grid[(y + dy) * W + x];
+      if (below === TREE_WOOD || below === ROOT_SYSTEM || below === PLANT_ROOT) heightAbove++;
+      else break;
+    }
+    // Alle 12 Reihen: Ast-Chance (nur die Zelle auf der exakten 12er-Markierung)
+    if (heightAbove > 0 && heightAbove % 12 === 0 && rng() < 0.25 * season) {
+      // Links: 0 oder 1 Ast (maximal 1 pro Seite)
+      const leftBranches = rng() < 0.5 ? 1 : 0;
+      // Rechts: 0 oder 1 Ast (maximal 1 pro Seite)
+      const rightBranches = rng() < 0.5 ? 1 : 0;
+
+      // Linke Äste
+      for (let b = 0; b < leftBranches; b++) {
+        const dir = -1;
+        const len = 1 + Math.floor(rng() * 3); // 1-3 Pixel lang
+        const ax = x + dir;
+        const ay = y - (rng() < 0.3 ? 1 : 0); // leicht nach oben oder gerade
+        if (ax >= 0 && ay >= 0 && grid[ay * W + ax] === EMPTY) {
+          grid[ay * W + ax] = TREE_WOOD;
+          plantTypeGrid[ay * W + ax] = 4; plantStageGrid[ay * W + ax] = 3;
+          plantHealthGrid[ay * W + ax] = plantHealthGrid[i];
+          plantIdGrid[ay * W + ax] = plantIdGrid[i];
+          colorSeedGrid[ay * W + ax] = (colorSeedGrid[i] + 200) % 1000;
+          ageGrid[ay * W + ax] = 80;
+          aclAddNeighbors(ax, ay, 1);
+          // Zweigende mit Blatt (reduzierte Chance)
+          if (rng() < 0.3 && ay - 2 >= 0 && grid[(ay - 1) * W + ax] === TREE_WOOD) {
+            const leafX = ax + (rng() < 0.5 ? -1 : 1);
+            const leafY = ay - 1;
+            if (leafX >= 0 && leafX < W && grid[leafY * W + leafX] === EMPTY) {
+              grid[leafY * W + leafX] = rng() < 0.6 ? LEAF_OAK : LEAF_MAPLE;
+              plantTypeGrid[leafY * W + leafX] = 4;
+              aclAddNeighbors(leafX, leafY, 1);
+            }
+          }
+        }
+      }
+      // Rechte Äste
+      for (let b = 0; b < rightBranches; b++) {
+        const dir = 1;
+        const len = 1 + Math.floor(rng() * 3);
+        const ax = x + dir;
+        const ay = y - (rng() < 0.3 ? 1 : 0);
+        if (ax < W && ay >= 0 && grid[ay * W + ax] === EMPTY) {
+          grid[ay * W + ax] = TREE_WOOD;
+          plantTypeGrid[ay * W + ax] = 4; plantStageGrid[ay * W + ax] = 3;
+          plantHealthGrid[ay * W + ax] = plantHealthGrid[i];
+          plantIdGrid[ay * W + ax] = plantIdGrid[i];
+          colorSeedGrid[ay * W + ax] = (colorSeedGrid[i] + 200) % 1000;
+          ageGrid[ay * W + ax] = 80;
+          aclAddNeighbors(ax, ay, 1);
+          // Zweigende mit Blatt (reduzierte Chance)
+          if (rng() < 0.3 && ay - 2 >= 0 && grid[(ay - 1) * W + ax] === TREE_WOOD) {
+            const leafX = ax + (rng() < 0.5 ? -1 : 1);
+            const leafY = ay - 1;
+            if (leafX >= 0 && leafX < W && grid[leafY * W + leafX] === EMPTY) {
+              grid[leafY * W + leafX] = rng() < 0.6 ? LEAF_OAK : LEAF_MAPLE;
+              plantTypeGrid[leafY * W + leafX] = 4;
+              aclAddNeighbors(leafX, leafY, 1);
+            }
+          }
+        }
+      }
     }
   }
 
-  // 4) KRONE: an Ästen/Spitze bilden sich Blätter. Im Frühling/Sommer treiben
-  //    Bäume kräftig neue Blätter nach, damit sie nicht über die Jahreszeiten
-  //    dauerhaft kahl werden (Blattverlust wird ausgeglichen).
+  // 4) KRONE: Nur am oberen 25% des Stamms bilden sich Blätter.
+  //    Reduzierte Rate und weniger Blätter pro Tick = keine Wucherung.
+  //    Zähle Holzzellen unter dieser Position.
+  let trunkDepth = 0;
+  for (let dy = 1; dy <= 20; dy++) {
+    if (y + dy >= H) break;
+    const below = grid[(y + dy) * W + x];
+    if (below === TREE_WOOD || below === ROOT_SYSTEM || below === PLANT_ROOT) trunkDepth++;
+    else break;
+  }
+  // Nur wenn wenig Holz darunter (oberes Viertel der maxH=30)
+  const inUpperQuarter = (trunkDepth < 8);
+
   const seasonNow = getCurrentSeason(); // 0=Frühling,1=Sommer,2=Herbst,3=Winter
   const growLeaves = (seasonNow === 0 || seasonNow === 1);
-  const leafRate = growLeaves ? 0.04 * season : 0.008 * season;
-  if (plantStageGrid[i] >= 2 && stackH > maxH * 0.35 && health > 0.3 && rng() < leafRate) {
-    for (let a = 0; a < 3; a++) {
-      const lx = x + Math.round((rng() - 0.5) * 5);
-      const ly = y - Math.floor(rng() * 4);
+  const leafRate = growLeaves ? 0.03 * season : 0.01 * season; // Deutlich reduzierte Blattwachstum
+  if (inUpperQuarter && plantStageGrid[i] >= 2 && health > 0.3 && rng() < leafRate) {
+    for (let a = 0; a < 2; a++) { // Reduziert von 4 auf 2 pro Tick
+      const lx = x + Math.round((rng() - 0.5) * 4); // Reduziert von 6 auf 4
+      const ly = y - Math.floor(rng() * 3); // Reduziert von 4 auf 3
       if (lx >= 0 && lx < W && ly >= 0 && grid[ly * W + lx] === EMPTY) {
         // nur in der Nähe von Holz/Blättern (an der Krone), nicht im freien Raum
         let nearWood = false;
@@ -3017,35 +3179,43 @@ function updateSeaweed(x, y, matId) {
 }
 
 // --- updateCloud(): Wolke driftet mit Wind, regnet ab, löst sich auf ---
+// FIX: Wolken bleiben länger sichtbar und lösen sich langsamer auf
 function updateCloud(x, y, matId) {
   const i = y * W + x;
   ageGrid[i]++;
-  // Horizontaler Drift mit der Windrichtung (oder leichter Eigendrift).
+
+  // Horizontaler Drift mit der Windrichtung (oder leichter Eigendrift)
   const drift = windActive ? windDir : (((x + tick) >> 5) & 1 ? 1 : -1);
   const speed = windActive ? 0.8 : 0.25;
-  let moved = false;
   if (rng() < speed) {
     if (tryMove(x, y, x + drift, y, matId)) return;
-    // konnte nicht in Driftrichtung -> evtl. andere Richtung probieren
     if (tryMove(x, y, x - drift, y, matId)) return;
   }
   // leichtes Auf/Ab, bleibt aber im oberen Bereich
   if (y > 2 && rng() < 0.05) { if (tryMove(x, y, x, y - 1, matId)) return; }
   if (y < H * 0.35 && rng() < 0.03) { if (tryMove(x, y, x, y + 1, matId)) return; }
+
   // Abregnen, wenn dicht genug (mehrere Wolken-Nachbarn)
   let cloudN = 0;
-  for (let dx = -2; dx <= 2; dx++) { const nx = x + dx; if (nx >= 0 && nx < W && grid[y * W + nx] === CLOUD) cloudN++; }
-  if (cloudN >= 3 && rng() < 0.02 && y + 1 < H && grid[(y + 1) * W + x] === EMPTY) {
-    grid[(y + 1) * W + x] = WATER; tempGrid[(y + 1) * W + x] = 14; aclAddNeighbors(x, y + 1, 1);
+  for (let dx = -2; dx <= 2; dx++) {
+    const nx = x + dx;
+    if (nx >= 0 && nx < W && grid[y * W + nx] === CLOUD) cloudN++;
   }
-  // AUFLÖSEN: Wolken sind vergänglich. Ohne Ökosystem (kein Nachschub) lösen sie
-  // sich zügig auf; festsitzende Wolken (tief unten / dicht eingeklemmt) schneller,
-  // damit nie eine Wolke dauerhaft als Standbild in der Luft hängt.
-  const lowOrTrapped = y > H * 0.4 || cloudN >= 4;
-  const dissolveAge = ecosystemActive ? 900 : 200;
-  const dissolveRate = lowOrTrapped ? 0.05 : (ecosystemActive ? 0.004 : 0.02);
+  // Regnen: häufiger bei dichten Wolken, aber nicht zu aggressiv
+  if (cloudN >= 4 && rng() < 0.015 && y + 1 < H && grid[(y + 1) * W + x] === EMPTY) {
+    grid[(y + 1) * W + x] = WATER;
+    tempGrid[(y + 1) * W + x] = 14;
+    aclAddNeighbors(x, y + 1, 1);
+  }
+
+  // AUFLÖSEN: Wolken sind vergänglich, aber länger haltbar
+  // FIX: Deutlich längere Lebensdauer
+  const lowOrTrapped = y > H * 0.5 || cloudN >= 5;
+  const dissolveAge = lowOrTrapped ? 300 : 1200;
+  const dissolveRate = lowOrTrapped ? 0.008 : 0.001;
   if (ageGrid[i] > dissolveAge && rng() < dissolveRate) {
-    grid[i] = EMPTY; aclAddNeighbors(x, y, 1);
+    grid[i] = EMPTY;
+    aclAddNeighbors(x, y, 1);
   }
 }
 
@@ -3063,7 +3233,7 @@ function updateFlower(x, y, matId) {
   }
   
   // Fällt wenn nicht unterstützt
-  if (!supported && y + 1 < H && grid[(y + 1) * W + x] === EMPTY && rng() < 0.03) {
+  if (!supported && y + 1 < H && grid[(y + 1) * W + x] === EMPTY && rng() < 0.8) {
     swap(x, y, x, y + 1);
     return;
   }
@@ -3168,26 +3338,44 @@ function updateFlower(x, y, matId) {
 }
 
 // --- updateLeaf(): Blatt-System mit Transpiration ---
+// FIX: Abgeleitete Blätter fallen zuverlässig und werden vom Wind erfasst
 function updateLeaf(x, y, matId) {
   const i = y * W + x;
   ageGrid[i]++;
-  
-  // ABGELÖSTE BLÄTTER fallen (und werden vom Wind verweht). So bleibt nichts
-  // mehr 'in der Luft' stehen, wenn der Baum darunter verschwindet.
+
+  // ABGELÖSTE BLÄTTER fallen sofort und taumeln seitwärts
   if (leafDetached(x, y)) {
+    // Hohe Fallwahrscheinlichkeit für abgeleitete Blätter
     if (y + 1 < H) {
       const below = grid[(y + 1) * W + x];
       if (below === EMPTY || isGas(below)) {
-        // langsames Taumeln nach unten
-        if (rng() < 0.6) {
-          const dir = rng() < 0.5 ? -1 : 1;
-          if (rng() < 0.4 && tryMove(x, y, x + dir, y + 1, matId)) return;
-          if (tryMove(x, y, x, y + 1, matId)) return;
-        }
+        // Sofortiges Fallen mit Taumeln
+        const dir = rng() < 0.5 ? -1 : 1;
+        if (tryMove(x, y, x, y + 1, matId)) return;
+        if (tryMove(x, y, x + dir, y + 1, matId)) return;
+        if (tryMove(x, y, x - dir, y + 1, matId)) return;
       } else if (below === WATER) {
         // Blatt treibt auf Wasser – bleibt liegen
+      } else if (below === LEAF_OAK || below === LEAF_MAPLE || below === PLANT_LEAF) {
+        // Auf anderem Blatt: seitliches Rutschen
+        const dir = rng() < 0.5 ? -1 : 1;
+        if (tryMove(x, y, x + dir, y, matId)) return;
+        if (tryMove(x, y, x - dir, y, matId)) return;
+      } else if (isPlant(below)) {
+        // Auf Pflanzenteil: seitlich weg und fallen
+        const dir = rng() < 0.5 ? -1 : 1;
+        if (tryMove(x, y, x + dir, y, matId)) return;
+        if (tryMove(x, y, x - dir, y, matId)) return;
+      } else if (isSolid(below) || below === WALL || below === STONE) {
+        // Feststoff: seitlich weichen und fallen
+        const dir = rng() < 0.5 ? -1 : 1;
+        if (tryMove(x, y, x + dir, y, matId)) return;
+        if (tryMove(x, y, x - dir, y, matId)) return;
       }
     }
+    // Wenn unten nichts ist und wir nicht fallen können -> einfach fallen lassen
+    // (Wind advektion übernimmt den Rest)
+    return;
   }
   
   // Gesundheit
@@ -3449,7 +3637,7 @@ function updateFlowerSeed(x, y, matId) {
   let onSoil = false;
   if (y + 1 < H) {
     const below = grid[(y + 1) * W + x];
-    onSoil = (below === DIRT || below === SAND_WET || below === SAND || below === SAND_DARK);
+    onSoil = (below === DIRT || below === SAND_WET || below === SAND || below === SAND_DARK || below === STONE || below === WALL || below === GRAVEL);
   }
 
   // Keimung zu Blume
@@ -4187,6 +4375,132 @@ function detonateTNT(x, y) {
 }
 
 /**
+ * ÖKOSYSTEM-BODEN: Generiert eine zusammenhängende Erdeschicht am unteren Rand,
+ * die NICHT aus dem Bild rieselt. Der Boden besteht aus mehreren Schichten:
+ * - Unten: Stein (unveränderlich)
+ * - Mitte: Erde (Bodenmaterial)
+ * - Oben: Sand_Wet (feuchte Erde für Pflanzen)
+ * 
+ * Pflanzen erscheinen NUR auf diesem Boden und wachsen NACH OBEN.
+ * Kein Material rieselt heraus, weil die unterste Schicht Stein ist.
+ */
+function generateEcosystemBase() {
+  seedRng(Date.now());
+  
+  // Mindestens 9 Reihen für kompletten Boden (3 Stein + 4 Erde + 2 feucht)
+  const minRows = 9;
+  if (H < minRows) return; // Grid zu klein
+  
+  // Untere 3 Reihen = Stein (unveränderlich, rieselt nicht)
+  const stoneRows = 3;
+  for (let y = H - stoneRows; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      if (grid[y * W + x] === EMPTY) {
+        grid[y * W + x] = STONE;
+        tempGrid[y * W + x] = 20;
+        ageGrid[y * W + x] = 0;
+      }
+    }
+  }
+  
+  // Mittlere 4 Reihen = Erde (Bodenmaterial für Pflanzen)
+  const dirtRows = 4;
+  for (let y = H - stoneRows - dirtRows; y < H - stoneRows; y++) {
+    for (let x = 0; x < W; x++) {
+      if (grid[y * W + x] === EMPTY) {
+        // Leichte Oberflächenunebenheit für natürlicheres Aussehen
+        const bump = rng() < 0.15 ? (rng() < 0.5 ? 1 : -1) : 0;
+        const ty = Math.max(0, Math.min(H - 1, y + bump));
+        grid[ty * W + x] = DIRT;
+        tempGrid[ty * W + x] = 20;
+        ageGrid[ty * W + x] = 0;
+      }
+    }
+  }
+  
+  // Oberste 2 Reihen = feuchte Erde (SAND_WET) direkt über der normalen Erde
+  const wetRows = 2;
+  for (let y = H - stoneRows - dirtRows - wetRows; y < H - stoneRows - dirtRows; y++) {
+    for (let x = 0; x < W; x++) {
+      if (grid[y * W + x] === EMPTY) {
+        grid[y * W + x] = SAND_WET;
+        tempGrid[y * W + x] = 20;
+        ageGrid[y * W + x] = 0;
+      }
+    }
+  }
+  
+  // Initial-Bewuchs: Samen, Sporen, Pilze UND BÄUME auf dem feuchten Boden
+  // Diese erscheinen NUR auf der Oberfläche des Bodens
+  for (let x = 0; x < W; x++) {
+    // Finde die oberste Bodenschicht an dieser Position
+    let topSoilY = -1;
+    for (let y = H - 1; y >= 0; y--) {
+      const m = grid[y * W + x];
+      if (m === DIRT || m === SAND_WET || m === SAND || m === SAND_DARK) {
+        topSoilY = y;
+        break;
+      }
+    }
+    if (topSoilY <= 0) continue; // Nichts drüber zum Wachsen
+    
+    // Nur an einigen Stellen (nicht überall) Bewuchs
+    if (rng() < 0.35) {
+      const aboveY = topSoilY - 1;
+      if (aboveY >= 0 && grid[aboveY * W + x] === EMPTY) {
+        const r = rng();
+        if (r < 0.02) {
+          // 2% Chance: Kleiner Baum-Setzling (statt Samen)
+          stampTree(x, topSoilY);
+        } else if (r < 0.4) {
+          grid[aboveY * W + x] = PLANT_SEED;
+          plantTypeGrid[aboveY * W + x] = 1 + Math.floor(rng() * 2);
+          plantStageGrid[aboveY * W + x] = 0;
+          plantHealthGrid[aboveY * W + x] = 50;
+          plantIdGrid[aboveY * W + x] = nextPlantId++;
+        } else if (r < 0.7) {
+          grid[aboveY * W + x] = FLOWER_SEED;
+          plantTypeGrid[aboveY * W + x] = 1 + Math.floor(rng() * 2);
+          plantStageGrid[aboveY * W + x] = 0;
+          plantHealthGrid[aboveY * W + x] = 50;
+          plantIdGrid[aboveY * W + x] = nextPlantId++;
+        } else if (r < 0.85) {
+          grid[aboveY * W + x] = MUSHROOM;
+          plantTypeGrid[aboveY * W + x] = 3;
+          plantStageGrid[aboveY * W + x] = 0;
+          plantHealthGrid[aboveY * W + x] = 50;
+          plantIdGrid[aboveY * W + x] = nextPlantId++;
+        } else {
+          grid[aboveY * W + x] = SPORE;
+        }
+        ageGrid[aboveY * W + x] = 0;
+        aclAddNeighbors(x, aboveY, 1);
+      }
+    }
+  }
+  
+  // Initial-Wolken
+  for (let k = 0; k < 8; k++) {
+    const sx = Math.floor(rng() * W);
+    const cy = 1 + Math.floor(rng() * Math.max(3, Math.floor(H * 0.12)));
+    const cw = 4 + Math.floor(rng() * 10);
+    const ch = 1 + Math.floor(rng() * 2);
+    for (let ck = 0; ck < cw; ck++) {
+      const cx = sx + ck;
+      for (let cdy = 0; cdy < ch; cdy++) {
+        const yy = cy + cdy;
+        if (cx >= 0 && cx < W && yy >= 0 && yy < H && grid[yy * W + cx] === EMPTY) {
+          grid[yy * W + cx] = CLOUD;
+          tempGrid[yy * W + cx] = 10 + Math.floor(rng() * 5);
+          ageGrid[yy * W + cx] = 0;
+          aclAddNeighbors(cx, yy, 1);
+        }
+      }
+    }
+  }
+}
+
+/**
  * THERMAL PHYSICS - coupled to sun cycle and seasons
  */
 /**
@@ -4198,19 +4512,19 @@ function updateWeather() {
   // Wetter ändert sich periodisch
   if (weatherTimer >= weatherDuration) {
     weatherTimer = 0;
-    weatherDuration = 1500 + Math.floor(rng() * 2000);
+    weatherDuration = 4000 + Math.floor(rng() * 5000); // Längere Zyklen (war 1500-3500)
     
-    // Saisonabhängige Wetterwahrscheinlichkeiten
+    // Saisonabhängige Wetterwahrscheinlichkeiten - DEUTlich weniger Regen
     const r = rng();
     
     if (season === 0) { // Frühling
-      weather = r < 0.4 ? 'rain' : 'clear';
+      weather = r < 0.15 ? 'rain' : 'clear';
     } else if (season === 1) { // Sommer
-      weather = r < 0.15 ? 'storm' : (r < 0.25 ? 'rain' : 'clear');
+      weather = r < 0.05 ? 'storm' : (r < 0.12 ? 'rain' : 'clear');
     } else if (season === 2) { // Herbst
-      weather = r < 0.5 ? 'rain' : 'clear';
+      weather = r < 0.15 ? 'rain' : 'clear';
     } else { // Winter
-      weather = r < 0.35 ? 'snow' : (r < 0.55 ? 'rain' : 'clear');
+      weather = r < 0.1 ? 'snow' : (r < 0.18 ? 'rain' : 'clear');
     }
     
     // Wind
@@ -4425,27 +4739,32 @@ function updateThermal(x, y, matId) {
  * Konsolidiert 5 Grid-Passes in 2 konsolidierte Passes über Active Cells
  */
 // Weht ein leichtes Partikel in Windrichtung; an der offenen Seite hinaus.
+// FIX: Mehr Partikeltypen werden vom Wind erfasst, besonders Blätter
 function windAdvectCell(x, y, strength) {
   const m = grid[y * W + x];
   if (m === EMPTY) return;
-  // nur sehr leichte / lose Stoffe werden verweht
+  // Leichte/fliegende Partikel die vom Wind erfasst werden
   const blowable = m === SMOKE || m === STEAM || m === CLOUD || m === SPORE ||
                    m === POLLEN || m === PLANT_SEED || m === FLOWER_SEED ||
-                   m === ASH || (m === LEAF_OAK && leafDetached(x, y)) ||
+                   m === ASH || m === SEED_SUNFLOWER || m === SEED_WHEAT ||
+                   m === PLANT_LEAF ||
+                   (m === LEAF_OAK && leafDetached(x, y)) ||
                    (m === LEAF_MAPLE && leafDetached(x, y));
   if (!blowable) return;
   if (rng() > strength) return;
   tryMove(x, y, x + windDir, y, m);
 }
 // Ist ein Blatt von Stamm/Ast gelöst (kein Holz/Stamm direkt benachbart)?
+// FIX: Auch PLANT (generic Stamm) und PLANT_ROOT zählen als Halt
 function leafDetached(x, y) {
+  const holdsLeaf = (m) => m === TREE_WOOD || m === PLANT_STEM || m === PLANT_MATURE ||
+                           m === PLANT || m === PLANT_ROOT || m === ROOT_SYSTEM;
   for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
     if (dx === 0 && dy === 0) continue;
     const nx = x + dx, ny = y + dy;
     if (nx < 0 || nx >= W || ny < 0 || ny >= H) continue;
     const nm = grid[ny * W + nx];
-    if (nm === TREE_WOOD || nm === PLANT_STEM || nm === PLANT_MATURE ||
-        nm === LEAF_OAK || nm === LEAF_MAPLE) return false;
+    if (holdsLeaf(nm)) return false;
   }
   return true;
 }
@@ -4486,9 +4805,19 @@ function simulate() {
   // werden nirgends genutzt). Dieser Voll-Scan + die Map-Allokationen waren der
   // größte Kostenpunkt pro Tick und wurden ersatzlos entfernt.
 
-  // Wind direction changes occasionally
-  if (windActive && rng() < 0.01) {
-    windDir = rng() < 0.5 ? -1 : 1;
+  // Wind direction changes with persistence (Trägheit)
+  if (windActive) {
+    windDirTimer++;
+    if (windDirTimer >= windDirDuration) {
+      windDirTimer = 0;
+      windDirDuration = 200 + Math.floor(rng() * 400);
+      if (rng() < 0.15) {
+        windDir = -windDir;
+      }
+      windSpeedVariation = (rng() - 0.5) * 0.3;
+    }
+  } else {
+    windDirTimer = 0;
   }
   
   // === Saison-System aktualisieren ===
@@ -4508,7 +4837,7 @@ function simulate() {
     
     // Wettereffekte anwenden - Reduzierte Intensität für stabiles Ökosystem
     if (weather === 'rain' || weather === 'storm') {
-      const intensity = weather === 'storm' ? 15 : 8; // Deutlich reduziert (war 80/120)
+      const intensity = weather === 'storm' ? 3 : 1; // Deutlich reduziert - weniger Wasser
       for (let i = 0; i < intensity; i++) {
         const rx = Math.floor(rng() * W);
         const ry = 0;
@@ -4549,47 +4878,70 @@ function simulate() {
     }
   }
   
-  // Manuelles Regen-Feuer (backward compatibility)
+  // Manuelles Regen (backward compatibility) - natürlicher mit Lücken
   if (rainActive) {
-    for (let i = 0; i < 80; i++) {
+    for (let i = 0; i < 5; i++) {
       const rx = Math.floor(rng() * W);
       const ry = 0;
       if (grid[ry * W + rx] === EMPTY) {
         grid[ry * W + rx] = WATER;
-        tempGrid[ry * W + rx] = 18;
+        tempGrid[ry * W + rx] = 15;
         aclAddNeighbors(rx, ry, 1);
       }
     }
   }
   
-  // Fire rain effect
+  // Fire rain effect - FIX: Lava-Brocken statt explodierender Feuerbälle
+  // Lava-Brocken fallen langsam, glühen, und hinterlassen Stein wenn sie abkühlen
   if (fireActive) {
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < 15; i++) {
       const rx = Math.floor(rng() * W);
       const ry = 0;
       if (grid[ry * W + rx] === EMPTY) {
-        grid[ry * W + rx] = FIREBALL;
-        tempGrid[ry * W + rx] = 1000;
+        // LAVA mit hoher Temperatur – fällt wie ein glühender Lavabrocken
+        grid[ry * W + rx] = LAVA;
+        tempGrid[ry * W + rx] = 1100 + Math.floor(rng() * 200);
         ageGrid[ry * W + rx] = 0;
         aclAddNeighbors(rx, ry, 1);
       }
     }
   }
   
-  // === WOLKEN (nur bei Ökosystem): driften am Himmel durch das Bild ===
+  // === WOLKEN (nur bei Ökosystem): häufiger und variabler ===
   if (ecosystemActive) {
-    // gelegentlich eine neue Wolkenbank am windzugewandten Rand erzeugen
-    if (tick % 90 === 0 && rng() < 0.7) {
+    // Regelmäßig Wolken am windzugewandten Rand erzeugen
+    if (tick % 45 === 0 && rng() < 0.6) {
       const fromLeft = windActive ? (windDir > 0) : (rng() < 0.5);
-      const sx = fromLeft ? 1 : W - 2;
-      const cw = 6 + Math.floor(rng() * 10);
-      const cy = 2 + Math.floor(rng() * Math.max(2, H * 0.18));
+      const sx = fromLeft ? 0 : W - 1;
+      const cy = 1 + Math.floor(rng() * Math.max(3, Math.floor(H * 0.15)));
+      const cw = 4 + Math.floor(rng() * 12);
+      const ch = 1 + Math.floor(rng() * 3);
       for (let k = 0; k < cw; k++) {
         const cx = sx + (fromLeft ? k : -k);
-        const yy = cy + (Math.sin(k * 0.6) > 0.3 ? -1 : 0);
-        if (cx >= 0 && cx < W && yy >= 0 && yy < H && grid[yy * W + cx] === EMPTY) {
-          grid[yy * W + cx] = CLOUD; tempGrid[yy * W + cx] = 12; ageGrid[yy * W + cx] = 0;
-          aclAddNeighbors(cx, yy, 1);
+        for (let cdy = 0; cdy < ch; cdy++) {
+          const waveOffset = Math.sin(k * 0.5 + cdy * 0.8) > 0.1 ? -1 : 0;
+          const yy = cy + cdy + waveOffset;
+          if (cx >= 0 && cx < W && yy >= 0 && yy < H && grid[yy * W + cx] === EMPTY) {
+            grid[yy * W + cx] = CLOUD;
+            tempGrid[yy * W + cx] = 10 + Math.floor(rng() * 6);
+            ageGrid[yy * W + cx] = 0;
+            aclAddNeighbors(cx, yy, 1);
+          }
+        }
+      }
+    }
+    // Zusätzliche kleine Wolken in der Mitte
+    if (tick % 120 === 0 && rng() < 0.5) {
+      const sx = 3 + Math.floor(rng() * (W - 6));
+      const cy = 1 + Math.floor(rng() * Math.max(2, Math.floor(H * 0.1)));
+      const cw = 3 + Math.floor(rng() * 5);
+      for (let k = 0; k < cw; k++) {
+        const cx = sx + k;
+        if (cx >= 0 && cx < W && grid[cy * W + cx] === EMPTY) {
+          grid[cy * W + cx] = CLOUD;
+          tempGrid[cy * W + cx] = 12;
+          ageGrid[cy * W + cx] = 0;
+          aclAddNeighbors(cx, cy, 1);
         }
       }
     }
@@ -4633,20 +4985,20 @@ function simulate() {
   for (let y = H - 1; y >= 0; y--) {
     const s0 = __rowStart[y], s1 = __rowStart[y + 1];
     if (s1 === s0) continue;
-    
+
     for (let c = s0; c < s1; c++) {
       const idx = __sortedCells[c];
       const x = idx % W;
       const matId = grid[idx];
-      
+
       if (matId === EMPTY) continue;
-      
+
       // Thermal physics
       updateThermal(x, y, matId);
-      
+
       // Chemical reactions
       checkChemicalReactions(x, y, matId);
-      
+
       // Material-specific physics
       if (matId === CLOUD) {
         updateCloud(x, y, matId);
@@ -4657,6 +5009,7 @@ function simulate() {
       } else if (isGas(matId) || matId === SMOKE || matId === STEAM) {
         updateGas(x, y, matId);
       } else if (matId === FIREBALL) {
+        // FIREBALL: explodiert wenn es nicht fallen kann
         ageGrid[idx]++;
         if (y + 1 < H && grid[(y + 1) * W + x] === EMPTY && rng() < 0.5) {
           swap(x, y, x, y + 1);
@@ -4754,47 +5107,51 @@ function simulate() {
     }
   }
   
-  // Ökosystem: WIND TRÄGT LEBEN HEREIN statt schwebende Erdinseln zu spawnen.
-  // Samen/Sporen wehen über die offenen Ränder/den Himmel herein und keimen,
-  // wenn sie auf vorhandenem Boden landen. Das ist physikalisch plausibel und
-  // erzeugt keine unrealistischen fliegenden Erdbrocken mehr.
+  // Ökosystem: WIND TRÄGT LEBEN HEREIN – Samen/Sporen fallen auf Boden und keimen
+  //    REGELMÄSSIG AUCH BÄUME (als kleine Setzlinge)
   if (ecosystemActive) {
-    // 1) Vom Himmel/Wind hereingetragene Samen & Sporen (sehr sparsam).
+    // 1) Vom Himmel/Wind hereingetragene Samen & Sporen + Bäume
+    //    NEU: Samen werden direkt auf den Boden gesetzt (nicht aus der Luft fallen lassen)
     if (tick % 25 === 0 && rng() < 0.8) {
       const count = 1 + (rng() * 2 | 0);
       for (let k = 0; k < count; k++) {
-        // Eintrittspunkt: bei Wind von der windzugewandten Seite, sonst oben.
-        let ex, ey;
-        if (windActive && rng() < 0.7) {
-          ex = windDir > 0 ? 0 : W - 1;
-          ey = 1 + (rng() * Math.max(2, H * 0.4) | 0);
-        } else {
-          ex = (rng() * W) | 0; ey = 0;
-        }
-        if (grid[ey * W + ex] === EMPTY) {
-          const r = rng();
-          const seed = r < 0.4 ? FLOWER_SEED : (r < 0.7 ? PLANT_SEED : (r < 0.9 ? SEED_SUNFLOWER : SPORE));
-          grid[ey * W + ex] = seed;
-          plantTypeGrid[ey * W + ex] = 1 + (rng() * 2 | 0);
-          ageGrid[ey * W + ex] = 0; plantStageGrid[ey * W + ex] = 0;
-          // etwas seitlicher Schwung in Windrichtung
-          aclAddNeighbors(ex, ey, 1);
+        // Zufällige X-Position
+        const ex = (rng() * W) | 0;
+        // Finde die oberste Bodenschicht an dieser Position
+        const gy = groundYat(ex);
+        if (gy > 1 && grid[(gy - 1) * W + ex] === EMPTY) {
+          const gm = grid[gy * W + ex];
+          // Nur auf geeignetem Boden (Erde, Sand, feuchte Erde)
+          if (gm === DIRT || gm === SAND || gm === SAND_WET || gm === SAND_DARK) {
+            const r = rng();
+            if (r < 0.03) {
+              // 3% Chance: Kleiner Baum-Setzling (statt Samen)
+              stampTree(ex, gy);
+            } else {
+              const seed = r < 0.4 ? FLOWER_SEED : (r < 0.7 ? PLANT_SEED : (r < 0.9 ? SEED_SUNFLOWER : SPORE));
+              grid[(gy - 1) * W + ex] = seed;
+              plantTypeGrid[(gy - 1) * W + ex] = 1 + (rng() * 2 | 0);
+              ageGrid[(gy - 1) * W + ex] = 0;
+              plantStageGrid[(gy - 1) * W + ex] = 0;
+              aclAddNeighbors(ex, gy - 1, 1);
+            }
+          }
         }
       }
     }
-    // 2) Auf bestehendem Boden mit Feuchtigkeit keimt gelegentlich spontan etwas
-    //    (Samenbank im Boden) – aber nur an echter Bodenoberfläche.
+    // 2) Spontane Keimung auf bestehendem Boden (Samenbank im Boden)
     if (tick % 70 === 0 && rng() < 0.5) {
       const sx = 2 + (rng() * (W - 4) | 0);
       const gy = groundYat(sx);
       if (gy > 1 && grid[(gy - 1) * W + sx] === EMPTY) {
         const gm = grid[gy * W + sx];
-        if (gm === DIRT || gm === SAND_WET) {
+        if (gm === DIRT || gm === SAND || gm === SAND_WET || gm === SAND_DARK) {
           const r = rng();
           const seed = r < 0.5 ? PLANT_SEED : FLOWER_SEED;
           grid[(gy - 1) * W + sx] = seed;
           plantTypeGrid[(gy - 1) * W + sx] = 1 + (rng() * 2 | 0);
-          ageGrid[(gy - 1) * W + sx] = 0; plantStageGrid[(gy - 1) * W + sx] = 0;
+          ageGrid[(gy - 1) * W + sx] = 0;
+          plantStageGrid[(gy - 1) * W + sx] = 0;
           aclAddNeighbors(sx, gy - 1, 1);
         }
       }
@@ -5477,44 +5834,79 @@ function stampSeaweed(bx, by) {
     stampCell(bx + wob, by - k, SEAWEED, {type:5, stage:2, health:75, pid, force:true});
   }
 }
-// --- Baum stempeln: Stamm (mit Ringen über colorSeed), Äste, Krone, Wurzeln ---
+// --- Baum stempeln: Großer rechteckiger Stamm (5px breit), Äste, Krone, Wurzeln ---
 function stampTree(bx, by) {
   const pid = nextPlantId++;
-  const trunkH = 8 + Math.floor(rng() * 5);   // 8-12 hoch (wächst weiter)
-  const trunkW = 0; // junger Baum: 1 Zelle breit, verdickt sich beim Wachsen
+  // GRÖßERE BÄUME: 15-25 Pixel hoch, 5 Pixel breit (rechteckig)
+  const trunkH = 15 + Math.floor(rng() * 11);   // 15-25 hoch
+  const trunkW = 2;  // 5 Pixel breit (2 links + Mitte + 2 rechts)
   // Wurzeln in den Boden
-  for (let r = 1; r <= 2; r++) {
+  for (let r = 1; r <= 3; r++) {
     if (by + r < H) {
       const bm = grid[(by + r) * W + bx];
       if (bm === DIRT || bm === SAND || bm === SAND_WET || bm === SAND_DARK) {
         stampCell(bx, by + r, ROOT_SYSTEM, {type:4, stage:1, health:80, pid, force:true});
+        // Wurzeln seitlich
+        if (r >= 2 && rng() < 0.5) {
+          const wDir = rng() < 0.5 ? -1 : 1;
+          if (bx + wDir >= 0 && bx + wDir < W) {
+            const bm2 = grid[(by + r) * W + bx + wDir];
+            if (bm2 === DIRT || bm2 === SAND || bm2 === SAND_WET || bm2 === SAND_DARK) {
+              stampCell(bx + wDir, by + r, ROOT_SYSTEM, {type:4, stage:1, health:75, pid, force:true});
+            }
+          }
+        }
       }
     }
   }
-  // Stamm (Holz). Spitze bleibt 'jung' (age klein) und wächst weiter.
+  // Stamm (Holz) - 3 Pixel breit (rechteckig)
   for (let k = 0; k < trunkH; k++) {
     const ty = by - k;
-    stampCell(bx, ty, TREE_WOOD, {type:4, stage:(k < trunkH - 2 ? 3 : 2), health:80, pid, sap:60, age: 60 + (trunkH - k) * 4});
-    // setze colorSeed deterministisch für Ringe
-    colorSeedGrid[ty * W + bx] = (k * 53 + bx * 17) % 1000;
-  }
-  // ein paar Äste
-  const topY = by - trunkH;
-  for (let b = 0; b < 2 + ((rng() * 2) | 0); b++) {
-    const ay = by - 2 - Math.floor(rng() * (trunkH - 2));
-    const dir = rng() < 0.5 ? -1 : 1;
-    const len = 1 + Math.floor(rng() * 2);
-    for (let l = 1; l <= len; l++) {
-      stampCell(bx + dir * l, ay - (l >> 1), TREE_WOOD, {type:4, stage:3, health:75, pid, age:120});
+    for (let w = -trunkW; w <= trunkW; w++) {
+      const tx = bx + w;
+      if (tx >= 0 && tx < W) {
+        stampCell(tx, ty, TREE_WOOD, {
+          type:4,
+          stage: (k < trunkH - 2 ? 3 : 2),
+          health: 80,
+          pid,
+          sap: 60,
+          age: 60 + (trunkH - k) * 4
+        });
+        // setze colorSeed deterministisch für Ringe
+        colorSeedGrid[ty * W + tx] = (k * 53 + tx * 17) % 1000;
+      }
     }
   }
-  // Krone aus Blättern (voller, leicht über die Stammspitze hinaus)
-  const cr = 4 + Math.floor(rng() * 2);
-  for (let cy = topY - cr - 1; cy <= topY + 2; cy++) {
-    for (let cx = bx - cr; cx <= bx + cr; cx++) {
+  // Äste: Regelmäßig alle 7 Reihen, 1-2 pro Seite zufällig
+  const topY = by - trunkH;
+  for (let row = 7; row < trunkH; row += 7) {
+    const ay = by - row;
+    // Links: 0, 1 oder 2 Äste (70% Chance, dann 1 oder 2)
+    const leftCount = rng() < 0.7 ? (rng() < 0.5 ? 1 : 2) : 0;
+    // Rechts: 0, 1 oder 2 Äste (70% Chance, dann 1 oder 2)
+    const rightCount = rng() < 0.7 ? (rng() < 0.5 ? 1 : 2) : 0;
+
+    for (let b = 0; b < leftCount; b++) {
+      const len = 1 + Math.floor(rng() * 3);
+      for (let l = 1; l <= len; l++) {
+        stampCell(bx - l, ay - (l >> 2), TREE_WOOD, {type:4, stage:3, health:75, pid, age:100});
+      }
+    }
+    for (let b = 0; b < rightCount; b++) {
+      const len = 1 + Math.floor(rng() * 3);
+      for (let l = 1; l <= len; l++) {
+        stampCell(bx + l, ay - (l >> 2), TREE_WOOD, {type:4, stage:3, health:75, pid, age:100});
+      }
+    }
+  }
+  // Krone aus Blättern (größer für größere Bäume)
+  const cr = 5 + Math.floor(rng() * 3);
+  for (let cy = topY - cr; cy <= topY + 3; cy++) {
+    for (let cx = bx - trunkW - cr; cx <= bx + trunkW + cr; cx++) {
       const dx = cx - bx, dy = cy - (topY - 1);
       if (dx * dx + dy * dy > cr * cr) continue;
-      if (rng() < 0.85) {
+      if (rng() < 0.8) {
         stampCell(cx, cy, (rng() < 0.6 ? LEAF_OAK : LEAF_MAPLE), {type:4, stage:1, health:75, pid, age:15});
       }
     }
@@ -5532,8 +5924,11 @@ function plantStampFor(mat) {
     case PLANT_SPROUT:
     case PLANT_STEM:
     case PLANT_MATURE:   return { fn: stampGrass, spacing: 4, needGround: true };
-    case TREE_WOOD:
-    case PLANT_FLOWER:   return { fn: stampTree, spacing: 12, needGround: true };
+    case TREE_WOOD:      return { fn: stampTree, spacing: 12, needGround: true };
+    case PLANT_FLOWER:   return { fn: (x, y) => {
+      const types = [FLOWER_DANDELION, FLOWER_TULIP, FLOWER_POPPY];
+      stampFlower(x, y, types[Math.floor(rng() * types.length)]);
+    }, spacing: 4, needGround: true };
     case SEAWEED:        return { fn: stampSeaweed, spacing: 5, needWater: true };
     default: return null;
   }
@@ -5781,13 +6176,7 @@ function initUI() {
     rainBtn.onclick = () => {
       try {
         rainActive = !rainActive;
-        fireActive = false;
-        windActive = false;
-        ecosystemActive = false;
         rainBtn.classList.toggle("active", rainActive);
-        if (fireBtn) fireBtn.classList.remove("active");
-        if (windBtn) windBtn.classList.remove("active");
-        if (seedBtn) seedBtn.classList.remove("active");
       } catch (err) {
         console.error("Rain button error:", err);
       }
@@ -5798,13 +6187,7 @@ function initUI() {
     fireBtn.onclick = () => {
       try {
         fireActive = !fireActive;
-        rainActive = false;
-        windActive = false;
-        ecosystemActive = false;
         fireBtn.classList.toggle("active", fireActive);
-        if (rainBtn) rainBtn.classList.remove("active");
-        if (windBtn) windBtn.classList.remove("active");
-        if (seedBtn) seedBtn.classList.remove("active");
       } catch (err) {
         console.error("Fire button error:", err);
       }
@@ -5815,13 +6198,7 @@ function initUI() {
     windBtn.onclick = () => {
       try {
         windActive = !windActive;
-        rainActive = false;
-        fireActive = false;
-        ecosystemActive = false;
         windBtn.classList.toggle("active", windActive);
-        if (rainBtn) rainBtn.classList.remove("active");
-        if (fireBtn) fireBtn.classList.remove("active");
-        if (seedBtn) seedBtn.classList.remove("active");
       } catch (err) {
         console.error("Wind button error:", err);
       }
@@ -5832,13 +6209,11 @@ function initUI() {
     seedBtn.onclick = () => {
       try {
         ecosystemActive = !ecosystemActive;
-        rainActive = false;
-        fireActive = false;
-        windActive = false;
         seedBtn.classList.toggle("active", ecosystemActive);
-        if (rainBtn) rainBtn.classList.remove("active");
-        if (fireBtn) fireBtn.classList.remove("active");
-        if (windBtn) windBtn.classList.remove("active");
+        // Bei Aktivierung: Boden (Erde) generieren und Initial-Bewuchs setzen
+        if (ecosystemActive) {
+          generateEcosystemBase();
+        }
       } catch (err) {
         console.error("Seed button error:", err);
       }
