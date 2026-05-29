@@ -548,7 +548,7 @@ let phGrid, radiationGrid;
 // REMOVED: soluteGrid, electricalGrid, myceliumGrid (unbenutzt)
 let canvas, ctx, img, pix;
 let curMat = SAND, bsz = 5, spd = 5, paused = false;
-let targetGridWidth = 500; // Maximaler Startwert für Grid-Größe
+let targetGridWidth = 1080; // Maximaler Startwert für Grid-Größe (max)
 let rainActive = false, fireActive = false, windActive = false, windDir = 1;
 let windDirTimer = 0;
 let windDirDuration = 300;
@@ -1597,14 +1597,14 @@ function updatePlant(x, y, matId) {
       }
     }
     
-    // Grow toward water - more aggressive
-    if (y + 1 < H && grid[(y + 1) * W + x] === EMPTY && rng() < 0.012) {
+    // Grow toward water - EXTREM reduziert
+    if (y + 1 < H && grid[(y + 1) * W + x] === EMPTY && rng() < 0.001) {
       grid[(y + 1) * W + x] = PLANT_ROOT;
       ageGrid[(y + 1) * W + x] = 0;
     }
     
-    // Branch roots sideways when water is far
-    if (!waterFound && waterDist > 5 && rng() < 0.006) {
+    // Branch roots sideways when water is far — EXTREM reduziert
+    if (!waterFound && waterDist > 5 && rng() < 0.0005) {
       const dir = rng() < 0.5 ? -1 : 1;
       if (x + dir >= 0 && x + dir < W && y + 1 < H) {
         if (grid[(y + 1) * W + (x + dir)] === EMPTY && grid[y * W + (x + dir)] === EMPTY) {
@@ -1614,8 +1614,8 @@ function updatePlant(x, y, matId) {
       }
     }
     
-    // Roots absorb water and transport upward to stem
-    if (waterFound && rng() < 0.03) {
+    // Roots absorb water and transport upward to stem — EXTREM reduziert
+    if (waterFound && rng() < 0.005) {
       for (let dy = 1; dy <= waterDist + 1; dy++) {
         if (y + dy >= H) break;
         const ni = (y + dy) * W + x;
@@ -1642,7 +1642,7 @@ function updatePlant(x, y, matId) {
       }
     }
     const hasStemAbove = y > 0 && (grid[(y - 1) * W + x] === PLANT || grid[(y - 1) * W + x] === PLANT_ROOT);
-    if (!inSoil && !hasStemAbove && ageGrid[i] > 50 && rng() < 0.015) {
+    if (!inSoil && !hasStemAbove && ageGrid[i] > 100 && rng() < 0.005) {
       grid[i] = PLANT_DEAD;
     }
     
@@ -1665,8 +1665,8 @@ function updatePlant(x, y, matId) {
           if (nx >= 0 && nx < W && ny >= 0 && ny < H) {
             if (grid[ny * W + nx] === CO2) {
               co2Nearby = true;
-              // Consume CO2
-              if (rng() < 0.03) {
+              // Consume CO2 — EXTREM reduziert
+              if (rng() < 0.005) {
                 grid[ny * W + nx] = EMPTY;
               }
             }
@@ -1675,7 +1675,7 @@ function updatePlant(x, y, matId) {
       }
       
       // Produce O2 during day, CO2 at night (respiration)
-      const photoRate = 0.004 * photoActivity * effectiveLight * tempFactor;
+      const photoRate = 0.0005 * photoActivity * effectiveLight * tempFactor;
       if (rng() < photoRate) {
         const dir = Math.floor(rng() * 4);
         const dx = [0, 0, -1, 1][dir];
@@ -1692,8 +1692,8 @@ function updatePlant(x, y, matId) {
       }
     }
     
-    // Leaves can fall off when dry or old - DEUTLICH VERLANGSAMT
-    if (ageGrid[i] > 300 && rng() < 0.0003) {
+    // Leaves can fall off when dry or old — EXTREM VERLANGSAMT
+    if (ageGrid[i] > 500 && rng() < 0.0001) {
       grid[i] = PLANT_DEAD;
     }
     
@@ -1750,8 +1750,8 @@ function updatePlant(x, y, matId) {
     const tempFactor = (tempGrid[i] >= optimalTempMin && tempGrid[i] <= optimalTempMax) ? 1.0 :
                         (tempGrid[i] >= 5 && tempGrid[i] <= 40) ? 0.6 : 0.2;
 
-    // Growth rate - strongly reduced to avoid overgrowth
-    const growthRate = 0.00025 * Math.min(1, effectiveLight + 0.3) * tempFactor;
+    // Growth rate - verbessert (0.00005 → 0.001)
+    const growthRate = 0.001 * Math.min(1, effectiveLight + 0.3) * tempFactor;
 
     if (rng() < growthRate && (hasSoilContact || hasRootSupport)) {
       // Grow upward (main stem) - controlled
@@ -1759,8 +1759,8 @@ function updatePlant(x, y, matId) {
         grid[(y - 1) * W + x] = PLANT;
         ageGrid[(y - 1) * W + x] = 0;
 
-        // Add leaves on sides - very rare
-        if (ageGrid[i] > 15 && rng() < 0.02) {
+        // Add leaves on sides - EXTREM rare
+        if (ageGrid[i] > 30 && rng() < 0.003) {
           const dir = rng() < 0.5 ? -1 : 1;
           if (x + dir >= 0 && x + dir < W && grid[y * W + (x + dir)] === EMPTY) {
             grid[y * W + (x + dir)] = PLANT_LEAF;
@@ -1768,21 +1768,21 @@ function updatePlant(x, y, matId) {
           }
         }
 
-        // Flower at maturity - very rare
-        if (ageGrid[i] > 80 && rng() < 0.003) {
+        // Flower at maturity - EXTREM rare
+        if (ageGrid[i] > 150 && rng() < 0.002) {
           grid[(y - 1) * W + x] = PLANT_FLOWER;
         }
       }
     }
 
-    // Grow roots downward from stem base - very rare
-    if (y + 1 < H && grid[(y + 1) * W + x] === EMPTY && ageGrid[i] > 30 && rng() < 0.0015) {
+    // Grow roots downward from stem base - EXTREM rare
+    if (y + 1 < H && grid[(y + 1) * W + x] === EMPTY && ageGrid[i] > 60 && rng() < 0.002) {
       grid[(y + 1) * W + x] = PLANT_ROOT;
       ageGrid[(y + 1) * W + x] = 0;
     }
 
-    // Side branching - NUR am oberen Ende (nicht am ganzen Stamm entlang)
-    if (ageGrid[i] > 30 && ageGrid[i] % 10 === 0 && rng() < 0.0015) {
+    // Side branching - NUR am oberen Ende
+    if (ageGrid[i] > 60 && ageGrid[i] % 20 === 0 && rng() < 0.002) {
       // Nur wenn oben frei (wir sind am Stammende)
       if (y > 0 && grid[(y - 1) * W + x] === EMPTY) {
         const dir = rng() < 0.5 ? -1 : 1;
@@ -1793,8 +1793,8 @@ function updatePlant(x, y, matId) {
       }
     }
     
-    // Age into dead plant - sehr langsam
-    if (ageGrid[i] > 800 && rng() < 0.0003) {
+    // Age into dead plant
+    if (ageGrid[i] > 2000 && rng() < 0.0001) {
       grid[i] = PLANT_DEAD;
     }
   }
@@ -1820,8 +1820,8 @@ function updatePlant(x, y, matId) {
       return;
     }
     
-    // Produce seeds - DEUTLICH VERLANGSAMT
-    if (ageGrid[i] > 30 && rng() < 0.003) { // 0.025 -> 0.003
+    // Produce seeds - verbessert (0.0003 → 0.002)
+    if (ageGrid[i] > 60 && rng() < 0.002) {
       const windEffect = windActive ? windDir * 2 : 0;
       let seedProduced = false;
       
@@ -1854,17 +1854,37 @@ function updatePlant(x, y, matId) {
       }
     }
     
-    // Age - sehr langsam
-    if (ageGrid[i] > 600 && rng() < 0.0003) {
+    // Age
+    if (ageGrid[i] > 2000 && rng() < 0.00005) {
       grid[i] = PLANT_DEAD;
     }
   }
   
-  // === DEAD PLANT === - DEUTLICH VERLANGSAMT
+  // === DEAD PLANT === - EXTREM VERLANGSAMT
   if (matId === PLANT_DEAD) {
     // Dead plants slowly decompose (handled by bacteria/mold)
-    if (ageGrid[i] > 500 && rng() < 0.0003) { // 0.002 -> 0.0003
-      grid[i] = DIRT;
+    // Wenn Bakterien/Schimmel in der Nähe → schneller zu Kompost
+    let nearbyBio = false;
+    for (let dy = -2; dy <= 2 && !nearbyBio; dy++) {
+      for (let dx = -2; dx <= 2 && !nearbyBio; dx++) {
+        const nx = x + dx, ny = y + dy;
+        if (nx >= 0 && nx < W && ny >= 0 && ny < H) {
+          const nm = grid[ny * W + nx];
+          if (nm === BACTERIA || nm === MOLD || nm === MYCELIUM) {
+            nearbyBio = true;
+          }
+        }
+      }
+    }
+    const decomposeRate = nearbyBio ? 0.002 : 0.0001;
+    if (ageGrid[i] > 100 && rng() < decomposeRate) {
+      // 50% Chance auf DIRT, 50% Chance auf SAND_WET (nährstoffreicher)
+      grid[i] = rng() < 0.5 ? DIRT : SAND_WET;
+      // Nährstoffe zurückgeben
+      const ni = y * W + x;
+      if (soilNutrientGrid) {
+        soilNutrientGrid[ni] = Math.min(100, (soilNutrientGrid[ni] || 0) + 15);
+      }
     }
   }
 }
@@ -1892,35 +1912,34 @@ function updatePlant(x, y, matId) {
       }
     }
     
-    // === SPOREN-BEWEGUNG: erst fallen, dann aufsteigen ===
+    // === SPOREN-BEWEGUNG: stark reduziert (nicht mehr exponentiell)
     // Sporen sind leicht, aber fallen langsam und werden vom Wind erfasst
-    if (y + 1 < H && rng() < 0.12) {
+    if (y + 1 < H && rng() < 0.02) {
       if (tryMove(x, y, x, y + 1, matId)) return;
       const dir = rng() < 0.5 ? -1 : 1;
       if (tryMove(x, y, x + dir, y + 1, matId)) return;
     }
-    // Auftrieb: gelegentlich steigen sie leicht
-    if (y - 1 >= 0 && rng() < 0.06) {
+    // Auftrieb: sehr selten steigen sie leicht
+    if (y - 1 >= 0 && rng() < 0.015) {
       if (tryMove(x, y, x, y - 1, matId)) return;
     }
-    // Seitliche Drift (Wind-Effekt)
-    if (rng() < 0.08) {
+    // Seitliche Drift (Wind-Effekt) — stark reduziert
+    if (rng() < 0.02) {
       const dir = rng() < 0.5 ? -1 : 1;
       if (tryMove(x, y, x + dir, y, matId)) return;
     }
     
-    // Bei hoher Feuchtigkeit werden Sporen schwerer und sinken
-    if (humidityLevel >= 3 && y + 1 < H && rng() < 0.1) {
+    // Bei hoher Feuchtigkeit werden Sporen schwerer und sinken — stark reduziert
+    if (humidityLevel >= 3 && y + 1 < H && rng() < 0.02) {
       if (tryMove(x, y, x, y + 1, matId)) return;
       const dir = rng() < 0.5 ? -1 : 1;
       if (tryMove(x, y, x + dir, y + 1, matId)) return;
-      if (tryMove(x, y, x - dir, y + 1, matId)) return;
     }
     
     // === KEIMUNG ===
     // Sporen keimen zu Schimmel bei Feuchtigkeit + organischem Substrat
-    // Lower threshold for germination
-    if (ageGrid[i] > 2 && humidityLevel >= 2) {
+    // EXTREM reduziert: max 0.02 pro Tick (nicht mehr 0.15!)
+    if (ageGrid[i] > 5 && humidityLevel >= 3) {
       let nearOrganic = false;
       let organicPos = null;
       
@@ -1939,8 +1958,8 @@ function updatePlant(x, y, matId) {
         }
       }
       
-      // Keimung zu Schimmel - faster and more reliable
-      const germinationRate = Math.min(0.15, 0.03 * humidityLevel);
+      // Keimung zu Schimmel — EXTREM langsam (max 2% pro Tick)
+      const germinationRate = Math.min(0.02, 0.005 * humidityLevel);
       if (nearOrganic && rng() < germinationRate) {
         // Schimmel wächst auf dem organischen Material
         if (organicPos && grid[organicPos.y * W + organicPos.x] !== MOLD && grid[organicPos.y * W + organicPos.x] !== MYCELIUM) {
@@ -2034,8 +2053,8 @@ function updatePlant(x, y, matId) {
     }
     
     // MYCELIUM-FIX: Myzel wächst DURCH den Boden, indem es benachbarte
-    // Erde/Nasssand in Myzel umwandelt (vorher unmöglich, da nur in EMPTY).
-    if (moistureLevel >= 1 && rng() < 0.06) {
+    // Erde/Nasssand in Myzel umwandelt — EXTREM reduziert (0.06 → 0.005)
+    if (moistureLevel >= 1 && rng() < 0.005) {
       const order = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,1],[1,-1],[-1,-1]];
       const o = order[Math.floor(rng() * order.length)];
       const nx = x + o[0], ny = y + o[1];
@@ -2049,8 +2068,8 @@ function updatePlant(x, y, matId) {
         }
       }
     }
-    // Reifes, gut versorgtes Myzel treibt an der Oberfläche einen Pilz aus.
-    if (ageGrid[i] > 80 && moistureLevel >= 2 && nutrientsLevel >= 1 && rng() < 0.004) {
+    // Reifes, gut versorgtes Myzel treibt an der Oberfläche einen Pilz aus — EXTREM reduziert
+    if (ageGrid[i] > 150 && moistureLevel >= 3 && nutrientsLevel >= 1 && rng() < 0.0005) {
       if (y - 1 >= 0 && grid[(y - 1) * W + x] === EMPTY) {
         // nur austreiben, wenn oben Luft ist (Oberfläche)
         grid[(y - 1) * W + x] = MUSHROOM;
@@ -2061,11 +2080,11 @@ function updatePlant(x, y, matId) {
     }
     
     // Myzel zersetzt organische Materie (sehr langsam)
-    if (moistureLevel >= 2 && nutrientsLevel >= 1 && rng() < 0.003) {
+    if (moistureLevel >= 2 && nutrientsLevel >= 1 && rng() < 0.001) {
       for (const ni of neighbors) {
         if (ni >= 0 && ni < N) {
           const nMat = grid[ni];
-          if ((isOrganic(nMat) || nMat === PLANT_DEAD) && nMat !== MYCELIUM && rng() < 0.01) {
+          if ((isOrganic(nMat) || nMat === PLANT_DEAD) && nMat !== MYCELIUM && rng() < 0.003) {
             grid[ni] = DIRT; // Zu Kompost/Erde
           }
         }
@@ -2201,7 +2220,7 @@ function updatePlant(x, y, matId) {
     
     // Zersetzung (sehr langsam)
     if (moistureLevel >= 2 && hasOrganicSubstrate) {
-      const decomposeChance = 0.001 + moistureLevel * 0.0005;
+      const decomposeChance = 0.0003 + moistureLevel * 0.0002;
       for (const ni of neighbors) {
         if (ni >= 0 && ni < N) {
           const nMat = grid[ni];
@@ -2216,8 +2235,8 @@ function updatePlant(x, y, matId) {
       }
     }
     
-    // Ausbreitung (Phase 3.1: schneller)
-    if (moistureLevel >= 3 && rng() < 0.03) {
+    // Ausbreitung — EXTREM reduziert (0.03 → 0.003)
+    if (moistureLevel >= 3 && rng() < 0.003) {
       const dx = Math.floor(rng() * 3) - 1;
       const dy = Math.floor(rng() * 3) - 1;
       const nx = x + dx, ny = y + dy;
@@ -2242,9 +2261,9 @@ function updatePlant(x, y, matId) {
       }
     }
     
-    // Sporen-Produktion - häufiger
-    if (ageGrid[i] > 20 && moistureLevel >= 1) {
-      const sporeRate = Math.min(0.2, 0.02 + moistureLevel * 0.008);
+    // Sporen-Produktion — EXTREM reduziert (max 1% pro Tick)
+    if (ageGrid[i] > 30 && moistureLevel >= 2) {
+      const sporeRate = Math.min(0.01, 0.002 + moistureLevel * 0.001);
       if (rng() < sporeRate) {
         if (y > 0 && grid[(y - 1) * W + x] === EMPTY) {
           grid[(y - 1) * W + x] = SPORE;
@@ -2315,9 +2334,9 @@ function updateBacteria(x, y, matId) {
     if (ni >= 0 && ni < N) {
       const nMat = grid[ni];
       
-      // Organische Materie zersetzen (beschleunigt!)
+      // Organische Materie zersetzen (EXTREM verlangsamt)
       if ((isOrganic(nMat) || nMat === PLANT_DEAD) && nMat !== BACTERIA && moistureLevel >= 1) {
-        const decomposeRate = 0.002 + moistureLevel * 0.001;
+        const decomposeRate = 0.0003 + moistureLevel * 0.0001;
         if (rng() < decomposeRate) {
           // Schrittweise Zersetzung: erst zu Schimmel/Myzel, dann zu Erde
           if (rng() < 0.7) {
@@ -2330,17 +2349,17 @@ function updateBacteria(x, y, matId) {
         }
       }
       
-      // Myzel und Schimmel können auch zersetzt werden
+      // Myzel und Schimmel können auch zersetzt werden (EXTREM langsam)
       if ((nMat === MOLD || nMat === MYCELIUM) && moistureLevel >= 1) {
-        if (rng() < 0.01) {
+        if (rng() < 0.001) {
           grid[ni] = DIRT;
         }
       }
     }
   }
   
-  // Reproduktion (sehr langsam, nur bei Nahrung und Feuchtigkeit)
-  if (moistureLevel >= 2 && rng() < 0.0015) {
+  // Reproduktion (EXTREM langsam, nur bei Nahrung und Feuchtigkeit)
+  if (moistureLevel >= 2 && rng() < 0.0002) {
     const dx = Math.floor(rng() * 3) - 1;
     const dy = Math.floor(rng() * 3) - 1;
     const nx = x + dx, ny = y + dy;
@@ -2351,7 +2370,7 @@ function updateBacteria(x, y, matId) {
   }
   
   // Alterung - Bakterien werden zu Erde (Nährstoffkreislauf)
-  if (ageGrid[i] > 200 && rng() < 0.002) {
+  if (ageGrid[i] > 500 && rng() < 0.0005) {
     grid[i] = DIRT;
   }
 }
@@ -2564,11 +2583,11 @@ function updatePlantSeed(x, y, matId) {
     onSuitableGround = (below === DIRT || below === SAND_WET || below === SAND || below === SAND_DARK || below === STONE || below === WALL || below === GRAVEL);
   }
   
-  // Keimung: Samen wird zum Keimling (verbessert)
+  // Keimung: Samen wird zum Keimling — stark reduziert (0.002 statt 0.03)
   if (onSuitableGround && moistureLevel >= 1) {
-    const germinationChance = 0.03 * getSeasonGrowthFactor();
+    const germinationChance = 0.002 * getSeasonGrowthFactor();
     const temp = tempGrid[i];
-    if (temp >= 5 && temp <= 40 && ageGrid[i] > 3 && rng() < germinationChance) {
+    if (temp >= 5 && temp <= 40 && ageGrid[i] > 10 && rng() < germinationChance) {
       grid[i] = PLANT_SPROUT;
       plantTypeGrid[i] = rng() < 0.5 ? 1 : 2;
       plantStageGrid[i] = 1;
@@ -2602,15 +2621,15 @@ function updatePlantSprout(x, y, matId) {
   // Saft transportieren
   updateSapTransport(x, y, i);
   
-  // Wenn Gesundheit zu niedrig, stirbt der Keimling (sehr langsam)
-  if (plantHealthGrid[i] < 15 && ageGrid[i] > 50 && rng() < 0.005) {
+  // Wenn Gesundheit zu niedrig, stirbt der Keimling — EXTREM langsam
+  if (plantHealthGrid[i] < 15 && ageGrid[i] > 100 && rng() < 0.001) {
     grid[i] = PLANT_DEAD;
     plantHealthGrid[i] = 0;
     return;
   }
   
-  // Wurzeln bilden (beschleunigt)
-  if (y + 1 < H && grid[(y + 1) * W + x] === EMPTY && ageGrid[i] > 5 && rng() < 0.02) {
+  // Wurzeln bilden — stark reduziert
+  if (y + 1 < H && grid[(y + 1) * W + x] === EMPTY && ageGrid[i] > 10 && rng() < 0.003) {
     grid[(y + 1) * W + x] = ROOT_SYSTEM;
     plantTypeGrid[(y + 1) * W + x] = plantTypeGrid[i];
     plantStageGrid[(y + 1) * W + x] = 2;
@@ -2619,10 +2638,34 @@ function updatePlantSprout(x, y, matId) {
     ageGrid[(y + 1) * W + x] = 0;
   }
   
-  // Wächst NACH OBEN zum Haupttrieb (beschleunigt)
+  // Wächst NACH OBEN zum Haupttrieb — stark reduziert + Konkurrenz-Check
   const healthFactor = plantHealthGrid[i] / 100;
   const light = hasUnobstructedLight(x, y);
-  const growChance = healthFactor * 0.03 * (1 + light * 0.3) * getSeasonGrowthFactor();
+  const growthRate = 0.003 * getSeasonGrowthFactor(); // 0.03 → 0.003
+  // Konkurrenz: Zähle Pflanzen in 3x3 Umgebung
+  let plantNeighbors = 0;
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      if (dx === 0 && dy === 0) continue;
+      const nx = x + dx, ny = y + dy;
+      if (nx >= 0 && nx < W && ny >= 0 && ny < H) {
+        const nm = grid[ny * W + nx];
+        if (isPlant(nm) || nm === PLANT_STEM || nm === PLANT_MATURE || nm === ROOT_SYSTEM || nm === TREE_WOOD) {
+          plantNeighbors++;
+        }
+      }
+    }
+  }
+  // Wenn > 2 Pflanzen-Nachbarn: kein Wachstum (Konkurrenz)
+  if (plantNeighbors > 2) {
+    // Sehr langsam altern wenn zu viel Konkurrenz
+    if (ageGrid[i] > 200 && rng() < 0.001) {
+      grid[i] = PLANT_DEAD;
+      plantHealthGrid[i] = 0;
+    }
+    return;
+  }
+  const growChance = healthFactor * growthRate * (1 + light * 0.3);
   
   if (y > 0 && grid[(y - 1) * W + x] === EMPTY && rng() < growChance) {
     const ti = (y - 1) * W + x;
@@ -2635,8 +2678,8 @@ function updatePlantSprout(x, y, matId) {
     aclAddNeighbors(x, y - 1, 1);
   }
   
-  // Seitliche Blätter (beschleunigt)
-  if (ageGrid[i] > 5 && ageGrid[i] % 4 === 0 && rng() < 0.02 * getSeasonGrowthFactor()) {
+  // Seitliche Blätter — stark reduziert
+  if (ageGrid[i] > 10 && ageGrid[i] % 8 === 0 && rng() < 0.003 * getSeasonGrowthFactor()) {
     const dir = rng() < 0.5 ? -1 : 1;
     if (x + dir >= 0 && x + dir < W && grid[y * W + (x + dir)] === EMPTY) {
       grid[y * W + (x + dir)] = LEAF_OAK;
@@ -2647,8 +2690,8 @@ function updatePlantSprout(x, y, matId) {
     }
   }
   
-  // Alterung: Wächst zum erwachsenen Stamm (beschleunigt)
-  if (ageGrid[i] > 60 && rng() < 0.02) {
+  // Alterung: Wächst zum erwachsenen Stamm — stark reduziert
+  if (ageGrid[i] > 120 && rng() < 0.005) {
     grid[i] = PLANT_STEM;
     plantStageGrid[i] = 2;
     ageGrid[i] = 0;
@@ -2776,9 +2819,33 @@ function updatePlantStem(x, y, matId) {
   absorbSoilNutrients(x, y, i);
 
   // Nach oben wachsen (Haupttrieb) – klarer vertikaler Stamm, MIT Höhenlimit.
-  const growthRate = 0.02 * (plantHealthGrid[i] / 100) * (1 + getSunlightIntensity() * 0.3) * getSeasonGrowthFactor();
+  // Wachstum stark reduziert: 0.02 → 0.003
+  const growthRate = 0.003 * (plantHealthGrid[i] / 100) * (1 + getSunlightIntensity() * 0.3) * getSeasonGrowthFactor();
   const __hMax = maxPlantHeight(plantTypeGrid[i]);
   const __curH = plantStackHeight(x, y);
+  // Konkurrenz-Check: Zähle Pflanzen-Nachbarn
+  let stemNeighbors = 0;
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      if (dx === 0 && dy === 0) continue;
+      const nx = x + dx, ny = y + dy;
+      if (nx >= 0 && nx < W && ny >= 0 && ny < H) {
+        const nm = grid[ny * W + nx];
+        if (isPlant(nm) || nm === PLANT_STEM || nm === PLANT_MATURE || nm === ROOT_SYSTEM || nm === TREE_WOOD) {
+          stemNeighbors++;
+        }
+      }
+    }
+  }
+  // Wenn > 2 Pflanzen-Nachbarn: kein Wachstum (Konkurrenz)
+  if (stemNeighbors > 2) {
+    if (ageGrid[i] > 300 && rng() < 0.001) {
+      grid[i] = PLANT_DEAD;
+      plantHealthGrid[i] = 0;
+    }
+    return;
+  }
+
   // Nur die Spitze wächst weiter (oben frei), nur unter Maximalhöhe UND nur,
   // wenn der Trieb durchgehend mit dem Boden verbunden ist (kein Wuchern in der Luft).
   if (plantStageGrid[i] < 3 && plantHealthGrid[i] > 25 && __curH < __hMax &&
@@ -2795,7 +2862,7 @@ function updatePlantStem(x, y, matId) {
     }
   }
   // An der Maximalhöhe angekommen: Trieb reift aus, statt weiter zu wuchern.
-  if (__curH >= __hMax && plantStageGrid[i] < 3 && rng() < 0.05) {
+  if (__curH >= __hMax && plantStageGrid[i] < 3 && rng() < 0.005) {
     grid[i] = PLANT_MATURE; plantStageGrid[i] = 3; ageGrid[i] = 0;
     aclAddNeighbors(x, y, 1);
     return;
@@ -2815,13 +2882,13 @@ function updatePlantStem(x, y, matId) {
       break;
     }
   }
-  // Nur verdicken, wenn nahe der Basis (depth >= 3)
-  if (depth >= 3 && ageGrid[i] > 10 && plantHealthGrid[i] > 30 && rng() < 0.01) {
+  // Nur verdicken, wenn nahe der Basis (depth >= 3) — stark reduziert
+  if (depth >= 3 && ageGrid[i] > 60 && plantHealthGrid[i] > 30 && rng() < 0.002) {
     growThickStem(x, y, i);
   }
 
-  // Blätter nur am oberen Teil (wenn oben frei)
-  if (ageGrid[i] > 20 && ageGrid[i] % 6 === 0 && rng() < 0.01 * getSeasonGrowthFactor()) {
+  // Blätter nur am oberen Teil (wenn oben frei) — stark reduziert
+  if (ageGrid[i] > 30 && ageGrid[i] % 10 === 0 && rng() < 0.002 * getSeasonGrowthFactor()) {
     // Prüfen, ob wir am oberen Ende des Stamms sind
     if (y > 0 && grid[(y - 1) * W + x] === EMPTY) {
       const dir = (ageGrid[i] / 4 % 2 === 0) ? -1 : 1;
@@ -2835,16 +2902,21 @@ function updatePlantStem(x, y, matId) {
     }
   }
 
-  // Wird zur erwachsenen Pflanze (nur am unteren Teil)
-  if (ageGrid[i] > 50 && plantStageGrid[i] < 3 && rng() < 0.02) {
+  // Wird zur erwachsenen Pflanze (nur am unteren Teil) — stark reduziert
+  if (ageGrid[i] > 150 && plantStageGrid[i] < 3 && rng() < 0.003) {
     grid[i] = PLANT_MATURE;
     plantStageGrid[i] = 3;
     ageGrid[i] = 0;
   }
 
   // Alterung (sehr langsam)
-  if (ageGrid[i] > 500 && rng() < 0.001) {
+  if (ageGrid[i] > 1500 && rng() < 0.0003) {
     plantStageGrid[i] = 5; // Alt
+  }
+  // Natürliche Lebensdauer
+  if (ageGrid[i] > 2500 && rng() < 0.0005) {
+    grid[i] = PLANT_DEAD;
+    plantHealthGrid[i] = 0;
   }
 }
 
@@ -2853,6 +2925,28 @@ function updatePlantMature(x, y, matId) {
   const i = y * W + x;
   ageGrid[i]++;
 
+  // Konkurrenz-Check für mature plants
+  let matureNeighbors = 0;
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      if (dx === 0 && dy === 0) continue;
+      const nx = x + dx, ny = y + dy;
+      if (nx >= 0 && nx < W && ny >= 0 && ny < H) {
+        const nm = grid[ny * W + nx];
+        if (isPlant(nm) || nm === PLANT_STEM || nm === PLANT_MATURE || nm === ROOT_SYSTEM || nm === TREE_WOOD) {
+          matureNeighbors++;
+        }
+      }
+    }
+  }
+  if (matureNeighbors > 3) {
+    if (ageGrid[i] > 400 && rng() < 0.001) {
+      grid[i] = PLANT_DEAD;
+      plantHealthGrid[i] = 0;
+    }
+    return;
+  }
+
   // Gesundheit und Saft aktualisieren (nur alle 5 Ticks)
   if (tick % 5 === 0) {
     plantHealthGrid[i] = calculatePlantHealth(x, y, i);
@@ -2860,18 +2954,18 @@ function updatePlantMature(x, y, matId) {
   updateSapTransport(x, y, i);
   absorbSoilNutrients(x, y, i);
 
-  // Phase 1.2: Verzweigungssystem – nur Bäume (Typ 4), seltener (anti-Wuchern).
-  if (plantTypeGrid[i] === 4 && rng() < 0.002) {
+  // Phase 1.2: Verzweigungssystem – nur Bäume (Typ 4), EXTREM selten (anti-Wuchern).
+  if (plantTypeGrid[i] === 4 && ageGrid[i] > 100 && rng() < 0.0003) {
     growBranches(x, y, i);
   }
 
-  // Phase 1.3: Baumkrone – nur Bäume (Typ 4).
-  if (plantTypeGrid[i] === 4 && rng() < 0.004) {
+  // Phase 1.3: Baumkrone – nur Bäume (Typ 4), EXTREM selten.
+  if (plantTypeGrid[i] === 4 && ageGrid[i] > 150 && rng() < 0.0005) {
     growCanopy(x, y, i);
   }
 
-  // Kann BLÜTEN bilden (am Haupttrieb, kontrolliert)
-  if (plantHealthGrid[i] > 35 && ageGrid[i] > 40 && rng() < 0.01 * getSeasonGrowthFactor()) {
+  // Kann BLÜTEN bilden (am Haupttrieb, EXTREM kontrolliert)
+  if (plantHealthGrid[i] > 40 && ageGrid[i] > 100 && rng() < 0.001 * getSeasonGrowthFactor()) {
     if (y > 0 && grid[(y - 1) * W + x] === EMPTY) {
       const flowerType = rng();
       let flowerMat;
@@ -2891,8 +2985,8 @@ function updatePlantMature(x, y, matId) {
     }
   }
 
-  // Ab und zu noch Blätter am Stamm (NUR oben, selten)
-  if (ageGrid[i] > 30 && rng() < 0.002 * getSeasonGrowthFactor()) {
+  // Ab und zu noch Blätter am Stamm (NUR oben, EXTREM selten)
+  if (ageGrid[i] > 60 && rng() < 0.0005 * getSeasonGrowthFactor()) {
     // Nur wenn oben frei (am oberen Ende des Stamms)
     if (y > 0 && grid[(y - 1) * W + x] === EMPTY) {
       const dir = rng() < 0.5 ? -1 : 1;
@@ -2913,12 +3007,18 @@ function updatePlantMature(x, y, matId) {
   }
 
   // Winter: Stirbt sehr langsam
-  if (getCurrentSeason() === 3 && ageGrid[i] > 200 && rng() < 0.002) {
+  if (getCurrentSeason() === 3 && ageGrid[i] > 200 && rng() < 0.001) {
     plantHealthGrid[i] -= 5;
     if (plantHealthGrid[i] <= 0) {
       grid[i] = PLANT_DEAD;
       return;
     }
+  }
+  // Natürliche Lebensdauer: Alte Pflanzen sterben (max ~2000 Ticks)
+  if (ageGrid[i] > 2000 && rng() < 0.0005) {
+    grid[i] = PLANT_DEAD;
+    plantHealthGrid[i] = 0;
+    return;
   }
 }
 
@@ -2949,11 +3049,13 @@ function updateTree(x, y, matId) {
       if (y - dy >= 0 && grid[(y - dy) * W + x] === TREE_WOOD) consecutiveUp++;
       else break;
     }
-    // Wächst nur wenn 5 Pixel am Stück verfügbar
-    const rate = 0.06 * health * (0.6 + sun * 0.6) * season;
-    if (consecutiveUp >= 4 && rng() < rate) {
-      // Wachs 5 Pixel hoch
-      for (let dy = 1; dy <= 5; dy++) {
+    // Wächst wenn 3 Pixel am Stück verfügbar — verbesserte Rate
+    const rate = 0.05 * health * (0.5 + sun * 0.7) * season;
+    if (consecutiveUp >= 2 && rng() < rate) {
+      // Wachs 3 Pixel hoch (häufigeres Wachstum)
+      const growAmount = Math.min(3, maxH - stackH);
+      if (growAmount < 1) return;
+      for (let dy = 1; dy <= growAmount; dy++) {
         const ty = y - dy;
         if (ty >= 0 && grid[ty * W + x] === EMPTY) {
           grid[ty * W + x] = TREE_WOOD;
@@ -2967,7 +3069,7 @@ function updateTree(x, y, matId) {
           aclAddNeighbors(x, ty, 1);
         }
       }
-      aclAddNeighbors(x, y - 5, 1);
+      aclAddNeighbors(x, y - growAmount, 1);
     } else if (stackH >= maxH - 1 && rng() < 0.02) {
       plantStageGrid[i] = 3;
     }
@@ -2990,16 +3092,16 @@ function updateTree(x, y, matId) {
     if (grid[(y + dy) * W + x] === TREE_WOOD) totalTrunkH++;
     else break;
   }
-  // Nur im unteren 35% des Stamms darf Breite wachsen
-  const inLowerThird = (depthBelow / Math.max(1, totalTrunkH)) < 0.35;
-  // Basisbreite: erst ab 10 Holzzellen darunter, maximal 3 Zellen
-  const baseWidth = (depthBelow >= 10 && inLowerThird) ? Math.min(3, 1 + Math.floor(depthBelow / 12)) : 0;
-  // Alterswachstum: sehr langsam, nur im unteren Bereich
-  const ageWidth = (inLowerThird && ageGrid[i] > 2000) ? Math.min(2, Math.floor(ageGrid[i] / 3000)) : 0;
-  const targetW = Math.min(3, Math.max(0, baseWidth + ageWidth));
+  // Nur im unteren 50% des Stamms darf Breite wachsen
+  const inLowerThird = (depthBelow / Math.max(1, totalTrunkH)) < 0.5;
+  // Basisbreite: erst ab 5 Holzzellen darunter, maximal 4 Zellen
+  const baseWidth = (depthBelow >= 5 && inLowerThird) ? Math.min(4, 1 + Math.floor(depthBelow / 8)) : 0;
+  // Alterswachstum: langsam, nur im unteren Bereich
+  const ageWidth = (inLowerThird && ageGrid[i] > 1000) ? Math.min(2, Math.floor(ageGrid[i] / 2000)) : 0;
+  const targetW = Math.min(4, Math.max(0, baseWidth + ageWidth));
 
-  // Nur jede 5. Zelle im unteren Drittel versucht zu expandieren
-  if (targetW > 0 && inLowerThird && health > 0.3 && rng() < 0.03 * season && (x % 5) === 0) {
+  // Jede 5. Zelle im unteren Drittel versucht zu expandieren
+  if (targetW > 0 && inLowerThird && health > 0.3 && rng() < 0.01 * season && (x % 5) === 0) {
     // Links expandieren
     for (let w = 1; w <= targetW; w++) {
       const nx = x - w;
@@ -3045,8 +3147,8 @@ function updateTree(x, y, matId) {
       if (below === TREE_WOOD || below === ROOT_SYSTEM || below === PLANT_ROOT) heightAbove++;
       else break;
     }
-    // Alle 12 Reihen: Ast-Chance (nur die Zelle auf der exakten 12er-Markierung)
-    if (heightAbove > 0 && heightAbove % 12 === 0 && rng() < 0.25 * season) {
+    // Alle 8 Reihen: Ast-Chance (verbessert)
+    if (heightAbove > 0 && heightAbove % 8 === 0 && rng() < 0.08 * season) {
       // Links: 0 oder 1 Ast (maximal 1 pro Seite)
       const leftBranches = rng() < 0.5 ? 1 : 0;
       // Rechts: 0 oder 1 Ast (maximal 1 pro Seite)
@@ -3122,9 +3224,9 @@ function updateTree(x, y, matId) {
 
   const seasonNow = getCurrentSeason(); // 0=Frühling,1=Sommer,2=Herbst,3=Winter
   const growLeaves = (seasonNow === 0 || seasonNow === 1);
-  const leafRate = growLeaves ? 0.03 * season : 0.01 * season; // Deutlich reduzierte Blattwachstum
+  const leafRate = growLeaves ? 0.003 * season : 0.001 * season; // EXTREM reduziertes Blattwachstum
   if (inUpperQuarter && plantStageGrid[i] >= 2 && health > 0.3 && rng() < leafRate) {
-    for (let a = 0; a < 2; a++) { // Reduziert von 4 auf 2 pro Tick
+    for (let a = 0; a < 1; a++) { // Nur 1 Blatt pro Tick max
       const lx = x + Math.round((rng() - 0.5) * 4); // Reduziert von 6 auf 4
       const ly = y - Math.floor(rng() * 3); // Reduziert von 4 auf 3
       if (lx >= 0 && lx < W && ly >= 0 && grid[ly * W + lx] === EMPTY) {
@@ -3148,8 +3250,13 @@ function updateTree(x, y, matId) {
   }
 
   // 5) Winter: Baum verliert langsam Gesundheit; sehr alt -> stirbt teilweise ab.
-  if (getCurrentSeason() === 3 && ageGrid[i] > 300 && rng() < 0.0008) {
-    plantHealthGrid[i] = Math.max(0, plantHealthGrid[i] - 3);
+  if (getCurrentSeason() === 3 && ageGrid[i] > 500 && rng() < 0.0005) {
+    plantHealthGrid[i] = Math.max(0, plantHealthGrid[i] - 2);
+  }
+  // Natürliche Lebensdauer: Bäume sterben nach ~8000 Ticks (länger für sichtbare Bäume)
+  if (ageGrid[i] > 8000 && rng() < 0.0001) {
+    plantHealthGrid[i] = 0;
+    grid[i] = PLANT_DEAD;
   }
 }
 
@@ -3163,10 +3270,10 @@ function updateSeaweed(x, y, matId) {
     const nx = x + dx, ny = y + dy;
     if (nx >= 0 && nx < W && ny >= 0 && ny < H && grid[ny * W + nx] === WATER) water++;
   }
-  if (water === 0 && rng() < 0.02) { grid[i] = PLANT_DEAD; plantHealthGrid[i] = 0; return; }
+  if (water === 0 && rng() < 0.005) { grid[i] = PLANT_DEAD; plantHealthGrid[i] = 0; return; }
   // sanftes Wiegen + Wachstum nach oben (nur in Wasser)
   const stackH = plantStackHeight(x, y);
-  if (y - 1 >= 0 && grid[(y - 1) * W + x] === WATER && stackH < 12 && rng() < 0.01 * getSeasonGrowthFactor()) {
+  if (y - 1 >= 0 && grid[(y - 1) * W + x] === WATER && stackH < 12 && rng() < 0.001 * getSeasonGrowthFactor()) {
     const ti = (y - 1) * W + x;
     grid[ti] = SEAWEED; plantTypeGrid[ti] = 5; plantStageGrid[ti] = 2;
     plantHealthGrid[ti] = plantHealthGrid[i]; plantIdGrid[ti] = plantIdGrid[i]; ageGrid[ti] = 0;
@@ -3241,13 +3348,13 @@ function updateFlower(x, y, matId) {
   // Gesundheit
   plantHealthGrid[i] = calculatePlantHealth(x, y, i);
   
-  // Pollen produzieren (an sonnigen Tagen)
-  if (plantHealthGrid[i] > 30 && getSunlightIntensity() > 0.5 && rng() < 0.01) {
+  // Pollen produzieren (an sonnigen Tagen) — EXTREM reduziert
+  if (plantHealthGrid[i] > 40 && getSunlightIntensity() > 0.5 && rng() < 0.0003) {
     const mat = MATS[matId];
     const attraction = mat.pollinatorAttraction || 0.5;
     
     // Pollen als Gas-Partikel
-    if (y > 0 && grid[(y - 1) * W + x] === EMPTY && rng() < attraction * 0.3) {
+    if (y > 0 && grid[(y - 1) * W + x] === EMPTY && rng() < attraction * 0.1) {
       grid[(y - 1) * W + x] = POLLEN;
       plantHealthGrid[i] -= 5;
     }
@@ -3264,8 +3371,8 @@ function updateFlower(x, y, matId) {
           if (grid[ni] === POLLEN) {
             // Pollen wird von Blume aufgenommen
             grid[ni] = EMPTY;
-            // Bestäubung erfolgreich → Samenproduktion
-            if (rng() < 0.4) {
+            // Bestäubung erfolgreich → Samenproduktion — EXTREM reduziert
+            if (rng() < 0.05) {
               // FLOWER_SEED direkt neben der Blume produzieren
               const seedDir = Math.floor(rng() * 4);
               const sdx = [0, 0, -1, 1][seedDir];
@@ -3293,7 +3400,7 @@ function updateFlower(x, y, matId) {
   }
   
   // Samen produzieren (Phase 2.2: Blumenwiesen-Logik, häufiger + FLOWER_SEED)
-  if (ageGrid[i] > 10 && plantHealthGrid[i] > 20 && rng() < 0.05 * getSeasonGrowthFactor()) {
+  if (ageGrid[i] > 10 && plantHealthGrid[i] > 20 && rng() < 0.005 * getSeasonGrowthFactor()) {
     const mat = MATS[matId];
     const windEffect = windActive ? windDir * 2 : 0;
     
@@ -3399,7 +3506,7 @@ function updateLeaf(x, y, matId) {
         if (nx >= 0 && nx < W && ny >= 0 && ny < H) {
           if (grid[ny * W + nx] === CO2) {
             co2Nearby = true;
-            if (rng() < 0.02) {
+            if (rng() < 0.003) {
               grid[ny * W + nx] = EMPTY;
             }
           }
@@ -3407,7 +3514,7 @@ function updateLeaf(x, y, matId) {
       }
     }
     
-    const photoRate = 0.003 * photoActivity * effectiveLight * tempFactor;
+    const photoRate = 0.0003 * photoActivity * effectiveLight * tempFactor;
     if (rng() < photoRate) {
       const dir = Math.floor(rng() * 4);
       const dx = [0, 0, -1, 1][dir];
@@ -3423,8 +3530,8 @@ function updateLeaf(x, y, matId) {
     }
   }
   
-  // Transpiration: Gibt Wasser ab
-  if (plantWaterGrid[i] > 20 && rng() < 0.005) {
+  // Transpiration: Gibt Wasser ab — EXTREM reduziert (0.005 → 0.0005)
+  if (plantWaterGrid[i] > 20 && rng() < 0.0005) {
     plantWaterGrid[i] -= 5;
     // Wasser in die Luft als Feuchtigkeit
     if (y > 0 && grid[(y - 1) * W + x] === EMPTY && rng() < 0.3) {
@@ -3441,19 +3548,19 @@ function updateLeaf(x, y, matId) {
   
   // Blatt fällt im Herbst/Winter (Laubabwurf) – im Frühling/Sommer bleiben Blätter.
   const ls = getCurrentSeason();
-  if (ls === 3 && rng() < 0.015) { // Winter: Laubabwurf
+  if (ls === 3 && rng() < 0.003) { // Winter: Laubabwurf — EXTREM reduziert
     grid[i] = PLANT_DEAD;
     plantHealthGrid[i] = 0;
     return;
   }
-  if (ls === 2 && rng() < 0.004) { // Herbst: beginnender Abwurf
+  if (ls === 2 && rng() < 0.001) { // Herbst: beginnender Abwurf — EXTREM reduziert
     grid[i] = PLANT_DEAD;
     plantHealthGrid[i] = 0;
     return;
   }
   
   // Alterung: nur sehr alte UND ungesunde Blätter sterben (verhindert kahle Bäume).
-  if (ageGrid[i] > 400 && plantHealthGrid[i] < 30 && rng() < 0.004) {
+  if (ageGrid[i] > 800 && plantHealthGrid[i] < 20 && rng() < 0.001) {
     grid[i] = PLANT_DEAD;
     plantHealthGrid[i] = 0;
     return;
@@ -3476,13 +3583,13 @@ function updateRootSystem(x, y, matId) {
     if (grid[ni] === WATER) {
       plantWaterGrid[i] = Math.min(100, plantWaterGrid[i] + 12);
       soilNutrientGrid[ni] = Math.min(100, soilNutrientGrid[ni] + 1);
-      if (rng() < 0.015) {
+      if (rng() < 0.002) {
         grid[ni] = SAND_WET;
         waterAbsorbed = true;
       }
       break;
     } else if (grid[ni] === SAND_WET) {
-      if (rng() < 0.008) {
+      if (rng() < 0.001) {
         grid[ni] = SAND;
         plantWaterGrid[i] = Math.min(100, plantWaterGrid[i] + 6);
         waterAbsorbed = true;
@@ -3502,8 +3609,8 @@ function updateRootSystem(x, y, matId) {
     }
   }
 
-  // Wuchs: Wurzeln bilden sich weiter (breiter und tiefer)
-  if (plantHealthGrid[i] > 25 && rng() < 0.006 * getSeasonGrowthFactor()) {
+  // Wuchs: Wurzeln bilden sich weiter (breiter und tiefer) — EXTREM reduziert
+  if (plantHealthGrid[i] > 25 && rng() < 0.0005 * getSeasonGrowthFactor()) {
     // Nach unten
     if (y + 1 < H && grid[(y + 1) * W + x] === EMPTY) {
       grid[(y + 1) * W + x] = ROOT_SYSTEM;
@@ -3512,8 +3619,8 @@ function updateRootSystem(x, y, matId) {
       plantIdGrid[(y + 1) * W + x] = plantIdGrid[i];
       ageGrid[(y + 1) * W + x] = 0;
     }
-    // Seitlich (beidseitig, mehr Verzweigung)
-    if (rng() < 0.6 && x > 0 && grid[y * W + (x - 1)] === EMPTY) {
+    // Seitlich (EXTREM reduziert)
+    if (rng() < 0.1 && x > 0 && grid[y * W + (x - 1)] === EMPTY) {
       grid[y * W + (x - 1)] = ROOT_SYSTEM;
       plantTypeGrid[y * W + (x - 1)] = plantTypeGrid[i];
       plantHealthGrid[y * W + (x - 1)] = plantHealthGrid[i];
@@ -3540,7 +3647,7 @@ function updateRootSystem(x, y, matId) {
   }
 
   // Sterben wenn zu trocken
-  if (plantWaterGrid[i] <= 0 && ageGrid[i] > 50 && rng() < 0.01) {
+  if (plantWaterGrid[i] <= 0 && ageGrid[i] > 100 && rng() < 0.002) {
     grid[i] = PLANT_DEAD;
     plantHealthGrid[i] = 0;
     return;
@@ -3640,10 +3747,10 @@ function updateFlowerSeed(x, y, matId) {
     onSoil = (below === DIRT || below === SAND_WET || below === SAND || below === SAND_DARK || below === STONE || below === WALL || below === GRAVEL);
   }
 
-  // Keimung zu Blume
-  if (onSoil && moistureLevel >= 2 && ageGrid[i] > 5) {
+  // Keimung zu Blume — EXTREM reduziert (0.006 → 0.0005)
+  if (onSoil && moistureLevel >= 2 && ageGrid[i] > 10) {
     const temp = tempGrid[i];
-    if (temp >= 10 && temp <= 30 && rng() < 0.006 * getSeasonGrowthFactor()) {
+    if (temp >= 10 && temp <= 30 && rng() < 0.0005 * getSeasonGrowthFactor()) {
       const r = rng();
       if (r < 0.4) {
         grid[i] = FLOWER_DANDELION;
@@ -3671,7 +3778,7 @@ function updateFlowerSeed(x, y, matId) {
   }
 }
 
-// --- updateMushroom(): Pilz (Phase 3.2) ---
+// --- updateMushroom(): Pilz (Phase 3.2) — EXTREM verlangsamt ---
 function updateMushroom(x, y, matId) {
   const i = y * W + x;
   ageGrid[i]++;
@@ -3692,22 +3799,22 @@ function updateMushroom(x, y, matId) {
     }
   }
 
-  // Nur in echter Dürre (kein Boden, kein Wasser) vergeht der Pilz – sehr langsam.
-  if (moistureLevel < 1 && ageGrid[i] > 300 && rng() < 0.004) {
+  // Nur in echter Dürre (kein Boden, kein Wasser) vergeht der Pilz — EXTREM langsam
+  if (moistureLevel < 1 && ageGrid[i] > 500 && rng() < 0.001) {
     grid[i] = DIRT;
     return;
   }
 
-  // Sporen produzieren
-  if (ageGrid[i] > 20 && moistureLevel >= 2 && rng() < 0.02) {
+  // Sporen produzieren — EXTREM reduziert (0.02 → 0.001)
+  if (ageGrid[i] > 40 && moistureLevel >= 3 && rng() < 0.001) {
     if (y > 0 && grid[(y - 1) * W + x] === EMPTY) {
       grid[(y - 1) * W + x] = SPORE;
       ageGrid[(y - 1) * W + x] = 0;
     }
   }
 
-  // Alterung
-  if (ageGrid[i] > 300 && rng() < 0.003) {
+  // Alterung — EXTREM reduziert
+  if (ageGrid[i] > 800 && rng() < 0.0003) {
     grid[i] = DIRT;
   }
 }
@@ -4334,6 +4441,7 @@ function explode(cx, cy, radius, isTNT) {
           grid[ni] = FIRE;
           tempGrid[ni] = thermalEnergy;
         } else if (mat.id === PLANT || mat.id === PLANT_FLOWER || mat.id === PLANT_DEAD || mat.id === WOOD) {
+          // Pflanzen brennen nur bei direktem Kontakt mit Feuer
           grid[ni] = FIRE;
           tempGrid[ni] = thermalEnergy;
         } else if (rng() < intensity * 0.6) {
@@ -4444,34 +4552,43 @@ function generateEcosystemBase() {
     }
     if (topSoilY <= 0) continue; // Nichts drüber zum Wachsen
     
-    // Nur an einigen Stellen (nicht überall) Bewuchs
-    if (rng() < 0.35) {
+    // Bewuchs-Dichte (30% für üppigeres Ökosystem)
+    if (rng() < 0.30) {
       const aboveY = topSoilY - 1;
       if (aboveY >= 0 && grid[aboveY * W + x] === EMPTY) {
         const r = rng();
-        if (r < 0.02) {
-          // 2% Chance: Kleiner Baum-Setzling (statt Samen)
+        if (r < 0.05) {
+          // 5% Chance: Baum-Setzling (deutlich häufiger)
           stampTree(x, topSoilY);
-        } else if (r < 0.4) {
+        } else if (r < 0.35) {
           grid[aboveY * W + x] = PLANT_SEED;
           plantTypeGrid[aboveY * W + x] = 1 + Math.floor(rng() * 2);
           plantStageGrid[aboveY * W + x] = 0;
           plantHealthGrid[aboveY * W + x] = 50;
           plantIdGrid[aboveY * W + x] = nextPlantId++;
-        } else if (r < 0.7) {
+        } else if (r < 0.6) {
           grid[aboveY * W + x] = FLOWER_SEED;
           plantTypeGrid[aboveY * W + x] = 1 + Math.floor(rng() * 2);
           plantStageGrid[aboveY * W + x] = 0;
           plantHealthGrid[aboveY * W + x] = 50;
           plantIdGrid[aboveY * W + x] = nextPlantId++;
-        } else if (r < 0.85) {
+        } else if (r < 0.7) {
           grid[aboveY * W + x] = MUSHROOM;
           plantTypeGrid[aboveY * W + x] = 3;
           plantStageGrid[aboveY * W + x] = 0;
           plantHealthGrid[aboveY * W + x] = 50;
           plantIdGrid[aboveY * W + x] = nextPlantId++;
         } else {
-          grid[aboveY * W + x] = SPORE;
+          // Sporen initial (10%)
+          if (rng() < 0.1) {
+            grid[aboveY * W + x] = SPORE;
+          } else {
+            grid[aboveY * W + x] = PLANT_SEED;
+            plantTypeGrid[aboveY * W + x] = 1 + Math.floor(rng() * 2);
+            plantStageGrid[aboveY * W + x] = 0;
+            plantHealthGrid[aboveY * W + x] = 50;
+            plantIdGrid[aboveY * W + x] = nextPlantId++;
+          }
         }
         ageGrid[aboveY * W + x] = 0;
         aclAddNeighbors(x, aboveY, 1);
@@ -5108,24 +5225,20 @@ function simulate() {
   }
   
   // Ökosystem: WIND TRÄGT LEBEN HEREIN – Samen/Sporen fallen auf Boden und keimen
-  //    REGELMÄSSIG AUCH BÄUME (als kleine Setzlinge)
-  if (ecosystemActive) {
+  //    NUR wenn Wind-Knopp aktiv (manuell gesteuert, nicht automatisch)
+  if (ecosystemActive && windActive) {
     // 1) Vom Himmel/Wind hereingetragene Samen & Sporen + Bäume
-    //    NEU: Samen werden direkt auf den Boden gesetzt (nicht aus der Luft fallen lassen)
-    if (tick % 25 === 0 && rng() < 0.8) {
-      const count = 1 + (rng() * 2 | 0);
+    //    Nur wenn Wind aktiv → dann manuell steuerbar
+    if (tick % 60 === 0 && rng() < 0.4) {
+      const count = 1 + (rng() | 0); // max 2
       for (let k = 0; k < count; k++) {
-        // Zufällige X-Position
         const ex = (rng() * W) | 0;
-        // Finde die oberste Bodenschicht an dieser Position
         const gy = groundYat(ex);
         if (gy > 1 && grid[(gy - 1) * W + ex] === EMPTY) {
           const gm = grid[gy * W + ex];
-          // Nur auf geeignetem Boden (Erde, Sand, feuchte Erde)
           if (gm === DIRT || gm === SAND || gm === SAND_WET || gm === SAND_DARK) {
             const r = rng();
-            if (r < 0.03) {
-              // 3% Chance: Kleiner Baum-Setzling (statt Samen)
+            if (r < 0.02) {
               stampTree(ex, gy);
             } else {
               const seed = r < 0.4 ? FLOWER_SEED : (r < 0.7 ? PLANT_SEED : (r < 0.9 ? SEED_SUNFLOWER : SPORE));
@@ -5136,23 +5249,6 @@ function simulate() {
               aclAddNeighbors(ex, gy - 1, 1);
             }
           }
-        }
-      }
-    }
-    // 2) Spontane Keimung auf bestehendem Boden (Samenbank im Boden)
-    if (tick % 70 === 0 && rng() < 0.5) {
-      const sx = 2 + (rng() * (W - 4) | 0);
-      const gy = groundYat(sx);
-      if (gy > 1 && grid[(gy - 1) * W + sx] === EMPTY) {
-        const gm = grid[gy * W + sx];
-        if (gm === DIRT || gm === SAND || gm === SAND_WET || gm === SAND_DARK) {
-          const r = rng();
-          const seed = r < 0.5 ? PLANT_SEED : FLOWER_SEED;
-          grid[(gy - 1) * W + sx] = seed;
-          plantTypeGrid[(gy - 1) * W + sx] = 1 + (rng() * 2 | 0);
-          ageGrid[(gy - 1) * W + sx] = 0;
-          plantStageGrid[(gy - 1) * W + sx] = 0;
-          aclAddNeighbors(sx, gy - 1, 1);
         }
       }
     }
@@ -5496,6 +5592,8 @@ function render() {
     }
 
     if (matId === PLANT_FLOWER) {
+      // Color variation based on colorSeed for different flower colors
+      const hue = (colorSeedGrid[i] % 360);
       const sat = 0.8;
       const val = 0.9;
       // Simple HSV to RGB
@@ -6307,8 +6405,24 @@ function loop(timestamp) {
     for (let i = 0; i < N; i += 4) {
       if (grid[i] !== EMPTY) particleCount++;
     }
-    // Schätzung auf 4x hochrechnen (grobe Abschätzung)
-    document.getElementById("st").textContent = `${lastFps} FPS | ${(particleCount * 4).toLocaleString()} Partikel`;
+    
+    // Ökosystem-Statistiken (nur wenn aktiv)
+    let ecoStats = '';
+    if (ecosystemActive) {
+      let plantCount = 0, seedCount = 0, moldCount = 0, sporeCount = 0, deadCount = 0, treeCount = 0;
+      for (let i = 0; i < N; i += 8) {
+        const m = grid[i];
+        if (m === PLANT || m === PLANT_STEM || m === PLANT_MATURE || m === PLANT_SPROUT || m === PLANT_LEAF || m === PLANT_ROOT || m === ROOT_SYSTEM) plantCount++;
+        if (m === PLANT_SEED || m === FLOWER_SEED || m === SEED_SUNFLOWER || m === SEED_WHEAT) seedCount++;
+        if (m === MOLD) moldCount++;
+        if (m === SPORE) sporeCount++;
+        if (m === PLANT_DEAD) deadCount++;
+        if (m === TREE_WOOD) treeCount++;
+      }
+      ecoStats = ` 🌱${plantCount} 🌿${seedCount} 🍄${moldCount} 🌳${treeCount}`;
+    }
+    
+    document.getElementById("st").textContent = `${lastFps} FPS | ${(particleCount * 4).toLocaleString()} Partikel${ecoStats}`;
     frameCount = 0;
     fpsTimer = timestamp;
   }
@@ -6545,15 +6659,17 @@ function applyImageToGrid() {
   simulationPausedForImport = true;
   updatePauseButton();
   
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d');
+  // Scale image to fill the FULL canvas (screen size), not the small grid
+  const imgCanvas = document.createElement('canvas');
+  const imgCtx = imgCanvas.getContext('2d');
+  const scale = Math.max(canvas.width / importedImage.width, canvas.height / importedImage.height);
+  const scaledW = Math.floor(importedImage.width * scale);
+  const scaledH = Math.floor(importedImage.height * scale);
+  imgCanvas.width = scaledW;
+  imgCanvas.height = scaledH;
+  imgCtx.drawImage(importedImage, 0, 0, scaledW, scaledH);
   
-  const scale = Math.min(W / importedImage.width, H / importedImage.height, 1);
-  canvas.width = Math.floor(importedImage.width * scale);
-  canvas.height = Math.floor(importedImage.height * scale);
-  ctx.drawImage(importedImage, 0, 0, canvas.width, canvas.height);
-  
-  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const imageData = imgCtx.getImageData(0, 0, scaledW, scaledH);
   const pixels = imageData.data;
   
   // Clear grid first
@@ -6563,14 +6679,14 @@ function applyImageToGrid() {
     phGrid[i] = 7;
   }
   
-  // Center offset
-  const offsetX = Math.floor((W - canvas.width) / 2);
-  const offsetY = Math.floor((H - canvas.height) / 2);
-  
-  // Map pixels to grid
-  for (let y = 0; y < canvas.height; y++) {
-    for (let x = 0; x < canvas.width; x++) {
-      const pxIdx = (y * canvas.width + x) * 4;
+  // Map scaled canvas pixels to grid cells
+  // Each grid cell covers a portion of the scaled canvas
+  for (let gy = 0; gy < H; gy++) {
+    for (let gx = 0; gx < W; gx++) {
+      // Map grid position to scaled canvas position
+      const sx = Math.floor((gx / W) * scaledW);
+      const sy = Math.floor((gy / H) * scaledH);
+      const pxIdx = (sy * scaledW + sx) * 4;
       const r = pixels[pxIdx];
       const g = pixels[pxIdx + 1];
       const b = pixels[pxIdx + 2];
@@ -6581,26 +6697,35 @@ function applyImageToGrid() {
       const key = `rgb(${r},${g},${b})`;
       let matId = colorMapping[key];
       
-      // If not in mapping, find closest
+      // If not in mapping, find closest with generous tolerance
       if (!matId || matId === EMPTY) {
-        const result = findClosestMaterial(r, g, b, 50);
+        const result = findClosestMaterial(r, g, b, 500);
         matId = result.id;
       }
       
-      if (matId && matId !== EMPTY) {
-        const gx = x + offsetX;
-        const gy = y + offsetY;
-        if (gx >= 0 && gx < W && gy >= 0 && gy < H) {
-          grid[gy * W + gx] = matId;
-          tempGrid[gy * W + gx] = 20;
-          phGrid[gy * W + gx] = 7;
+      // Fallback: if still no match, use WALL for mid-to-dark colors, SAND for light colors
+      if (!matId || matId === EMPTY) {
+        const brightness = (r + g + b) / 3;
+        if (brightness > 180) {
+          matId = WALL;
+        } else if (brightness > 100) {
+          matId = SAND;
+        } else {
+          matId = WALL;
         }
       }
+      
+      grid[gy * W + gx] = matId;
+      tempGrid[gy * W + gx] = 20;
+      phGrid[gy * W + gx] = 7;
     }
   }
   
   // BUGFIX: importierte Zellen in die Aktivliste aufnehmen, sonst frieren sie ein.
   aclSeedAllOccupied();
+
+  // Direkt rendern, damit das Bild sofort sichtbar ist (nicht erst nach Resize)
+  render();
 
   // Update button state
   const playBtn = document.getElementById('playMappingBtn');
