@@ -1,4 +1,4 @@
-# Sand Game Pro · Advanced Simulation v2.0
+# Sand Game Pro · Advanced Simulation v2.1
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![GitHub Pages](https://img.shields.io/badge/Pages-Deployed-success.svg)](https://github.com/)
@@ -64,11 +64,46 @@ SAMEN → KEIMLING → JUNGER STAMM → ERWACHSENE PFLANZE → BLÜTE → ALTERU
 - Wurzeln absorbieren Wasser und Nährstoffe aus dem Boden
 - Saft wird nach oben zu Blättern und Blüten transportiert
 
-#### Kompostierung
-- Tote Pflanzen bleiben **200+ Ticks** liegen
-- Natürliche Zersetzung: **0.0002 pro Tick** (ca. 16 Minuten bei 5 Ticks/Frame)
-- Mit Bakterien/Schimmel: **0.001-0.002 pro Tick**
-- Nährstoffe werden langsam an den Boden zurückgegeben
+#### Ökosystem-Balance (v2.1)
+Das Ökosystem ist bewusst **zurückhaltend** abgestimmt, damit nicht zu viele Blumen
+und Pflanzen entstehen und sich die Welt nicht flächendeckend zuwuchert:
+
+- **Initial-Bewuchs**: Dichte von 30 % auf **10 %** reduziert; ein Mindestabstand
+  verhindert direkt benachbarte Keime (lockerer, natürlicher Bewuchs).
+- **Saatgut-Mischung**: überwiegend Gras/Kraut-Samen statt Blumen; Blumen-Samen sind
+  nur ein kleiner Anteil, Bäume bleiben seltene Solitäre.
+- **Selbst-Aussaat**: Blüh- und Vermehrungsraten von Blumen und Alt-Pflanzen deutlich
+  gesenkt; eine Pflanze bildet keine Blüte mehr, wenn direkt daneben bereits eine blüht
+  (verhindert Blüten-Cluster).
+- **Wind-Eintrag**: vom Wind hereingetragene Samen sind mehrheitlich Gras/Kraut statt
+  Blumen.
+
+> Alle Funktionen, Materialien und der Bild-Import bleiben dabei vollständig erhalten –
+> es wurden ausschließlich Wahrscheinlichkeiten und die Saatgut-Verteilung angepasst.
+
+### ⚡ Performance-Optimierungen (v2.1)
+
+Die Simulation wurde ohne Funktionsverlust spürbar beschleunigt:
+
+- **Typprüfungen über Lookup-Tabellen**: `isLiquid`, `isGas`, `isPowder`, `isSolid`,
+  `isPlant`, `isFlammable`, `isExplosive`, `isOxidizable`, `isOrganic` lesen ihren Wert
+  jetzt aus flachen `Uint8Array`-Tabellen statt aus Objekt-Lookups (`MATS[m]?.type`).
+  Diese Prüfungen laufen millionenfach pro Sekunde – das Verhalten ist bit-genau
+  identisch (verifiziert über 256 IDs × 9 Prädikate).
+- **Render-Schnellpfad**: Eine `DYNAMIC_COLOR`-Tabelle markiert nur Materialien mit
+  eigener Farb-Animation (Feuer, Lava, Pflanzen-Gesundheit, Wolken, Herbstfärbung …).
+  Gewöhnliches Terrain (Sand, Stein, Erde, Wasser, Wände, Metall …) überspringt die
+  lange Farb-`if`-Kette komplett – das ist der häufigste Fall pro Pixel pro Frame.
+- **Allokationsfreie heiße Pfade**: `checkChemicalReactions` und `updateThermal`
+  allozieren keine Nachbar-Arrays mehr pro Zelle/Tick (deutlich weniger GC-Druck);
+  Wärmeleitung nutzt Reservoir-Sampling über die Nachbarn.
+- **Saison-/Sonnenwerte gepuffert**: pro Frame statt pro Zelle berechnet.
+
+### 🐞 Fehlerbehebungen (v2.1)
+
+- **Auto-Zuordnung (Bild-Import)** funktioniert wieder: Die Material-IDs sind `const`
+  und lagen nie auf `window`, weshalb die automatische Farb→Material-Zuordnung leer
+  blieb. Sie liest die Farben jetzt direkt aus den Material-Definitionen.
 
 ### Physikalische Simulation
 
@@ -113,23 +148,36 @@ Das Spiel kann über [GitHub Pages](https://yourusername.github.io/sand-game/) g
 
 ## 🎛️ Steuerung
 
-### Maus
+### Maus & Tastatur
 
 | Aktion | Bedienung |
 |--------|-----------|
 | Zeichnen | Linke Maustaste gedrückt halten |
-| Radieren | Rechte Maustaste gedrückt halten |
-| UI ein/aus | `H` Taste |
+| Radieren | Rechte Maustaste (oder Umschalt + linke Maustaste) |
+| Material wählen | Tasten `1`–`9`, Buchstaben (siehe Palette) |
+| Pause / Fortsetzen | `Leertaste` |
 | Spielfeld leeren | `C` Taste |
-| Pause | `P` Taste |
+| UI ein-/ausblenden | `H` Taste |
+
+### Aktions-Schaltflächen
+
+| Schaltfläche | Wirkung |
+|--------------|---------|
+| **Regen** | Lässt Wasser von oben fallen |
+| **Feuerregen** | Lässt glühende Lava-Brocken fallen |
+| **Wind** | Aktiviert horizontalen Wind (trägt Samen, Sporen, Pollen, Blätter) |
+| **Ökosystem + Boden** | Erzeugt Boden-Schichten und säht spärlichen Initial-Bewuchs |
+| **Sonnenzyklus** | Tag/Nacht + Jahreszeiten ein/aus |
 
 ### Einstellungen
 
 | Einstellung | Bereich | Standard |
 |-------------|---------|----------|
-| **Grid-Auflösung** | 50–320 Zellen/Breite | 200 |
-| **Pinselgröße** | 1–30 Pixel | 5 |
-| **Simulations-Ticks pro Frame** | 1–8 | 5 |
+| **Grid-Auflösung** | 50–1080 Zellen/Breite (max. Feld 1080×720) | 200 |
+| **Pinselgröße** | 1–40 Pixel | 5 |
+| **Simulations-Ticks pro Frame** | 1–15 (effektiv auf max. 8/Frame begrenzt) | 5 |
+| **Photosynthese-Aktivität** | 0–100 % | 70 |
+| **Zyklus-Geschwindigkeit** | 1–100 | 30 |
 
 ## 📸 Bild-Import
 

@@ -931,18 +931,52 @@ function rngRange(min, max) { return min + rng() * (max - min); }
 
 /**
  * TYPE CHECKING
+ * PERF: Statt pro Aufruf MATS[m]?.type (Objekt-Lookup + Optional-Chaining) zu
+ * lesen – was in den inneren Schleifen Millionen Mal pro Sekunde passiert –
+ * werden Typ und ausgewählte Flags einmalig in flache Uint8-Tabellen gebrannt.
+ * Ergebnis ist identisch (undefinierte IDs => 255 => kein Treffer), aber deutlich
+ * schneller und ohne GC-Druck.
  */
+const MAT_TYPE = new Uint8Array(256).fill(255);
+const MAT_FLAMMABLE = new Uint8Array(256);
+const MAT_ORGANIC = new Uint8Array(256);
+const MAT_EXPLOSIVE = new Uint8Array(256);
+const MAT_OXIDIZABLE = new Uint8Array(256);
+for (const k in MATS) {
+  const m = MATS[k];
+  if (!m) continue;
+  MAT_TYPE[m.id] = m.type;
+  if (m.flammability > 0) MAT_FLAMMABLE[m.id] = 1;
+  if (m.type === TYPE.ORGANIC || m.organic) MAT_ORGANIC[m.id] = 1;
+  if (m.explosive) MAT_EXPLOSIVE[m.id] = 1;
+  if (m.oxidizable) MAT_OXIDIZABLE[m.id] = 1;
+}
+
 const isEmpty = (m) => m === EMPTY;
-const isLiquid = (m) => MATS[m]?.type === TYPE.LIQUID;
-const isGas = (m) => MATS[m]?.type === TYPE.GAS;
-const isPowder = (m) => MATS[m]?.type === TYPE.POWDER;
-const isSolid = (m) => MATS[m]?.type === TYPE.SOLID;
-const isSpecial = (m) => MATS[m]?.type === TYPE.SPECIAL;
-const isPlant = (m) => MATS[m]?.type === TYPE.PLANT;
-const isOrganic = (m) => MATS[m]?.type === TYPE.ORGANIC || MATS[m]?.organic;
-const isFlammable = (m) => MATS[m]?.flammability > 0;
-const isExplosive = (m) => MATS[m]?.explosive;
-const isOxidizable = (m) => MATS[m]?.oxidizable;
+const isLiquid = (m) => MAT_TYPE[m] === TYPE.LIQUID;
+const isGas = (m) => MAT_TYPE[m] === TYPE.GAS;
+const isPowder = (m) => MAT_TYPE[m] === TYPE.POWDER;
+const isSolid = (m) => MAT_TYPE[m] === TYPE.SOLID;
+const isSpecial = (m) => MAT_TYPE[m] === TYPE.SPECIAL;
+const isPlant = (m) => MAT_TYPE[m] === TYPE.PLANT;
+const isOrganic = (m) => MAT_ORGANIC[m] === 1;
+const isFlammable = (m) => MAT_FLAMMABLE[m] === 1;
+const isExplosive = (m) => MAT_EXPLOSIVE[m] === 1;
+const isOxidizable = (m) => MAT_OXIDIZABLE[m] === 1;
+
+/**
+ * PERF (Rendering): Tabelle der Materialien mit material-spezifischer Farb-Logik
+ * (Feuer-Flackern, Lava-Blubbern, Pflanzen-Gesundheit, Wolken, Herbstfärbung ...).
+ * Für ALLE anderen Zellen (Sand, Stein, Erde, Wasser, Wände, Metall ...) kann der
+ * Renderer die lange if-Kette komplett überspringen – das ist der häufigste Fall
+ * und spart pro Frame zehntausende Vergleiche. Die Ausgabe bleibt identisch.
+ */
+const DYNAMIC_COLOR = new Uint8Array(256);
+[FIRE, LAVA, PLANT, PLANT_SEED, PLANT_SPROUT, PLANT_STEM, PLANT_MATURE,
+ FLOWER_DANDELION, FLOWER_TULIP, FLOWER_POPPY, LEAF_OAK, LEAF_MAPLE,
+ ROOT_SYSTEM, PLANT_DEAD, POLLEN, SEED_SUNFLOWER, SEED_WHEAT, FLOWER_SEED,
+ MUSHROOM, TREE_WOOD, CLOUD, SEAWEED, PLANT_FLOWER, STEAM, SMOKE, URANIUM,
+ CLONE, BACTERIA].forEach(id => { if (id !== undefined) DYNAMIC_COLOR[id] = 1; });
 
 /**
  * DENSITY & BUOYANCY
@@ -1820,13 +1854,13 @@ function updatePlant(x, y, matId) {
       return;
     }
     
-    // Produce seeds - verbessert (0.0003 → 0.002)
-    if (ageGrid[i] > 60 && rng() < 0.002) {
+    // Produce seeds (zurückhaltend, damit sich Alt-Pflanzen nicht stark vermehren)
+    if (ageGrid[i] > 80 && rng() < 0.0008) {
       const windEffect = windActive ? windDir * 2 : 0;
       let seedProduced = false;
       
       // Try fewer directions
-      for (let attempt = 0; attempt < 3 && !seedProduced; attempt++) {
+      for (let attempt = 0; attempt < 2 && !seedProduced; attempt++) {
         const angle = rng() * Math.PI * 2;
         const dist = 1 + Math.floor(rng() * 2); // Kürzere Distanz
         const sx = Math.floor(x + Math.cos(angle) * dist + windEffect);
@@ -1837,11 +1871,11 @@ function updatePlant(x, y, matId) {
           if (sy + 1 < H) {
             const ground = grid[(sy + 1) * W + sx];
             if (ground === DIRT || ground === SAND || ground === SAND_WET || ground === SAND_DARK) {
-              // 70% same type, 20% flower, 10% spore
+              // 85% gleiche Pflanze, 8% Blume, 7% Spore
               const seedType = rng();
-              if (seedType < 0.7) {
+              if (seedType < 0.85) {
                 grid[sy * W + sx] = PLANT;
-              } else if (seedType < 0.9) {
+              } else if (seedType < 0.93) {
                 grid[sy * W + sx] = PLANT_FLOWER;
               } else {
                 grid[sy * W + sx] = SPORE;
@@ -2964,24 +2998,30 @@ function updatePlantMature(x, y, matId) {
     growCanopy(x, y, i);
   }
 
-  // Kann BLÜTEN bilden (am Haupttrieb, EXTREM kontrolliert)
-  if (plantHealthGrid[i] > 40 && ageGrid[i] > 100 && rng() < 0.001 * getSeasonGrowthFactor()) {
+  // Kann BLÜTEN bilden (am Haupttrieb, sehr kontrolliert). Nur wenn nicht bereits
+  // direkt benachbart eine Blüte existiert -> verhindert Blüten-Cluster.
+  if (plantHealthGrid[i] > 40 && ageGrid[i] > 120 && rng() < 0.0005 * getSeasonGrowthFactor()) {
     if (y > 0 && grid[(y - 1) * W + x] === EMPTY) {
-      const flowerType = rng();
-      let flowerMat;
-      if (flowerType < 0.4) {
-        flowerMat = FLOWER_DANDELION;
-      } else if (flowerType < 0.7) {
-        flowerMat = FLOWER_TULIP;
-      } else {
-        flowerMat = FLOWER_POPPY;
+      const lN = x > 0 ? grid[y * W + (x - 1)] : EMPTY;
+      const rN = x + 1 < W ? grid[y * W + (x + 1)] : EMPTY;
+      const isFlower = (m) => m === FLOWER_DANDELION || m === FLOWER_TULIP || m === FLOWER_POPPY;
+      if (!isFlower(lN) && !isFlower(rN)) {
+        const flowerType = rng();
+        let flowerMat;
+        if (flowerType < 0.4) {
+          flowerMat = FLOWER_DANDELION;
+        } else if (flowerType < 0.7) {
+          flowerMat = FLOWER_TULIP;
+        } else {
+          flowerMat = FLOWER_POPPY;
+        }
+        grid[(y - 1) * W + x] = flowerMat;
+        plantTypeGrid[(y - 1) * W + x] = plantTypeGrid[i];
+        plantStageGrid[(y - 1) * W + x] = 4;
+        plantHealthGrid[(y - 1) * W + x] = plantHealthGrid[i];
+        plantIdGrid[(y - 1) * W + x] = plantIdGrid[i];
+        ageGrid[(y - 1) * W + x] = 0;
       }
-      grid[(y - 1) * W + x] = flowerMat;
-      plantTypeGrid[(y - 1) * W + x] = plantTypeGrid[i];
-      plantStageGrid[(y - 1) * W + x] = 4;
-      plantHealthGrid[(y - 1) * W + x] = plantHealthGrid[i];
-      plantIdGrid[(y - 1) * W + x] = plantIdGrid[i];
-      ageGrid[(y - 1) * W + x] = 0;
     }
   }
 
@@ -3399,14 +3439,15 @@ function updateFlower(x, y, matId) {
     }
   }
   
-  // Samen produzieren (Phase 2.2: Blumenwiesen-Logik, häufiger + FLOWER_SEED)
-  if (ageGrid[i] > 10 && plantHealthGrid[i] > 20 && rng() < 0.005 * getSeasonGrowthFactor()) {
+  // Samen produzieren (Blumenwiesen-Logik) – bewusst zurückhaltend, damit sich
+  // Blumen nicht flächendeckend selbst aussäen. Rate und Versuche reduziert.
+  if (ageGrid[i] > 30 && plantHealthGrid[i] > 25 && rng() < 0.0012 * getSeasonGrowthFactor()) {
     const mat = MATS[matId];
     const windEffect = windActive ? windDir * 2 : 0;
     
-    for (let attempt = 0; attempt < 4; attempt++) {
+    for (let attempt = 0; attempt < 2; attempt++) {
       const angle = rng() * Math.PI * 2;
-      const dist = 1 + Math.floor(rng() * 3);
+      const dist = 2 + Math.floor(rng() * 3);
       const sx = Math.floor(x + Math.cos(angle) * dist + windEffect);
       const sy = Math.floor(y + Math.sin(angle) * dist);
       
@@ -3822,16 +3863,19 @@ function updateMushroom(x, y, matId) {
 /**
  * CHEMICAL REACTIONS - Biologisch/chemisch korrekte Reaktionen
  */
+// PERF: 4er-Nachbarschaft als wiederverwendete Konstanten – vermeidet die
+// Allokation eines Objekt-Arrays bei jedem Aufruf (= pro aktiver Zelle pro Tick).
+const __NB4_DX = [-1, 1, 0, 0];
+const __NB4_DY = [0, 0, -1, 1];
+// Objekt-Variante (einmalig allokiert) für die selteneren inneren Reaktionsschleifen.
+const __NB4_OBJ = [{ dx: -1, dy: 0 }, { dx: 1, dy: 0 }, { dx: 0, dy: -1 }, { dx: 0, dy: 1 }];
 function checkChemicalReactions(x, y, matId) {
   const i = y * W + x;
   const mat = MATS[matId];
   
-  // Check neighbors for reactions
-  const neighbors = [
-    { dx: -1, dy: 0 }, { dx: 1, dy: 0 }, { dx: 0, dy: -1 }, { dx: 0, dy: 1 }
-  ];
-  
-  for (const { dx, dy } of neighbors) {
+  // Check neighbors for reactions (von-Neumann-Nachbarschaft, allokationsfrei)
+  for (let __n = 0; __n < 4; __n++) {
+    const dx = __NB4_DX[__n], dy = __NB4_DY[__n];
     const nx = x + dx, ny = y + dy;
     if (nx < 0 || nx >= W || ny < 0 || ny >= H) continue;
     const ni = ny * W + nx;
@@ -4175,7 +4219,7 @@ function checkChemicalReactions(x, y, matId) {
       }
       
       // Radiation damages nearby organic matter - less aggressive
-      for (const {dx: d2x, dy: d2y} of neighbors) {
+      for (const {dx: d2x, dy: d2y} of __NB4_OBJ) {
         const nnx = nx + d2x, nny = ny + d2y;
         if (nnx >= 0 && nnx < W && nny >= 0 && nny < H) {
           const nni = nny * W + nnx;
@@ -4206,7 +4250,7 @@ function checkChemicalReactions(x, y, matId) {
             // Bacteria break down into radioactive ash
             grid[nni] = ASH;
             // Spread radiation
-            for (const {dx: d3x, dy: d3y} of neighbors) {
+            for (const {dx: d3x, dy: d3y} of __NB4_OBJ) {
               const mnx = nx + d3x, mny = ny + d3y;
               if (mnx >= 0 && mnx < W && mny >= 0 && mny < H && grid[mny * W + mnx] === EMPTY && rng() < 0.1) {
                 grid[mny * W + mnx] = RADIATION;
@@ -4219,7 +4263,7 @@ function checkChemicalReactions(x, y, matId) {
       
       // Radiation creates radioactive waste from nearby materials - slower
       if (rng() < 0.001) {
-        for (const {dx: d2x, dy: d2y} of neighbors) {
+        for (const {dx: d2x, dy: d2y} of __NB4_OBJ) {
           const nnx = nx + d2x, nny = ny + d2y;
           if (nnx >= 0 && nnx < W && nny >= 0 && nny < H) {
             const nMatId = grid[nny * W + nnx];
@@ -4552,43 +4596,48 @@ function generateEcosystemBase() {
     }
     if (topSoilY <= 0) continue; // Nichts drüber zum Wachsen
     
-    // Bewuchs-Dichte (30% für üppigeres Ökosystem)
-    if (rng() < 0.30) {
+    // Bewuchs-Dichte: bewusst spärlich gesät (war 30 %). Das Ökosystem soll sich
+    // langsam und nicht flächendeckend aus wenigen Keimen entwickeln, damit nicht
+    // sofort zu viele Blumen/Pflanzen entstehen.
+    if (rng() < 0.10) {
       const aboveY = topSoilY - 1;
       if (aboveY >= 0 && grid[aboveY * W + x] === EMPTY) {
+        // Mindestabstand: keine zwei Keime direkt nebeneinander -> lockerer Bewuchs.
+        const leftOcc = x > 0 && grid[aboveY * W + (x - 1)] !== EMPTY;
+        if (leftOcc) continue;
         const r = rng();
-        if (r < 0.05) {
-          // 5% Chance: Baum-Setzling (deutlich häufiger)
+        if (r < 0.03) {
+          // 3% Chance: Baum-Setzling (seltener Solitärbaum)
           stampTree(x, topSoilY);
-        } else if (r < 0.35) {
+        } else if (r < 0.55) {
+          // Mehrheit: einfache Pflanzensamen (Gras/Kraut) statt Blumen
           grid[aboveY * W + x] = PLANT_SEED;
           plantTypeGrid[aboveY * W + x] = 1 + Math.floor(rng() * 2);
           plantStageGrid[aboveY * W + x] = 0;
           plantHealthGrid[aboveY * W + x] = 50;
           plantIdGrid[aboveY * W + x] = nextPlantId++;
-        } else if (r < 0.6) {
+        } else if (r < 0.72) {
+          // Nur ein kleiner Teil sind Blumen-Samen
           grid[aboveY * W + x] = FLOWER_SEED;
-          plantTypeGrid[aboveY * W + x] = 1 + Math.floor(rng() * 2);
+          plantTypeGrid[aboveY * W + x] = 1;
           plantStageGrid[aboveY * W + x] = 0;
           plantHealthGrid[aboveY * W + x] = 50;
           plantIdGrid[aboveY * W + x] = nextPlantId++;
-        } else if (r < 0.7) {
+        } else if (r < 0.80) {
           grid[aboveY * W + x] = MUSHROOM;
           plantTypeGrid[aboveY * W + x] = 3;
           plantStageGrid[aboveY * W + x] = 0;
           plantHealthGrid[aboveY * W + x] = 50;
           plantIdGrid[aboveY * W + x] = nextPlantId++;
+        } else if (r < 0.86) {
+          // Sporen (selten)
+          grid[aboveY * W + x] = SPORE;
         } else {
-          // Sporen initial (10%)
-          if (rng() < 0.1) {
-            grid[aboveY * W + x] = SPORE;
-          } else {
-            grid[aboveY * W + x] = PLANT_SEED;
-            plantTypeGrid[aboveY * W + x] = 1 + Math.floor(rng() * 2);
-            plantStageGrid[aboveY * W + x] = 0;
-            plantHealthGrid[aboveY * W + x] = 50;
-            plantIdGrid[aboveY * W + x] = nextPlantId++;
-          }
+          grid[aboveY * W + x] = PLANT_SEED;
+          plantTypeGrid[aboveY * W + x] = 1 + Math.floor(rng() * 2);
+          plantStageGrid[aboveY * W + x] = 0;
+          plantHealthGrid[aboveY * W + x] = 50;
+          plantIdGrid[aboveY * W + x] = nextPlantId++;
         }
         ageGrid[aboveY * W + x] = 0;
         aclAddNeighbors(x, aboveY, 1);
@@ -4657,14 +4706,15 @@ function updateThermal(x, y, matId) {
 
   // Heat conduction to neighbors
   if (mat.conductivity > 0 && rng() < 0.15) {
-    const neighbors = [];
-    if (x > 0) neighbors.push(i - 1);
-    if (x < W - 1) neighbors.push(i + 1);
-    if (y > 0) neighbors.push(i - W);
-    if (y < H - 1) neighbors.push(i + W);
+    // PERF: gleichverteilt einen gültigen Nachbarn wählen, ohne Array zu allozieren
+    // (Reservoir-Sampling über bis zu 4 Kandidaten).
+    let ni = -1, cnt = 0;
+    if (x > 0)     { cnt++; if (rng() < 1 / cnt) ni = i - 1; }
+    if (x < W - 1) { cnt++; if (rng() < 1 / cnt) ni = i + 1; }
+    if (y > 0)     { cnt++; if (rng() < 1 / cnt) ni = i - W; }
+    if (y < H - 1) { cnt++; if (rng() < 1 / cnt) ni = i + W; }
 
-    if (neighbors.length > 0) {
-      const ni = neighbors[Math.floor(rng() * neighbors.length)];
+    if (ni >= 0) {
       const nMat = MATS[grid[ni]];
       if (!nMat) return;
 
@@ -5241,7 +5291,7 @@ function simulate() {
             if (r < 0.02) {
               stampTree(ex, gy);
             } else {
-              const seed = r < 0.4 ? FLOWER_SEED : (r < 0.7 ? PLANT_SEED : (r < 0.9 ? SEED_SUNFLOWER : SPORE));
+              const seed = r < 0.18 ? FLOWER_SEED : (r < 0.65 ? PLANT_SEED : (r < 0.9 ? SEED_SUNFLOWER : SPORE));
               grid[(gy - 1) * W + ex] = seed;
               plantTypeGrid[(gy - 1) * W + ex] = 1 + (rng() * 2 | 0);
               ageGrid[(gy - 1) * W + ex] = 0;
@@ -5299,7 +5349,11 @@ function simulate() {
  */
 function render() {
   // Global brightness based on sun cycle
-  const nightFactor = sunCycleEnabled ? (1.0 - getSunlightIntensity()) * 0.25 : 0;
+  const sunNow = sunCycleEnabled ? getSunlightIntensity() : 1;
+  const nightFactor = sunCycleEnabled ? (1.0 - sunNow) * 0.25 : 0;
+  // PERF: einmal pro Frame statt einmal pro Zelle berechnen.
+  const autumnF = getAutumnColorFactor();
+  const nightDimPlants = sunCycleEnabled && !isDaytime;
 
   for (let i = 0; i < N; i++) {
     const matId = grid[i];
@@ -5308,7 +5362,7 @@ function render() {
     if (matId === EMPTY) {
       // Slightly adjust background for day/night
       let r = 12, g = 12, b = 15;
-      if (sunCycleEnabled && nightFactor > 0) {
+      if (nightFactor > 0) {
         r = Math.max(0, r - nightFactor * 10);
         g = Math.max(0, g - nightFactor * 10);
         b = Math.max(0, b + nightFactor * 5);
@@ -5316,44 +5370,44 @@ function render() {
       pix[ci] = r; pix[ci+1] = g; pix[ci+2] = b; pix[ci+3] = 255;
       continue;
     }
-    
+
     const mat = MATS[matId];
     let r = mat.color[0];
     let g = mat.color[1];
     let b = mat.color[2];
-    
+
     // Temperature effects
     const t = tempGrid[i];
     const seed = colorSeedGrid[i];
     const baseNoise = (seed % 25) - 12;
-    
+
     if (t > 30) {
       const heatFactor = Math.min(1, Math.max(0, (t - 30) / 600));
-      
+
       // Incandescence: red -> orange -> yellow -> white
       r += heatFactor * 150;
       g += heatFactor * (heatFactor > 0.5 ? 100 : 40);
       b += heatFactor * (heatFactor > 0.8 ? 80 : 0);
-      
+
       // Glow effect for very hot objects
       if (t > 400) {
         const glow = (heatFactor - 0.5) * 60;
         r += glow; g += glow * 0.7; b += glow * 0.3;
       }
     }
-    
+
     // Cold effects
     if (t < 0) {
       const coldFactor = Math.min(1, Math.abs(t) / 50);
       b = Math.min(255, b + coldFactor * 40);
       r = Math.max(0, r - coldFactor * 20);
     }
-    
+
     // Base texture noise
     r += baseNoise;
     g += baseNoise;
     b += baseNoise;
-    
+
     // pH visualization
     const ph = phGrid[i];
     if (ph !== undefined && ph !== null && mat.ph !== 7.0) {
@@ -5363,15 +5417,13 @@ function render() {
         b = Math.min(255, b + (ph - 10) * 15);
       }
     }
-    
-    // Sonnenzyklus-Effekte auf Pflanzen (Photosynthese vs. Respiration)
-    if (sunCycleEnabled && !isDaytime && (matId === PLANT || matId === PLANT_LEAF)) {
-      // Nachts: Pflanzen atmen CO2 aus statt O2 zu produzieren
-      // Leicht dunkleres Grün für nächtliche Pflanzen
+
+    // Sonnenzyklus-Effekte auf (Alt-)Pflanzen: nachts dunkleres Grün
+    if (nightDimPlants && (matId === PLANT || matId === PLANT_LEAF)) {
       g *= 0.7;
       r *= 0.8;
     }
-    
+
     // Radiation visualization
     if (radiationGrid[i] > 0) {
       const rad = Math.min(1, radiationGrid[i] / 50);
@@ -5379,268 +5431,257 @@ function render() {
       g = g * (1 - rad) + 255 * rad;
       b = b * (1 - rad) + 50 * rad;
     }
-    
-    // Special rendering
-    if (matId === FIRE) {
-      const flicker = Math.sin(tick * 0.3 + seed) * 40;
-      r = 255;
-      g = 120 + flicker;
-      b = 20 + flicker * 0.3;
-    }
-    
-    if (matId === LAVA) {
-      const bubble = Math.sin(tick * 0.05 + seed * 0.1) * 30;
-      r = 255;
-      g = 60 + bubble;
-      b = 10 + bubble * 0.2;
-    }
-    
-    if (matId === PLANT) {
-      // Health-based green intensity
-      const health = Math.max(0, Math.min(1, 1 - Math.abs(t - 25) / 50));
-      g = 184 + health * 40;
-      // Variation based on age
-      const ageVar = Math.sin(ageGrid[i] * 0.1) * 15;
-      g += ageVar;
-    }
-    
-    // === Biologie-Erweiterung: Neue Pflanzen-Darstellung ===
-    if (matId === PLANT_SEED) {
-      // Samen: Braun mit kleiner Variation
-      r = 139 + baseNoise;
-      g = 90 + baseNoise;
-      b = 43 + baseNoise;
-    }
-    
-    if (matId === PLANT_SPROUT) {
-      // Keimling: Helles Grün
-      const health = plantHealthGrid[i] / 100 || 0.5;
-      r = 120 * health + 50;
-      g = 200 * health + 55;
-      b = 80 * health + 30;
-    }
-    
-    if (matId === PLANT_STEM) {
-      // Stamm: Mittelgrün mit Gesundheits-Abhängigkeit
-      const health = plantHealthGrid[i] / 100 || 0.5;
-      r = 34 * health + 20;
-      g = 139 * health + 45;
-      b = 34 * health + 10;
-      // Herbst-Färbung
-      const autumn = getAutumnColorFactor();
-      if (autumn > 0) {
-        r = r * (1 - autumn * 0.5) + 180 * autumn * 0.5;
-        g = g * (1 - autumn * 0.7) + 100 * autumn * 0.7;
-      }
-    }
-    
-    if (matId === PLANT_MATURE) {
-      // Erwachsene Pflanze: Dunkles Grün
-      const health = plantHealthGrid[i] / 100 || 0.5;
-      r = 0 * health + 20;
-      g = 100 * health + 84;
-      b = 0 * health + 20;
-      // Herbst-Färbung
-      const autumn = getAutumnColorFactor();
-      if (autumn > 0) {
-        r = r * (1 - autumn * 0.6) + 160 * autumn * 0.6;
-        g = g * (1 - autumn * 0.5) + 80 * autumn * 0.5;
-      }
-    }
-    
-    if (matId === FLOWER_DANDELION) {
-      // Gänseblümchen: Gelb
-      r = 255;
-      g = 255;
-      b = 100 + baseNoise;
-    }
-    
-    if (matId === FLOWER_TULIP) {
-      // Tulpe: Rot
-      r = 255;
-      g = 50 + baseNoise;
-      b = 50 + baseNoise;
-    }
-    
-    if (matId === FLOWER_POPPY) {
-      // Mohn: Orange-Rot
-      r = 220 + baseNoise;
-      g = 50 + baseNoise;
-      b = 30 + baseNoise;
-    }
-    
-    if (matId === LEAF_OAK || matId === LEAF_MAPLE) {
-      // Blätter: Grün mit Gesundheits- und Herbst-Effekt
-      const health = plantHealthGrid[i] / 100 || 0.5;
-      const isMaple = matId === LEAF_MAPLE;
-      
-      if (isMaple) {
-        r = 40 * health + 30;
-        g = 140 * health + 50;
-        b = 40 * health + 20;
-      } else {
-        r = 34 * health + 25;
-        g = 120 * health + 40;
-        b = 34 * health + 20;
-      }
-      
-      // Herbst-Färbung
-      const autumn = getAutumnColorFactor();
-      if (autumn > 0) {
-        const autumnR = isMaple ? 220 : 180;
-        const autumnG = isMaple ? 60 : 100;
-        const autumnB = 20;
-        r = r * (1 - autumn) + autumnR * autumn;
-        g = g * (1 - autumn) + autumnG * autumn;
-        b = b * (1 - autumn) + autumnB * autumn;
-      }
-    }
-    
-    if (matId === ROOT_SYSTEM) {
-      // Wurzeln: Hellbraun
-      r = 160 + baseNoise;
-      g = 120 + baseNoise;
-      b = 60 + baseNoise;
-    }
-    
-    if (matId === PLANT_DEAD) {
-      // Tote Pflanze: Braun/Gelb
-      r = 139 + baseNoise;
-      g = 115 + baseNoise;
-      b = 55 + baseNoise;
-    }
-    
-    if (matId === POLLEN) {
-      // Pollen: Hellgelb, transparent
-      r = 255;
-      g = 255;
-      b = 150 + baseNoise;
-    }
-    
-    if (matId === SEED_SUNFLOWER) {
-      // Sonnenblumensamen: Dunkel
-      r = 60 + baseNoise;
-      g = 40 + baseNoise;
-      b = 20 + baseNoise;
-    }
-    
-    if (matId === SEED_WHEAT) {
-      // Weizen: Goldgelb
-      r = 218 + baseNoise;
-      g = 165 + baseNoise;
-      b = 32 + baseNoise;
-    }
 
-    if (matId === FLOWER_SEED) {
-      // Blumen-Samen: warmes Braun
-      r = 180 + baseNoise;
-      g = 120 + baseNoise;
-      b = 60 + baseNoise;
-    }
+    // PERF: Nur Materialien mit eigener Farb-Animation/Logik durchlaufen die
+    // folgende Kette. Terrain (Sand, Stein, Erde, Wasser, Wand, Metall ...)
+    // überspringt sie vollständig.
+    if (DYNAMIC_COLOR[matId]) {
+      if (matId === FIRE) {
+        const flicker = Math.sin(tick * 0.3 + seed) * 40;
+        r = 255;
+        g = 120 + flicker;
+        b = 20 + flicker * 0.3;
+      }
 
-    if (matId === MUSHROOM) {
-      // Pilz: cremefarben mit Variation
-      const age = ageGrid[i];
-      if (age < 30) {
-        r = 230 + baseNoise;
-        g = 220 + baseNoise;
-        b = 200 + baseNoise;
-      } else {
-        r = 200 + baseNoise;
-        g = 180 + baseNoise;
+      if (matId === LAVA) {
+        const bubble = Math.sin(tick * 0.05 + seed * 0.1) * 30;
+        r = 255;
+        g = 60 + bubble;
+        b = 10 + bubble * 0.2;
+      }
+
+      if (matId === PLANT) {
+        // Health-based green intensity
+        const health = Math.max(0, Math.min(1, 1 - Math.abs(t - 25) / 50));
+        g = 184 + health * 40;
+        // Variation based on age
+        const ageVar = Math.sin(ageGrid[i] * 0.1) * 15;
+        g += ageVar;
+      }
+
+      // === Biologie-Erweiterung: Neue Pflanzen-Darstellung ===
+      if (matId === PLANT_SEED) {
+        // Samen: Braun mit kleiner Variation
+        r = 139 + baseNoise;
+        g = 90 + baseNoise;
+        b = 43 + baseNoise;
+      }
+
+      if (matId === PLANT_SPROUT) {
+        // Keimling: Helles Grün
+        const health = plantHealthGrid[i] / 100 || 0.5;
+        r = 120 * health + 50;
+        g = 200 * health + 55;
+        b = 80 * health + 30;
+      }
+
+      if (matId === PLANT_STEM) {
+        // Stamm: Mittelgrün mit Gesundheits-Abhängigkeit
+        const health = plantHealthGrid[i] / 100 || 0.5;
+        r = 34 * health + 20;
+        g = 139 * health + 45;
+        b = 34 * health + 10;
+        // Herbst-Färbung
+        if (autumnF > 0) {
+          r = r * (1 - autumnF * 0.5) + 180 * autumnF * 0.5;
+          g = g * (1 - autumnF * 0.7) + 100 * autumnF * 0.7;
+        }
+      }
+
+      if (matId === PLANT_MATURE) {
+        // Erwachsene Pflanze: Dunkles Grün
+        const health = plantHealthGrid[i] / 100 || 0.5;
+        r = 0 * health + 20;
+        g = 100 * health + 84;
+        b = 0 * health + 20;
+        // Herbst-Färbung
+        if (autumnF > 0) {
+          r = r * (1 - autumnF * 0.6) + 160 * autumnF * 0.6;
+          g = g * (1 - autumnF * 0.5) + 80 * autumnF * 0.5;
+        }
+      }
+
+      if (matId === FLOWER_DANDELION) {
+        // Gänseblümchen: Gelb
+        r = 255;
+        g = 255;
+        b = 100 + baseNoise;
+      }
+
+      if (matId === LEAF_OAK || matId === LEAF_MAPLE) {
+        // Blätter: Grün mit Gesundheits- und Herbst-Effekt
+        const health = plantHealthGrid[i] / 100 || 0.5;
+        const isMaple = matId === LEAF_MAPLE;
+
+        if (isMaple) {
+          r = 40 * health + 30;
+          g = 140 * health + 50;
+          b = 40 * health + 20;
+        } else {
+          r = 34 * health + 25;
+          g = 120 * health + 40;
+          b = 34 * health + 20;
+        }
+
+        // Herbst-Färbung
+        if (autumnF > 0) {
+          const autumnR = isMaple ? 220 : 180;
+          const autumnG = isMaple ? 60 : 100;
+          const autumnB = 20;
+          r = r * (1 - autumnF) + autumnR * autumnF;
+          g = g * (1 - autumnF) + autumnG * autumnF;
+          b = b * (1 - autumnF) + autumnB * autumnF;
+        }
+      }
+
+      if (matId === ROOT_SYSTEM) {
+        // Wurzeln: Hellbraun
+        r = 160 + baseNoise;
+        g = 120 + baseNoise;
+        b = 60 + baseNoise;
+      }
+
+      if (matId === PLANT_DEAD) {
+        // Tote Pflanze: Braun/Gelb
+        r = 139 + baseNoise;
+        g = 115 + baseNoise;
+        b = 55 + baseNoise;
+      }
+
+      if (matId === POLLEN) {
+        // Pollen: Hellgelb
+        r = 255;
+        g = 255;
         b = 150 + baseNoise;
       }
-    }
-    
-    if (matId === TREE_WOOD) {
-      // Holz mit Jahresringen: konzentrische Helligkeitsvariation über colorSeed.
-      const ring = (colorSeedGrid[i] % 90) / 90; // 0..1 Ringposition
-      const ringMod = Math.sin(ring * Math.PI * 2) * 18; // helle/dunkle Ringe
-      const ageDark = Math.min(20, ageGrid[i] / 60); // älteres Holz dunkler
-      r = 120 - ageDark + ringMod + baseNoise * 0.5;
-      g = 80 - ageDark * 0.7 + ringMod * 0.7 + baseNoise * 0.5;
-      b = 46 - ageDark * 0.4 + ringMod * 0.4 + baseNoise * 0.5;
-      // Herbst/Stress leicht rötlicher
-      const autumn = getAutumnColorFactor();
-      if (autumn > 0.3) { r += autumn * 20; }
+
+      if (matId === SEED_SUNFLOWER) {
+        // Sonnenblumensamen: Dunkel
+        r = 60 + baseNoise;
+        g = 40 + baseNoise;
+        b = 20 + baseNoise;
+      }
+
+      if (matId === SEED_WHEAT) {
+        // Weizen: Goldgelb
+        r = 218 + baseNoise;
+        g = 165 + baseNoise;
+        b = 32 + baseNoise;
+      }
+
+      if (matId === FLOWER_SEED) {
+        // Blumen-Samen: warmes Braun
+        r = 180 + baseNoise;
+        g = 120 + baseNoise;
+        b = 60 + baseNoise;
+      }
+
+      if (matId === MUSHROOM) {
+        // Pilz: cremefarben mit Variation
+        const age = ageGrid[i];
+        if (age < 30) {
+          r = 230 + baseNoise;
+          g = 220 + baseNoise;
+          b = 200 + baseNoise;
+        } else {
+          r = 200 + baseNoise;
+          g = 180 + baseNoise;
+          b = 150 + baseNoise;
+        }
+      }
+
+      if (matId === TREE_WOOD) {
+        // Holz mit Jahresringen: konzentrische Helligkeitsvariation über colorSeed.
+        const ring = (colorSeedGrid[i] % 90) / 90; // 0..1 Ringposition
+        const ringMod = Math.sin(ring * Math.PI * 2) * 18; // helle/dunkle Ringe
+        const ageDark = Math.min(20, ageGrid[i] / 60); // älteres Holz dunkler
+        r = 120 - ageDark + ringMod + baseNoise * 0.5;
+        g = 80 - ageDark * 0.7 + ringMod * 0.7 + baseNoise * 0.5;
+        b = 46 - ageDark * 0.4 + ringMod * 0.4 + baseNoise * 0.5;
+        // Herbst/Stress leicht rötlicher
+        if (autumnF > 0.3) { r += autumnF * 20; }
+      }
+
+      if (matId === CLOUD) {
+        // weiche, leicht graue Wolke; Ränder (junge Zellen) heller
+        const fade = Math.min(1, ageGrid[i] / 1200);
+        r = 228 - fade * 30 + baseNoise * 0.4;
+        g = 232 - fade * 28 + baseNoise * 0.4;
+        b = 240 - fade * 20 + baseNoise * 0.4;
+        // bei Nacht dunkler
+        if (sunCycleEnabled) {
+          const k = 1 - sunNow;
+          r *= (1 - 0.25 * k); g *= (1 - 0.25 * k); b *= (1 - 0.2 * k);
+        }
+      }
+
+      if (matId === SEAWEED) {
+        const health = (plantHealthGrid[i] || 60) / 100;
+        const sway = Math.sin(tick * 0.06 + (colorSeedGrid[i] % 100) * 0.1) * 12;
+        r = 30 + sway * 0.3 + baseNoise * 0.5;
+        g = 120 * health + 40 + sway + baseNoise * 0.5;
+        b = 70 + sway * 0.4 + baseNoise * 0.5;
+      }
+
+      if (matId === FLOWER_TULIP) {
+        // sattes Rot mit dunklerem Kern (Pixel-Art-Look)
+        r = 225 + baseNoise; g = 40 + baseNoise; b = 60 + baseNoise * 0.5;
+      }
+      if (matId === FLOWER_POPPY) {
+        r = 235 + baseNoise; g = 70 + baseNoise; b = 30 + baseNoise * 0.5;
+      }
+
+      if (matId === PLANT_FLOWER) {
+        // Color variation based on colorSeed for different flower colors
+        const hue = (colorSeedGrid[i] % 360);
+        const sat = 0.8;
+        const val = 0.9;
+        // Simple HSV to RGB
+        const c = val * sat;
+        const xv = c * (1 - Math.abs((hue / 60) % 2 - 1));
+        const m = val - c;
+        let fr, fg, fb;
+        if (hue < 60) { fr = c; fg = xv; fb = 0; }
+        else if (hue < 120) { fr = xv; fg = c; fb = 0; }
+        else if (hue < 180) { fr = 0; fg = c; fb = xv; }
+        else if (hue < 240) { fr = 0; fg = xv; fb = c; }
+        else if (hue < 300) { fr = xv; fg = 0; fb = c; }
+        else { fr = c; fg = 0; fb = xv; }
+        r = fr * 255 + m * 255;
+        g = fg * 255 + m * 255;
+        b = fb * 255 + m * 255;
+      }
+
+      if (matId === STEAM) {
+        const alpha = Math.max(0.3, 1 - ageGrid[i] / 100);
+        r = 200 + (1 - alpha) * 55;
+        g = 210 + (1 - alpha) * 45;
+        b = 225 + (1 - alpha) * 30;
+      }
+
+      if (matId === SMOKE) {
+        const alpha = Math.max(0.2, 1 - ageGrid[i] / 120);
+        const v = 70 + (1 - alpha) * 40;
+        r = v; g = v; b = v;
+      }
+
+      if (matId === URANIUM) {
+        const pulse = Math.sin(tick * 0.05 + seed) * 30;
+        g = 180 + pulse;
+      }
+
+      if (matId === CLONE) {
+        const pulse = Math.sin(tick * 0.08) * 40;
+        r = 255; g = pulse; b = 255;
+      }
+
+      if (matId === BACTERIA) {
+        const pulse = Math.sin(tick * 0.1 + seed * 0.5) * 20;
+        g = 255;
+        r = 80 + pulse;
+      }
     }
 
-    if (matId === CLOUD) {
-      // weiche, leicht graue Wolke; Ränder (junge Zellen) heller
-      const fade = Math.min(1, ageGrid[i] / 1200);
-      r = 228 - fade * 30 + baseNoise * 0.4;
-      g = 232 - fade * 28 + baseNoise * 0.4;
-      b = 240 - fade * 20 + baseNoise * 0.4;
-      // bei Nacht dunkler
-      if (sunCycleEnabled) { const dim = 1 - getSunlightIntensity() * 0.5; r *= (1 - 0.25 * (1 - getSunlightIntensity())); g *= (1 - 0.25 * (1 - getSunlightIntensity())); b *= (1 - 0.2 * (1 - getSunlightIntensity())); }
-    }
-
-    if (matId === SEAWEED) {
-      const health = (plantHealthGrid[i] || 60) / 100;
-      const sway = Math.sin(tick * 0.06 + (colorSeedGrid[i] % 100) * 0.1) * 12;
-      r = 30 + sway * 0.3 + baseNoise * 0.5;
-      g = 120 * health + 40 + sway + baseNoise * 0.5;
-      b = 70 + sway * 0.4 + baseNoise * 0.5;
-    }
-
-    if (matId === FLOWER_TULIP) {
-      // sattes Rot mit dunklerem Kern (Pixel-Art-Look)
-      r = 225 + baseNoise; g = 40 + baseNoise; b = 60 + baseNoise * 0.5;
-    }
-    if (matId === FLOWER_POPPY) {
-      r = 235 + baseNoise; g = 70 + baseNoise; b = 30 + baseNoise * 0.5;
-    }
-
-    if (matId === PLANT_FLOWER) {
-      // Color variation based on colorSeed for different flower colors
-      const hue = (colorSeedGrid[i] % 360);
-      const sat = 0.8;
-      const val = 0.9;
-      // Simple HSV to RGB
-      const c = val * sat;
-      const x = c * (1 - Math.abs((hue / 60) % 2 - 1));
-      const m = val - c;
-      let fr, fg, fb;
-      if (hue < 60) { fr = c; fg = x; fb = 0; }
-      else if (hue < 120) { fr = x; fg = c; fb = 0; }
-      else if (hue < 180) { fr = 0; fg = c; fb = x; }
-      else if (hue < 240) { fr = 0; fg = x; fb = c; }
-      else if (hue < 300) { fr = x; fg = 0; fb = c; }
-      else { fr = c; fg = 0; fb = x; }
-      r = fr * 255 + m * 255;
-      g = fg * 255 + m * 255;
-      b = fb * 255 + m * 255;
-    }
-    
-    if (matId === STEAM) {
-      const alpha = Math.max(0.3, 1 - ageGrid[i] / 100);
-      r = 200 + (1 - alpha) * 55;
-      g = 210 + (1 - alpha) * 45;
-      b = 225 + (1 - alpha) * 30;
-    }
-    
-    if (matId === SMOKE) {
-      const alpha = Math.max(0.2, 1 - ageGrid[i] / 120);
-      const v = 70 + (1 - alpha) * 40;
-      r = v; g = v; b = v;
-    }
-    
-    if (matId === URANIUM) {
-      const pulse = Math.sin(tick * 0.05 + seed) * 30;
-      g = 180 + pulse;
-    }
-    
-    if (matId === CLONE) {
-      const pulse = Math.sin(tick * 0.08) * 40;
-      r = 255; g = pulse; b = 255;
-    }
-    
-    if (matId === BACTERIA) {
-      const pulse = Math.sin(tick * 0.1 + seed * 0.5) * 20;
-      g = 255;
-      r = 80 + pulse;
-    }
-    
     // Apply night dimming
     if (nightFactor > 0) {
       r = Math.max(0, r - nightFactor * 60);
@@ -5653,7 +5694,7 @@ function render() {
     pix[ci+2] = Math.max(0, Math.min(255, b));
     pix[ci+3] = 255;
   }
-  
+
   ctx.putImageData(img, 0, 0);
 }
 
@@ -6482,80 +6523,21 @@ function findClosestMaterial(r, g, b, maxDist) {
 }
 
 // Auto-assign colors to materials
+// FIX: Die frühere Variante las window[matName]; Material-IDs sind aber `const`
+// und liegen NICHT auf window -> die Zuordnung blieb immer leer. Stattdessen wird
+// jetzt direkt aus MATS gelesen (jede Material-Eigenfarbe wird ihrer ID zugeordnet),
+// was die "Auto-Zuordnung" tatsächlich funktionsfähig und selbstpflegend macht.
 function autoMapColors() {
   colorMapping = {};
-  
-  // Define smart mappings based on common colors
-  const presets = {
-    SAND:       [210, 190, 130],
-    SAND_DARK:  [80, 70, 60],
-    DIRT:       [107, 79, 45],
-    WATER:      [64, 140, 238],
-    OIL:        [60, 45, 20],
-    WALL:       [140, 144, 155],
-    WOOD:       [139, 90, 43],
-    FIRE:       [255, 100, 0],
-    STONE:      [110, 110, 115],
-    METAL:      [165, 170, 180],
-    ICE:        [200, 235, 255],
-    GLASS:      [200, 225, 240],
-    ACID:       [180, 255, 50],
-    PLANT:      [46, 184, 60],
-    LAVA:       [255, 80, 0],
-    COAL:       [35, 35, 35],
-    SALT:       [245, 245, 245],
-    SMOKE:      [90, 90, 95],
-    STEAM:      [220, 225, 235],
-    PLASTIC:    [240, 240, 245],
-    TNT:        [200, 50, 50],
-    BLOOD:      [160, 25, 25],
-    HONEY:      [240, 180, 40],
-    ALCOHOL:    [200, 220, 255],
-    MERCURY:    [180, 190, 200],
-    URANIUM:    [50, 180, 50],
-    SULFUR:     [230, 210, 50],
-    ASH:        [130, 130, 135],
-    GRAVEL:     [140, 140, 145],
-    OXYGEN:     [180, 220, 255],
-    HYDROGEN:   [255, 255, 200],
-    CLONE:      [255, 0, 255],
-    RUST:       [180, 80, 40],
-    BRASS:      [220, 180, 80],
-    PLANT_FLOWER: [255, 100, 150],
-    PLANT_DEAD: [139, 115, 55],
-    BACTERIA:   [100, 255, 100],
-    MOLD:       [100, 140, 80],
-    FIREBALL:   [255, 150, 0],
-    SODA:       [200, 255, 200],
-    BLOOD_ALKALI: [180, 100, 200],
-    CEMENT:     [160, 160, 165],
-    PHOSPHORUS: [255, 255, 220],
-    SAND_WET:   [140, 120, 80],
-    COOKED_EGG: [245, 240, 220],
-    // === Biologie-Erweiterung: Neue Materialien ===
-    PLANT_SEED:     [139, 90, 43],
-    PLANT_SPROUT:   [120, 200, 80],
-    PLANT_STEM:     [34, 139, 34],
-    PLANT_MATURE:   [0, 100, 0],
-    FLOWER_DANDELION: [255, 255, 100],
-    FLOWER_TULIP:   [255, 50, 50],
-    FLOWER_POPPY:   [220, 50, 30],
-    LEAF_OAK:       [34, 120, 34],
-    LEAF_MAPLE:     [40, 140, 40],
-    ROOT_SYSTEM:    [160, 120, 60],
-    POLLEN:         [255, 255, 150],
-    SEED_SUNFLOWER: [60, 40, 20],
-    SEED_WHEAT:     [218, 165, 32],
-  };
-  
-  for (let matName in presets) {
-    const matId = window[matName];
-    if (matId !== undefined) {
-      const rgb = presets[matName];
-      colorMapping[`rgb(${rgb[0]},${rgb[1]},${rgb[2]})`] = matId;
-    }
+
+  for (let id in MATS) {
+    if (id == EMPTY) continue; // Radierer überspringen
+    const m = MATS[id];
+    if (!m || !m.color) continue;
+    const r = m.color[0], g = m.color[1], b = m.color[2];
+    colorMapping[`rgb(${r},${g},${b})`] = parseInt(id);
   }
-  
+
   updateMappingList();
 }
 
