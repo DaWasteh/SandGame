@@ -3,276 +3,442 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sand Game Pro · Advanced Simulation v2.0</title>
+  <title>Sand Game Pro · Advanced Simulation v2.1</title>
   <style>
     :root {
-          --bg: #0a0a0c;
-          --panel: rgba(20, 20, 25, 0.85);
-          --accent: #4cc9f0;
-          --accent-hover: #3ab0d6;
-          --text: #e0e0e0;
-          --border: rgba(255, 255, 255, 0.1);
-          --sun: #ffd700;
-          --moon: #a8c7ff;
-        }
+      color-scheme: dark;
+      --bg: #07080d;
+      --bg-soft: #0e1420;
+      --panel: color-mix(in srgb, #121721 86%, transparent);
+      --panel-strong: color-mix(in srgb, #1a2130 92%, transparent);
+      --accent: #4cc9f0;
+      --accent-2: #80ffdb;
+      --accent-hover: #74d7f6;
+      --danger: #ff6b6b;
+      --text: #f2f6fb;
+      --muted: #9da8ba;
+      --dim: #667085;
+      --border: rgba(255, 255, 255, 0.12);
+      --shadow: 0 22px 70px rgba(0, 0, 0, 0.45);
+      --sun: #ffd166;
+      --moon: #a8c7ff;
+      --radius: 18px;
+    }
+
     * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 100%; height: 100%; }
     body {
-      height: 100%;
       overflow: hidden;
-      background: var(--bg);
+      background:
+        radial-gradient(circle at 20% 12%, rgba(76, 201, 240, 0.18), transparent 26rem),
+        radial-gradient(circle at 82% 18%, rgba(128, 255, 219, 0.10), transparent 24rem),
+        linear-gradient(145deg, var(--bg), #10131b 58%, #080a0f);
       color: var(--text);
-      font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       user-select: none;
     }
+
     canvas {
       position: fixed;
       inset: 0;
       width: 100vw;
       height: 100vh;
       display: block;
-      background: #000;
+      background: #05070b;
       image-rendering: pixelated;
+      image-rendering: crisp-edges;
       cursor: crosshair;
       touch-action: none;
       z-index: 1;
     }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
     .ui {
       position: fixed;
       left: 20px;
       top: 20px;
       z-index: 10;
-      width: 340px;
+      width: min(380px, calc(100vw - 40px));
       max-height: calc(100vh - 40px);
-      background: var(--panel);
-      backdrop-filter: blur(12px);
-      border: 1px solid var(--border);
-      border-radius: 16px;
       padding: 16px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
       overflow-y: auto;
-      transition: transform 0.3s ease, opacity 0.3s ease;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px) saturate(135%);
+      scrollbar-gutter: stable;
+      transition: transform 0.25s ease, opacity 0.25s ease;
     }
     .ui.hidden {
-      transform: translateX(-380px);
+      transform: translateX(calc(-100% - 32px));
       opacity: 0;
       pointer-events: none;
     }
+
+    .ui-toggle {
+      position: fixed;
+      left: 20px;
+      top: 20px;
+      z-index: 11;
+      width: 42px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      border-radius: 999px;
+      box-shadow: var(--shadow);
+    }
+    body:not(.ui-collapsed) .ui-toggle { opacity: 0; pointer-events: none; }
+
     .header {
       display: flex;
       justify-content: space-between;
-      align-items: center;
-      margin-bottom: 12px;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 14px;
     }
-    .title h1 { font-size: 18px; font-weight: 700; letter-spacing: -0.5px; }
-    .title p { font-size: 11px; color: #888; }
-    
-    .section-title {
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 4px;
+      color: var(--accent-2);
       font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
       text-transform: uppercase;
-      letter-spacing: 1px;
-      color: #666;
-      margin: 10px 0 6px 0;
-      border-bottom: 1px solid var(--border);
-      padding-bottom: 4px;
+    }
+    .title h1 { font-size: 20px; font-weight: 800; letter-spacing: -0.03em; }
+    .title p { margin-top: 2px; font-size: 12px; color: var(--muted); }
+
+    .panel-section {
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+    }
+    .section-title {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      margin-bottom: 8px;
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+    .section-title::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      box-shadow: 0 0 14px rgba(76, 201, 240, 0.65);
     }
 
     .grid-mats {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 4px;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 6px;
     }
+
     button {
-      background: rgba(255,255,255,0.05);
+      min-height: 32px;
       border: 1px solid var(--border);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.055);
       color: var(--text);
-      padding: 5px 3px;
-      border-radius: 6px;
-      font-size: 10px;
+      padding: 7px 8px;
+      font: inherit;
+      font-size: 11px;
+      font-weight: 650;
+      line-height: 1.15;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: transform 0.16s ease, background 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
       white-space: normal;
       word-break: break-word;
-      line-height: 1.2;
     }
-    button:hover { background: rgba(255,255,255,0.1); }
+    button:hover { background: rgba(255, 255, 255, 0.105); border-color: rgba(255, 255, 255, 0.22); transform: translateY(-1px); }
+    button:active { transform: translateY(0); }
+    button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
     button.active {
-      background: var(--accent);
-      color: #000;
-      border-color: var(--accent);
-      font-weight: 600;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      color: #031017;
+      border-color: transparent;
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.18), 0 10px 26px rgba(76, 201, 240, 0.24);
+    }
+    button.ghost { min-height: 30px; color: var(--muted); }
+    button.primary {
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      color: #061116;
+      border-color: transparent;
+      font-weight: 800;
+    }
+    .grid-mats button {
+      position: relative;
+      min-height: 42px;
+      padding-top: 18px;
+      overflow: hidden;
+    }
+    .grid-mats button::before {
+      content: "";
+      position: absolute;
+      left: 8px;
+      top: 7px;
+      width: calc(100% - 16px);
+      height: 6px;
+      border-radius: 999px;
+      background: var(--mat-color, rgba(255,255,255,0.25));
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.18);
     }
 
     .control-row {
-      display: flex;
+      display: grid;
+      grid-template-columns: 1fr minmax(110px, 46%) 3.5rem;
       align-items: center;
-      justify-content: space-between;
-      margin-bottom: 6px;
+      gap: 8px;
+      margin-bottom: 8px;
       font-size: 12px;
+      color: var(--muted);
+    }
+    .control-row > label { color: var(--text); font-weight: 650; }
+    .range-value {
+      justify-self: end;
+      color: var(--accent-2);
+      font-variant-numeric: tabular-nums;
+      font-size: 11px;
+      font-weight: 800;
     }
     input[type="range"] {
-      flex: 1;
-      margin-left: 10px;
+      width: 100%;
       accent-color: var(--accent);
+      cursor: ew-resize;
     }
 
     .actions {
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 6px;
-      margin-top: 10px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 8px;
     }
-    .actions button { padding: 7px; font-size: 11px; }
+    .actions.single { grid-template-columns: 1fr; }
+    .mapping-panel {
+      display: none;
+      margin-top: 12px;
+      padding: 10px;
+      background: rgba(0, 0, 0, 0.18);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+    }
+    .mapping-list { max-height: 200px; overflow-y: auto; margin-bottom: 8px; font-size: 10px; color: var(--muted); }
+    .mapping-swatch { display: inline-block; width: 20px; height: 12px; border: 1px solid #555; border-radius: 3px; }
+    .hidden-native { display: none; }
 
-    .stats {
+    .stats, .sun-cycle-indicator, .info-panel {
       position: fixed;
-      bottom: 20px;
-      right: 20px;
       z-index: 10;
       background: var(--panel);
-      padding: 6px 12px;
-      border-radius: 20px;
-      font-size: 11px;
-      color: #888;
-      backdrop-filter: blur(8px);
+      backdrop-filter: blur(14px) saturate(130%);
       border: 1px solid var(--border);
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.26);
+    }
+    .stats {
+      right: 20px;
+      bottom: 20px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      color: var(--muted);
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
     }
 
     .kbd-hint {
       margin-top: 12px;
+      color: var(--dim);
       font-size: 10px;
-      color: #555;
-      line-height: 1.4;
+      line-height: 1.55;
     }
     .kbd {
-      background: #222;
-      padding: 1px 4px;
-      border-radius: 3px;
-      color: #aaa;
+      display: inline-block;
+      min-width: 1.35em;
+      padding: 1px 5px;
+      border: 1px solid var(--border);
+      border-bottom-color: rgba(255,255,255,0.24);
+      border-radius: 5px;
+      background: rgba(255,255,255,0.08);
+      color: var(--text);
+      text-align: center;
+      font-size: 0.95em;
     }
 
     .sun-cycle-indicator {
-      position: fixed;
       top: 20px;
       right: 20px;
-      z-index: 10;
-      background: var(--panel);
-      padding: 8px 14px;
-      border-radius: 12px;
-      font-size: 11px;
-      color: #aaa;
-      backdrop-filter: blur(8px);
-      border: 1px solid var(--border);
       display: flex;
       align-items: center;
       gap: 8px;
+      padding: 9px 13px;
+      border-radius: 14px;
+      color: var(--muted);
+      font-size: 11px;
     }
-    .sun-cycle-indicator.day { border-color: var(--sun); }
-    .sun-cycle-indicator.night { border-color: var(--moon); }
+    .sun-cycle-indicator.day { border-color: color-mix(in srgb, var(--sun), transparent 35%); }
+    .sun-cycle-indicator.night { border-color: color-mix(in srgb, var(--moon), transparent 35%); }
     .sun-icon { font-size: 16px; }
-    #seasonIndicator {
-      top: 60px;
-    }
+    #seasonIndicator { top: 62px; }
 
     .info-panel {
-      position: fixed;
-      bottom: 20px;
       left: 20px;
-      z-index: 10;
-      background: var(--panel);
-      padding: 8px 14px;
-      border-radius: 12px;
-      font-size: 11px;
-      color: #aaa;
-      backdrop-filter: blur(8px);
-      border: 1px solid var(--border);
-      max-width: 300px;
+      bottom: 20px;
       display: none;
+      max-width: min(360px, calc(100vw - 40px));
+      padding: 10px 14px;
+      border-radius: 14px;
+      color: var(--muted);
+      font-size: 11px;
     }
     .info-panel.visible { display: block; }
 
-    ::-webkit-scrollbar { width: 4px; }
-    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.16); border-radius: 999px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.28); }
+
+    @media (max-width: 720px) {
+      .ui { left: 10px; top: 10px; width: calc(100vw - 20px); max-height: min(68vh, calc(100vh - 20px)); }
+      .ui-toggle { left: 10px; top: 10px; }
+      .control-row { grid-template-columns: 1fr; }
+      .range-value { justify-self: start; }
+      .stats { right: 10px; bottom: 10px; }
+      .info-panel { left: 10px; bottom: 10px; }
+      .sun-cycle-indicator { right: 10px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition: none !important; animation: none !important; }
+    }
   </style>
 </head>
 <body>
 
-<canvas id="c"></canvas>
+<main class="game-shell" aria-label="Sand-Game-Simulationsfläche">
+  <canvas id="c" role="img" aria-label="Interaktive Pixel-Simulation: mit Maus oder Touch Materialien zeichnen"></canvas>
+</main>
 
-<div class="ui" id="ui">
-  <div class="header">
+<button id="floatingToggleUI" class="ui-toggle" type="button" aria-controls="ui" aria-expanded="false" title="Werkzeugleiste anzeigen">☰</button>
+
+<aside class="ui" id="ui" aria-label="Werkzeuge, Materialien und Simulationseinstellungen">
+  <header class="header">
     <div class="title">
-      <h1>Sand Pro v2.0</h1>
-      <p>Physik & Chemie Simulation</p>
+      <span class="eyebrow">● Live Cellular Automata</span>
+      <h1>Sand Pro v2.1</h1>
+      <p>Physik · Chemie · Biologie · Ökosystem</p>
     </div>
-    <button id="toggleUI">Ausblenden</button>
-  </div>
+    <button id="toggleUI" class="ghost" type="button" aria-controls="ui" aria-expanded="true">Ausblenden</button>
+  </header>
 
-  <div class="section-title">Pulver</div>
-  <div class="grid-mats" id="matGridPowder"></div>
-  <div class="section-title">Flüssigkeiten</div>
-  <div class="grid-mats" id="matGridLiquid"></div>
-  <div class="section-title">Gase</div>
-  <div class="grid-mats" id="matGridGas"></div>
-  <div class="section-title">Feststoffe</div>
-  <div class="grid-mats" id="matGridSolid"></div>
-  <div class="section-title">Spezial</div>
-  <div class="grid-mats" id="matGridSpecial"></div>
+  <section class="panel-section" aria-labelledby="powderTitle">
+    <h2 class="section-title" id="powderTitle">Pulver</h2>
+    <div class="grid-mats" id="matGridPowder" role="list"></div>
+  </section>
+  <section class="panel-section" aria-labelledby="liquidTitle">
+    <h2 class="section-title" id="liquidTitle">Flüssigkeiten</h2>
+    <div class="grid-mats" id="matGridLiquid" role="list"></div>
+  </section>
+  <section class="panel-section" aria-labelledby="gasTitle">
+    <h2 class="section-title" id="gasTitle">Gase</h2>
+    <div class="grid-mats" id="matGridGas" role="list"></div>
+  </section>
+  <section class="panel-section" aria-labelledby="solidTitle">
+    <h2 class="section-title" id="solidTitle">Feststoffe</h2>
+    <div class="grid-mats" id="matGridSolid" role="list"></div>
+  </section>
+  <section class="panel-section" aria-labelledby="specialTitle">
+    <h2 class="section-title" id="specialTitle">Spezial & Leben</h2>
+    <div class="grid-mats" id="matGridSpecial" role="list"></div>
+  </section>
 
-  <div class="section-title">Einstellungen</div>
-  <div class="control-row">
-    <label>Grid-Auflösung (Zellen/Breite)</label>
-    <input type="range" id="gridR" min="50" max="500" value="200">
-  </div>
-  <div class="control-row">
-    <label>Pinselgröße</label>
-    <input type="range" id="brushR" min="1" max="40" value="5">
-  </div>
-  <div class="control-row">
-    <label>Simulations-Ticks/Frames</label>
-    <input type="range" id="speedR" min="1" max="15" value="5">
-  </div>
-  <div class="control-row">
-    <label>Photosynthese-Aktivität</label>
-    <input type="range" id="photoR" min="0" max="100" value="70">
-  </div>
-  <div class="control-row">
-    <label>Sonnenzyklus (Tag/Nacht + Jahreszeiten)</label>
-    <button id="sunCycleToggle" style="width: 110px;">☀️ Aktivieren</button>
-  </div>
-  <div class="control-row">
-    <label>Zyklus-Geschwindigkeit</label>
-    <input type="range" id="sunSpeedR" min="1" max="100" value="30">
-  </div>
+  <section class="panel-section" aria-labelledby="settingsTitle">
+    <h2 class="section-title" id="settingsTitle">Einstellungen</h2>
+    <div class="control-row">
+      <label for="gridR">Grid-Auflösung</label>
+      <input type="range" id="gridR" min="50" max="1080" value="200" aria-describedby="gridHelp">
+      <output class="range-value" id="gridVal" for="gridR">200</output>
+    </div>
+    <p class="sr-only" id="gridHelp">Anzahl der Simulationszellen in der Breite. Höhere Werte kosten mehr Leistung.</p>
+    <div class="control-row">
+      <label for="brushR">Pinselgröße</label>
+      <input type="range" id="brushR" min="1" max="40" value="5">
+      <output class="range-value" id="brushVal" for="brushR">5</output>
+    </div>
+    <div class="control-row">
+      <label for="speedR">Ticks/Frame</label>
+      <input type="range" id="speedR" min="1" max="15" value="5">
+      <output class="range-value" id="speedVal" for="speedR">5</output>
+    </div>
+    <div class="control-row">
+      <label for="photoR">Photosynthese</label>
+      <input type="range" id="photoR" min="0" max="100" value="70">
+      <output class="range-value" id="photoVal" for="photoR">70%</output>
+    </div>
+    <div class="control-row">
+      <label for="sunCycleToggle">Sonnenzyklus</label>
+      <button id="sunCycleToggle" type="button" aria-pressed="false">☀️ Aktivieren</button>
+      <span class="range-value">Tag/Nacht</span>
+    </div>
+    <div class="control-row">
+      <label for="sunSpeedR">Zyklus-Tempo</label>
+      <input type="range" id="sunSpeedR" min="1" max="100" value="30">
+      <output class="range-value" id="sunSpeedVal" for="sunSpeedR">30</output>
+    </div>
+  </section>
   
-  <div id="mappingPanel" style="display:none; margin-top: 10px;">
-    <div class="section-title">Farbe → Material Zuordnung</div>
-    <div id="mappingList" style="max-height: 200px; overflow-y: auto; font-size: 10px; margin-bottom: 8px;"></div>
-    <button id="autoMapBtn" style="width: 100%; margin-bottom: 4px;">Auto-Zuordnung</button>
-    <button id="applyMappingBtn" style="width: 100%; margin-bottom: 4px;">Zuordnung anwenden</button>
-    <button id="playMappingBtn" style="width: 100%; background: var(--accent); color: #000; font-weight: 600;">▶ Simulation starten</button>
-  </div>
+  <section id="mappingPanel" class="mapping-panel" aria-labelledby="mappingTitle">
+    <h2 class="section-title" id="mappingTitle">Farbe → Material</h2>
+    <div id="mappingList" class="mapping-list"></div>
+    <div class="actions single">
+      <button id="autoMapBtn" type="button">Auto-Zuordnung</button>
+      <button id="applyMappingBtn" type="button">Zuordnung anwenden</button>
+      <button id="playMappingBtn" class="primary" type="button">▶ Simulation starten</button>
+    </div>
+  </section>
   
-  <input type="file" id="imgFileInput" accept="image/*" style="display:none;" />
+  <input type="file" id="imgFileInput" class="hidden-native" accept="image/*" />
   
-  <div class="section-title">Import & Export</div>
-  <div class="actions">
-    <button id="importImgBtn" style="width: 100%; background: var(--accent); color: #000; font-weight: 600;">📁 Bild importieren</button>
-  </div>
+  <section class="panel-section" aria-labelledby="importTitle">
+    <h2 class="section-title" id="importTitle">Import & Export</h2>
+    <div class="actions single">
+      <button id="importImgBtn" class="primary" type="button">📁 Bild importieren</button>
+    </div>
+  </section>
 
-  <div class="section-title">Aktionen</div>
-  <div class="actions">
-    <button id="pauseBtn">Pause</button>
-    <button id="clearBtn">Leeren</button>
-    <button id="rainBtn">Regen</button>
-    <button id="fireBtn">Feuerregen</button>
-    <button id="windBtn">Wind</button>
-    <button id="seedBtn">Ökosystem + Boden</button>
-  </div>
+  <section class="panel-section" aria-labelledby="actionTitle">
+    <h2 class="section-title" id="actionTitle">Aktionen</h2>
+    <div class="actions">
+      <button id="pauseBtn" type="button">Pause</button>
+      <button id="clearBtn" type="button">Leeren</button>
+      <button id="rainBtn" type="button">Regen</button>
+      <button id="fireBtn" type="button">Feuerregen</button>
+      <button id="windBtn" type="button">Wind</button>
+      <button id="seedBtn" type="button">Ökosystem + Boden</button>
+    </div>
+  </section>
 
-  <div class="kbd-hint">
-    <span class="kbd">1-9</span> Material | <span class="kbd">Space</span> Pause | <span class="kbd">C</span> Leeren | <span class="kbd">H</span> UI | <span class="kbd">Rechtsklick</span> Radierer
-  </div>
-</div>
+  <p class="kbd-hint">
+    <span class="kbd">1-9</span> Material · <span class="kbd">Space</span> Pause · <span class="kbd">c</span> Leeren · <span class="kbd">h</span> UI · <span class="kbd">Shift+C</span> CO₂-Schaum · <span class="kbd">Rechtsklick</span> Radierer
+  </p>
+</aside>
 
 <div class="stats" id="st">0 FPS | 0 Partikel</div>
 <div class="info-panel" id="info"></div>
@@ -290,7 +456,7 @@
 "use strict";
 
 /**
- * SAND GAME PRO v2.0 - Advanced Physics & Chemistry Simulation
+ * SAND GAME PRO v2.1 - Advanced Physics & Chemistry Simulation
  * 
  * Features:
  * - Realistic particle physics (density, buoyancy, viscosity)
@@ -520,7 +686,7 @@ const KEY_MAP = {
   '-': EMPTY, '=': COAL, '\\': BLOOD, "'": EGGS, ';': CLONE,
   '[': DIRT, ']': GRAVEL,
   'a': BACTERIA, 's': SULFUR, 'd': PHOSPHORUS, 'f': MERCURY,
-  'g': SODA, 'h': HONEY, 'j': ALCOHOL, 'k': CHLORINE, 'l': NITROGEN, 'z': URANIUM, 'x': FIREBALL, 'c': FIRE_EXTINGUISHER,
+  'g': SODA, 'H': HONEY, 'j': ALCOHOL, 'k': CHLORINE, 'l': NITROGEN, 'z': URANIUM, 'x': FIREBALL, 'C': FIRE_EXTINGUISHER,
   // === Biologie-Erweiterung: Neue Materialien ===
   'b': PLANT_SEED,
   'n': PLANT_SPROUT,
@@ -548,7 +714,7 @@ let phGrid, radiationGrid;
 // REMOVED: soluteGrid, electricalGrid, myceliumGrid (unbenutzt)
 let canvas, ctx, img, pix;
 let curMat = SAND, bsz = 5, spd = 5, paused = false;
-let targetGridWidth = 1080; // Maximaler Startwert für Grid-Größe (max)
+let targetGridWidth = 200; // Start moderat; Slider erlaubt bis 1080 für High-End-Systeme
 let rainActive = false, fireActive = false, windActive = false, windDir = 1;
 let windDirTimer = 0;
 let windDirDuration = 300;
@@ -604,7 +770,7 @@ let activeCells = new Uint32Array(8192);   // Current active cells buffer
 let activeCellsCount = 0;
 let nextActiveCells = new Uint32Array(8192); // Next frame buffer
 let nextActiveCellsCount = 0;
-let activeCellHash = new Uint32Array(65536); // Dedup hash table
+let activeCellHash = new Uint32Array(8192); // Tick-stamped dedup table, grown to N cells on resize
 // Ruhe-Backoff: zählt aufeinanderfolgende Wake-Scans, die nichts gefunden haben.
 // Eine vollständig ruhende Szene muss nicht jeden Tick gescannt werden.
 let __quietScans = 0;
@@ -621,10 +787,6 @@ function ensureSortBuffers() {
     __sortedCells = new Uint32Array(activeCells.length);
 }
 let activeCellHashTick = 0; // Tick-based invalidation
-
-// Maximum active cells before resizing buffers
-const MAX_ACTIVE_CELLS_INITIAL = 8192;
-const HASH_TABLE_SIZE = 65536;
 
 /**
  * SPATIAL HASH GRID - Performance-Optimierung Phase 1.2
@@ -739,9 +901,11 @@ function spatialHashCountInRadius(x, y, radius, matFilter) {
 function aclAdd(x, y) {
   if (x < 0 || x >= W || y < 0 || y >= H) return;
   const idx = y * W + x;
-  const hash = idx & (HASH_TABLE_SIZE - 1);
-  if (activeCellHash[hash] === activeCellHashTick) return; // Already added
-  activeCellHash[hash] = activeCellHashTick;
+  // Kollisionsfreie Tick-Markierung: bei großen Grids führte die frühere
+  // 65k-Hash-Tabelle zu Kollisionen und dadurch zu "einschlafenden" Zellen.
+  if (!activeCellHash || activeCellHash.length < N) activeCellHash = new Uint32Array(N);
+  if (activeCellHash[idx] === activeCellHashTick) return; // Already added
+  activeCellHash[idx] = activeCellHashTick;
   if (nextActiveCellsCount >= nextActiveCells.length) {
     // Resize buffer
     const newBuf = new Uint32Array(nextActiveCells.length * 2);
@@ -1015,6 +1179,11 @@ function canDisplace(target, source) {
   // Schwere Gase (Cl₂, CO₂) sinken durch Flüssigkeiten oder bleiben liegen
   if (isGas(source) && isLiquid(target)) return s.density < t.density;
   
+  // Gas-Gas-Schichtung: unterschiedliche Gase dürfen Plätze tauschen. Die
+  // Bewegungsrichtung wird in canDisplaceDirectional präzisiert; hier reicht
+  // die generische Erlaubnis für Diffusion/Aktivierung.
+  if (isGas(source) && isGas(target)) return Math.abs(s.density - t.density) > 0.05;
+  
   // Gase können nicht durch Feststoffe oder Pulver dringen
   if (isGas(source) && (isPowder(target) || isSolid(target))) return false;
   
@@ -1022,6 +1191,30 @@ function canDisplace(target, source) {
   if (source === FIRE) return true;
   
   return false;
+}
+
+function canDisplaceDirectional(target, source, dy) {
+  if (isEmpty(target)) return true;
+  const s = MATS[source], t = MATS[target];
+  if (!s || !t) return false;
+  if (source === target) return false;
+
+  if (isGas(source) && isLiquid(target)) {
+    return dy < 0 && s.density < t.density; // Gasblasen steigen durch Flüssigkeit auf
+  }
+  if (isLiquid(source) && isGas(target)) {
+    return dy >= 0; // Flüssigkeiten fallen/strömen durch Gas, aber steigen nicht hinein
+  }
+  if (isGas(source) && isGas(target)) {
+    // dy < 0: Quelle steigt nach oben -> nur leichtere/heißere Gase verdrängen
+    // dy > 0: Quelle sinkt nach unten -> nur dichtere Gase verdrängen.
+    const densityDelta = s.density - t.density;
+    if (dy < 0) return densityDelta < -0.05;
+    if (dy > 0) return densityDelta > 0.05;
+    return Math.abs(densityDelta) > 0.25; // horizontale Diffusion nur bei klarem Unterschied
+  }
+
+  return canDisplace(target, source);
 }
 
 /**
@@ -1097,7 +1290,7 @@ function tryMove(x, y, tx, ty, matId) {
   }
   const i1 = y * W + x, i2 = ty * W + tx;
   if (grid[i2] === matId) return false;
-  if (grid[i2] !== EMPTY && !canDisplace(grid[i2], matId)) return false;
+  if (grid[i2] !== EMPTY && !canDisplaceDirectional(grid[i2], matId, ty - y)) return false;
   swap(x, y, tx, ty);
   return true;
 }
@@ -1355,21 +1548,29 @@ function updateLiquid(x, y, matId) {
     const dirs = [dir, -dir];
     if (rng() < 0.5) dirs.reverse();
     for (const d of dirs) {
-      if (y + 1 < H) {
-        const diag = grid[(y + 1) * W + (x + d)];
-        if (isEmpty(diag) || isGas(diag) || isPlant(diag)) {
-          if (tryMove(x, y, x + d, y + 1, matId)) return true;
-        }
+      const nx = x + d;
+      if (nx < 0 || nx >= W) continue; // kein Zeilen-Wrap an den Rändern
+      const diag = grid[(y + 1) * W + nx];
+      if (isEmpty(diag) || isGas(diag) || isPlant(diag)) {
+        if (tryMove(x, y, nx, y + 1, matId)) return true;
       }
     }
   }
 
-  // 3. Seitliche Bewegung
-  if (grid[y * W + (x + dir)] === EMPTY || isGas(grid[y * W + (x + dir)]) || isPlant(grid[y * W + (x + dir)])) {
-    if (tryMove(x, y, x + dir, y, matId)) return true;
+  // 3. Seitliche Bewegung (mit expliziten Bounds gegen Zeilen-Wrap)
+  const sx1 = x + dir;
+  if (sx1 >= 0 && sx1 < W) {
+    const side = grid[y * W + sx1];
+    if (side === EMPTY || isGas(side) || isPlant(side)) {
+      if (tryMove(x, y, sx1, y, matId)) return true;
+    }
   }
-  if (grid[y * W + (x - dir)] === EMPTY || isGas(grid[y * W + (x - dir)]) || isPlant(grid[y * W + (x - dir)])) {
-    if (tryMove(x, y, x - dir, y, matId)) return true;
+  const sx2 = x - dir;
+  if (sx2 >= 0 && sx2 < W) {
+    const side = grid[y * W + sx2];
+    if (side === EMPTY || isGas(side) || isPlant(side)) {
+      if (tryMove(x, y, sx2, y, matId)) return true;
+    }
   }
 
   // Surface tension (reduziert für Regen/Tropfen - damit Wasser nicht als Block stecken bleibt)
@@ -1464,11 +1665,11 @@ function updateGas(x, y, matId) {
   const pressureY = (gasUp - gasDown) * 0.1;
   
   // === THERMISCHE KONVEKTION ===
-  const ambientTemp = 20;
+  const ambientTemp = getAmbientTemperature();
   const thermalBuoyancy = (temp - ambientTemp) * 0.003;
   
-  // Convection: hotter gases rise faster
-  const heatBoost = temp > 40 ? Math.min(0.4, (temp - 40) / 800) : 0;
+  // Convection: gases hotter than the current ambient temperature rise faster
+  const heatBoost = Math.max(0, Math.min(0.4, thermalBuoyancy));
 
   // Density-based behavior
   const isLight = buoyancy < -0.3;
@@ -4699,6 +4900,23 @@ function updateWeather() {
   }
 }
 
+function getAmbientTemperature() {
+  let ambientBase = 20;
+
+  if (sunCycleEnabled) {
+    const s = getCurrentSeason();
+    if (s === 0) ambientBase += 2;       // Frühling
+    else if (s === 1) ambientBase += 8;  // Sommer
+    else if (s === 2) ambientBase -= 2;  // Herbst
+    else if (s === 3) ambientBase -= 10; // Winter
+
+    const sunlight = getSunlightIntensity();
+    ambientBase += (sunlight - 0.5) * 6; // +3 bei Tag, -3 bei Nacht
+  }
+
+  return ambientBase;
+}
+
 function updateThermal(x, y, matId) {
   const i = y * W + x;
   const mat = MATS[matId];
@@ -4728,20 +4946,7 @@ function updateThermal(x, y, matId) {
   }
 
   // Ambient temperature influenced by sun cycle and season
-  let ambientBase = 20;
-
-  if (sunCycleEnabled) {
-    // Season effect
-    const s = getCurrentSeason();
-    if (s === 0) ambientBase += 2;    // Frühling
-    else if (s === 1) ambientBase += 8; // Sommer
-    else if (s === 2) ambientBase -= 2; // Herbst
-    else if (s === 3) ambientBase -= 10; // Winter
-
-    // Day/night effect
-    const sunlight = getSunlightIntensity();
-    ambientBase += (sunlight - 0.5) * 6; // +3 at day, -3 at night
-  }
+  const ambientBase = getAmbientTemperature();
 
   const ambientRate = 0.0015 / mat.heatCapacity;
   if (tempGrid[i] > ambientBase + 3) {
@@ -5133,11 +5338,10 @@ function simulate() {
   ensureSortBuffers();
   __rowStart.fill(0, 0, H + 1);
   // Zählen pro Reihe
-  let __valid = 0;
   for (let i = 0; i < activeCellsCount; i++) {
     const idx = activeCells[i];
     const y = (idx - (idx % W)) / W;
-    if (y >= 0 && y < H) { __rowStart[y + 1]++; __valid++; }
+    if (y >= 0 && y < H) __rowStart[y + 1]++;
   }
   // Präfixsumme -> CSR-Offsets
   for (let y = 0; y < H; y++) { __rowStart[y + 1] += __rowStart[y]; __rowFill[y] = __rowStart[y]; }
@@ -5153,7 +5357,11 @@ function simulate() {
     const s0 = __rowStart[y], s1 = __rowStart[y + 1];
     if (s1 === s0) continue;
 
-    for (let c = s0; c < s1; c++) {
+    const rowForward = ((tick + y) & 1) === 0; // reduziert Links-/Rechts-Bias
+    const cStart = rowForward ? s0 : s1 - 1;
+    const cEnd = rowForward ? s1 : s0 - 1;
+    const cStep = rowForward ? 1 : -1;
+    for (let c = cStart; c !== cEnd; c += cStep) {
       const idx = __sortedCells[c];
       const x = idx % W;
       const matId = grid[idx];
@@ -5207,7 +5415,11 @@ function simulate() {
     const s0 = __rowStart[y], s1 = __rowStart[y + 1];
     if (s1 === s0) continue;
     
-    for (let c = s0; c < s1; c++) {
+    const rowForward = ((tick + y) & 1) === 0; // reduziert Links-/Rechts-Bias
+    const cStart = rowForward ? s0 : s1 - 1;
+    const cEnd = rowForward ? s1 : s0 - 1;
+    const cStep = rowForward ? 1 : -1;
+    for (let c = cStart; c !== cEnd; c += cStep) {
       const idx = __sortedCells[c];
       const x = idx % W;
       const matId = grid[idx];
@@ -5333,10 +5545,15 @@ function simulate() {
     sunIndicator.className = "sun-cycle-indicator " + (isDaytime ? "day" : "night");
     
     // === Saison-Anzeiger aktualisieren ===
-    const seasonNames = ['🌸 Frühling', '☀️ Sommer', '🍂 Herbst', '❄️ Winter'];
+    const seasonNames = ['Frühling', 'Sommer', 'Herbst', 'Winter'];
+    const seasonIcons = ['🌸', '☀️', '🍂', '❄️'];
+    const currentSeason = getCurrentSeason();
     const seasonIndicator = document.getElementById('seasonIndicator');
-    if (seasonIndicator) {
-      seasonIndicator.textContent = seasonNames[getCurrentSeason()];
+    const seasonText = document.getElementById('seasonText');
+    if (seasonIndicator && seasonText) {
+      const icon = seasonIndicator.querySelector('.sun-icon');
+      if (icon) icon.textContent = seasonIcons[currentSeason];
+      seasonText.textContent = seasonNames[currentSeason];
     }
   }
   
@@ -5727,6 +5944,7 @@ function resize() {
   W = newW;
   H = newH;
   N = W * H;
+  if (!activeCellHash || activeCellHash.length < N) activeCellHash = new Uint32Array(N);
   canvas.width = W;
   canvas.height = H;
   
@@ -5767,6 +5985,7 @@ function resize() {
     gridSlider.max = "1080";
     gridSlider.value = Math.min(W, 1080);
   }
+  syncControlOutputs();
   
   // Initialisiere Bodennährstoffe für DIRT-Zellen
   for (let i = 0; i < N; i++) {
@@ -5842,8 +6061,11 @@ function buildUI() {
     if (id == EMPTY) continue;
     const m = MATS[id];
     const btn = document.createElement("button");
+    btn.type = "button";
     btn.textContent = m.name;
+    btn.style.setProperty("--mat-color", `rgb(${m.color[0]}, ${m.color[1]}, ${m.color[2]})`);
     btn.title = `${m.name}\nDichte: ${m.density} | Schmelzpunkt: ${m.melting}°C | Siedepunkt: ${m.boiling}°C\nEntzündung: ${Math.round(m.flammability * 100)}% | pH: ${m.ph}`;
+    btn.setAttribute("aria-pressed", m.id === curMat ? "true" : "false");
     if (m.id === curMat) btn.classList.add("active");
     btn.onclick = () => {
       curMat = m.id;
@@ -6085,8 +6307,6 @@ function getPos(e) {
   return { x: Math.floor(x), y: Math.floor(y) };
 }
 
-// Letzter gemalter Stamp-Mittelpunkt je Material, um Doppel-Stamps zu vermeiden.
-let __lastStampX = -999, __lastStampY = -999;
 function paintAt(x, y) {
   wakeReset(); // Eingabe -> Ruhe-Backoff sofort beenden.
 
@@ -6204,6 +6424,38 @@ function paintAt(x, y) {
   }
 }
 
+function paintLine(x0, y0, x1, y1) {
+  const sparseBiologyBrush = !isErasing && (plantStampFor(curMat) || isSeedScatter(curMat));
+  if (sparseBiologyBrush) {
+    paintAt(x1, y1);
+    return;
+  }
+
+  const dx = x1 - x0;
+  const dy = y1 - y0;
+  const steps = Math.max(Math.abs(dx), Math.abs(dy));
+  if (steps === 0) {
+    paintAt(x1, y1);
+    return;
+  }
+
+  // Bresenham/DDA-artige Interpolation verhindert Löcher bei schnellen Mauszügen,
+  // ohne bei großen Pinseln unnötig viele identische Stempel zu setzen.
+  const stride = Math.max(1, Math.floor(bsz * 0.45));
+  let lastX = x0, lastY = y0;
+  for (let s = 0; s <= steps; s += stride) {
+    const t = s / steps;
+    const px = Math.round(x0 + dx * t);
+    const py = Math.round(y0 + dy * t);
+    if (px !== lastX || py !== lastY || s === 0) {
+      paintAt(px, py);
+      lastX = px;
+      lastY = py;
+    }
+  }
+  if (lastX !== x1 || lastY !== y1) paintAt(x1, y1);
+}
+
 function initInput() {
   canvas.addEventListener("pointerdown", e => {
     e.preventDefault();
@@ -6221,8 +6473,8 @@ function initInput() {
   window.addEventListener("pointermove", e => {
     try {
       const pos = getPos(e);
+      if (isDrawing) paintLine(lastPointerX, lastPointerY, pos.x, pos.y);
       lastPointerX = pos.x; lastPointerY = pos.y; hasPointer = true;
-      if (isDrawing) paintAt(pos.x, pos.y);
     } catch (err) {
       console.error("Pointer move error:", err);
     }
@@ -6237,26 +6489,87 @@ function initInput() {
   canvas.addEventListener("contextmenu", e => e.preventDefault());
 }
 
+function setOutput(id, value) {
+  const el = document.getElementById(id);
+  if (el) {
+    el.value = value;
+    el.textContent = value;
+  }
+}
+
+function syncControlOutputs() {
+  setOutput("gridVal", `${targetGridWidth}`);
+  setOutput("brushVal", `${bsz}`);
+  setOutput("speedVal", `${spd}`);
+  setOutput("photoVal", `${Math.round(photoActivity * 100)}%`);
+  const sunSlider = document.getElementById("sunSpeedR");
+  setOutput("sunSpeedVal", sunSlider ? sunSlider.value : "30");
+}
+
+function clearWorld() {
+  if (grid) grid.fill(EMPTY);
+  if (tempGrid) tempGrid.fill(20);
+  if (ageGrid) ageGrid.fill(0);
+  if (phGrid) phGrid.fill(7.0);
+  if (radiationGrid) radiationGrid.fill(0);
+  if (plantTypeGrid) plantTypeGrid.fill(0);
+  if (plantStageGrid) plantStageGrid.fill(0);
+  if (plantHealthGrid) plantHealthGrid.fill(0);
+  if (plantSapGrid) plantSapGrid.fill(0);
+  if (plantWaterGrid) plantWaterGrid.fill(0);
+  if (plantIdGrid) plantIdGrid.fill(0);
+  if (soilNutrientGrid) soilNutrientGrid.fill(0);
+  if (velXGrid) velXGrid.fill(0);
+  if (velYGrid) velYGrid.fill(0);
+  if (electricalGrid) electricalGrid.fill(0);
+  if (nitrogenGrid) nitrogenGrid.fill(0);
+  if (phosphorusGrid) phosphorusGrid.fill(0);
+  if (potassiumGrid) potassiumGrid.fill(0);
+  if (myceliumGrid) myceliumGrid.fill(0);
+  aclClear();
+  wakeReset();
+  nextPlantId = 1;
+  season = 0;
+  seasonTime = 0;
+  seasonProgress = 0;
+}
+
+function setUiCollapsed(collapsed) {
+  const ui = document.getElementById("ui");
+  const inlineToggle = document.getElementById("toggleUI");
+  const floatingToggle = document.getElementById("floatingToggleUI");
+  ui.classList.toggle("hidden", collapsed);
+  document.body.classList.toggle("ui-collapsed", collapsed);
+  inlineToggle.textContent = collapsed ? "Anzeigen" : "Ausblenden";
+  inlineToggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
+  floatingToggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
+  floatingToggle.title = collapsed ? "Werkzeugleiste anzeigen" : "Werkzeugleiste ausblenden";
+}
+
 function initUI() {
+  syncControlOutputs();
   document.getElementById("gridR").oninput = function() {
     const newWidth = parseInt(this.value);
     if (newWidth !== targetGridWidth) {
       targetGridWidth = newWidth;
       resize();
     }
+    syncControlOutputs();
   };
-  document.getElementById("brushR").oninput = function() { bsz = parseInt(this.value); };
-  document.getElementById("speedR").oninput = function() { spd = parseInt(this.value); };
-  document.getElementById("photoR").oninput = function() { photoActivity = parseInt(this.value) / 100; };
+  document.getElementById("brushR").oninput = function() { bsz = parseInt(this.value); syncControlOutputs(); };
+  document.getElementById("speedR").oninput = function() { spd = parseInt(this.value); syncControlOutputs(); };
+  document.getElementById("photoR").oninput = function() { photoActivity = parseInt(this.value) / 100; syncControlOutputs(); };
 
   // Sun cycle speed slider
   document.getElementById("sunSpeedR").oninput = function() {
     const v = parseInt(this.value);
     // Map 1-100 to a reasonable speed range
     sunCycleSpeed = 0.05 + (v / 100) * 2.0;
+    syncControlOutputs();
   };
   // Initialize speed from default slider value
   sunCycleSpeed = 0.05 + (30 / 100) * 2.0;
+  syncControlOutputs();
   
   const pauseBtn = document.getElementById("pauseBtn");
   if (pauseBtn) {
@@ -6274,32 +6587,7 @@ function initUI() {
   if (clearBtn) {
     clearBtn.onclick = () => {
       try {
-        if (grid) grid.fill(EMPTY);
-        if (tempGrid) tempGrid.fill(20);
-        if (ageGrid) ageGrid.fill(0);
-        if (phGrid) phGrid.fill(7.0);
-        if (radiationGrid) radiationGrid.fill(0);
-        // === Biologie-Erweiterung: Neue Grids zurücksetzen ===
-        if (plantTypeGrid) plantTypeGrid.fill(0);
-        if (plantStageGrid) plantStageGrid.fill(0);
-        if (plantHealthGrid) plantHealthGrid.fill(0);
-        if (plantSapGrid) plantSapGrid.fill(0);
-        if (plantWaterGrid) plantWaterGrid.fill(0);
-        if (plantIdGrid) plantIdGrid.fill(0);
-        if (soilNutrientGrid) soilNutrientGrid.fill(0);
-        // === Neue Grids zurücksetzen ===
-        if (velXGrid) velXGrid.fill(0);
-        if (velYGrid) velYGrid.fill(0);
-        if (electricalGrid) electricalGrid.fill(0);
-        if (nitrogenGrid) nitrogenGrid.fill(0);
-        if (phosphorusGrid) phosphorusGrid.fill(0);
-        if (potassiumGrid) potassiumGrid.fill(0);
-        if (myceliumGrid) myceliumGrid.fill(0);
-        aclClear();
-        nextPlantId = 1;
-        season = 0;
-        seasonTime = 0;
-        seasonProgress = 0;
+        clearWorld();
       } catch (err) {
         console.error("Clear button error:", err);
       }
@@ -6316,6 +6604,7 @@ function initUI() {
       try {
         rainActive = !rainActive;
         rainBtn.classList.toggle("active", rainActive);
+        rainBtn.setAttribute("aria-pressed", rainActive ? "true" : "false");
       } catch (err) {
         console.error("Rain button error:", err);
       }
@@ -6327,6 +6616,7 @@ function initUI() {
       try {
         fireActive = !fireActive;
         fireBtn.classList.toggle("active", fireActive);
+        fireBtn.setAttribute("aria-pressed", fireActive ? "true" : "false");
       } catch (err) {
         console.error("Fire button error:", err);
       }
@@ -6338,6 +6628,7 @@ function initUI() {
       try {
         windActive = !windActive;
         windBtn.classList.toggle("active", windActive);
+        windBtn.setAttribute("aria-pressed", windActive ? "true" : "false");
       } catch (err) {
         console.error("Wind button error:", err);
       }
@@ -6349,6 +6640,7 @@ function initUI() {
       try {
         ecosystemActive = !ecosystemActive;
         seedBtn.classList.toggle("active", ecosystemActive);
+        seedBtn.setAttribute("aria-pressed", ecosystemActive ? "true" : "false");
         // Bei Aktivierung: Boden (Erde) generieren und Initial-Bewuchs setzen
         if (ecosystemActive) {
           generateEcosystemBase();
@@ -6364,53 +6656,39 @@ function initUI() {
   if (sunCycleToggle) {
     sunCycleToggle.onclick = () => {
       sunCycleEnabled = !sunCycleEnabled;
-      sunCycleToggle.textContent = sunCycleEnabled ? "✅ Deaktivieren" : "☀️ Aktivieren";
+      sunCycleToggle.textContent = sunCycleEnabled ? "🌙 Deaktivieren" : "☀️ Aktivieren";
+      sunCycleToggle.classList.toggle("active", sunCycleEnabled);
+      sunCycleToggle.setAttribute("aria-pressed", sunCycleEnabled ? "true" : "false");
       document.getElementById("sunCycleIndicator").style.display = sunCycleEnabled ? "flex" : "none";
       document.getElementById("seasonIndicator").style.display = sunCycleEnabled ? "flex" : "none";
     };
   }
   
-  document.getElementById("toggleUI").onclick = () => {
-    const ui = document.getElementById("ui");
-    ui.classList.toggle("hidden");
-    document.getElementById("toggleUI").textContent = ui.classList.contains("hidden") ? "Anzeigen" : "Ausblenden";
-  };
+  document.getElementById("toggleUI").onclick = () => setUiCollapsed(!document.getElementById("ui").classList.contains("hidden"));
+  document.getElementById("floatingToggleUI").onclick = () => setUiCollapsed(false);
   
   window.addEventListener("keydown", e => {
-    const key = e.key.toLowerCase();
+    const key = e.key;
+    const lowerKey = key.toLowerCase();
     
     if (key === " ") {
       e.preventDefault();
       paused = !paused;
       document.getElementById("pauseBtn").textContent = paused ? "Fortsetzen" : "Pause";
+      return;
     }
     if (key === "c") {
-      if (grid) grid.fill(EMPTY);
-      if (tempGrid) tempGrid.fill(20);
-      if (ageGrid) ageGrid.fill(0);
-      if (phGrid) phGrid.fill(7.0);
-      if (radiationGrid) radiationGrid.fill(0);
-      if (plantTypeGrid) plantTypeGrid.fill(0);
-      if (plantStageGrid) plantStageGrid.fill(0);
-      if (plantHealthGrid) plantHealthGrid.fill(0);
-      if (plantSapGrid) plantSapGrid.fill(0);
-      if (plantWaterGrid) plantWaterGrid.fill(0);
-      if (plantIdGrid) plantIdGrid.fill(0);
-      if (soilNutrientGrid) soilNutrientGrid.fill(0);
-      if (velXGrid) velXGrid.fill(0);
-      if (velYGrid) velYGrid.fill(0);
-      if (electricalGrid) electricalGrid.fill(0);
-      if (nitrogenGrid) nitrogenGrid.fill(0);
-      if (phosphorusGrid) phosphorusGrid.fill(0);
-      if (potassiumGrid) potassiumGrid.fill(0);
-      if (myceliumGrid) myceliumGrid.fill(0);
-      aclClear();
-      nextPlantId = 1;
+      clearWorld();
+      return;
     }
-    if (key === "h") document.getElementById("toggleUI").click();
+    if (key === "h") {
+      setUiCollapsed(!document.getElementById("ui").classList.contains("hidden"));
+      return;
+    }
     
-    if (KEY_MAP[key] !== undefined) {
-      curMat = KEY_MAP[key];
+    const mapped = KEY_MAP[key] !== undefined ? KEY_MAP[key] : KEY_MAP[lowerKey];
+    if (mapped !== undefined) {
+      curMat = mapped;
       buildUI();
     }
   });
@@ -6546,17 +6824,25 @@ function updateMappingList() {
   const listEl = document.getElementById('mappingList');
   if (!listEl) return;
   
-  let html = '';
+  listEl.textContent = '';
+  const frag = document.createDocumentFragment();
   for (let key in colorMapping) {
     const matId = colorMapping[key];
     const mat = MATS[matId];
-    const matName = mat ? mat.name : 'Unknown';
-    html += `<div style="margin: 2px 0; display: flex; align-items: center; gap: 5px;">
-      <span style="display: inline-block; width: 20px; height: 12px; background: ${key}; border: 1px solid #555;"></span>
-      <span>${key} &rarr; ${matName}</span>
-    </div>`;
+    const row = document.createElement('div');
+    row.style.cssText = 'margin:2px 0;display:flex;align-items:center;gap:6px;';
+
+    const swatch = document.createElement('span');
+    swatch.className = 'mapping-swatch';
+    swatch.style.background = key;
+
+    const label = document.createElement('span');
+    label.textContent = `${key} → ${mat ? mat.name : 'Unknown'}`;
+
+    row.append(swatch, label);
+    frag.appendChild(row);
   }
-  listEl.innerHTML = html;
+  listEl.appendChild(frag);
 }
 
 // Show mapping panel
@@ -6619,7 +6905,7 @@ function loadImageFile(file) {
       // Show info
       const info = document.getElementById('info');
       if (info) {
-        info.innerHTML = `Bild geladen: ${canvas.width}x${canvas.height} Pixel, ${Object.keys(colorMapping).length} Farben erkannt`;
+        info.textContent = `Bild geladen: ${canvas.width}x${canvas.height} Pixel, ${Object.keys(colorMapping).length} Farben erkannt`;
         info.classList.add('visible');
         setTimeout(() => info.classList.remove('visible'), 5000);
       }
@@ -6654,12 +6940,8 @@ function applyImageToGrid() {
   const imageData = imgCtx.getImageData(0, 0, scaledW, scaledH);
   const pixels = imageData.data;
   
-  // Clear grid first
-  for (let i = 0; i < N; i++) {
-    grid[i] = EMPTY;
-    tempGrid[i] = 20;
-    phGrid[i] = 7;
-  }
+  // Clear grid first (inkl. Biologie-/Chemie-Zusatzgrids, damit kein Altzustand durchscheint)
+  clearWorld();
   
   // Map scaled canvas pixels to grid cells
   // Each grid cell covers a portion of the scaled canvas
@@ -6697,9 +6979,17 @@ function applyImageToGrid() {
         }
       }
       
-      grid[gy * W + gx] = matId;
-      tempGrid[gy * W + gx] = 20;
-      phGrid[gy * W + gx] = 7;
+      const idx = gy * W + gx;
+      grid[idx] = matId;
+      tempGrid[idx] = MATS[matId]?.temp || 20;
+      phGrid[idx] = MATS[matId]?.ph || 7;
+      if (isPlant(matId) || matId === TREE_WOOD || matId === MUSHROOM || matId === MYCELIUM) {
+        plantHealthGrid[idx] = 70;
+        plantSapGrid[idx] = 50;
+        plantWaterGrid[idx] = 50;
+        plantIdGrid[idx] = nextPlantId++;
+        if (matId === MYCELIUM) myceliumGrid[idx] = 60;
+      }
     }
   }
   
@@ -6719,7 +7009,7 @@ function applyImageToGrid() {
   // Show info
   const info = document.getElementById('info');
   if (info) {
-    info.innerHTML = 'Bild angewendet! Klicke "Simulation starten" zum Starten.';
+    info.textContent = 'Bild angewendet! Klicke "Simulation starten" zum Starten.';
     info.classList.add('visible');
     setTimeout(() => info.classList.remove('visible'), 3000);
   }
@@ -6739,7 +7029,7 @@ function startSimulation() {
   
   const info = document.getElementById('info');
   if (info) {
-    info.innerHTML = 'Simulation l\u00e4uft!';
+    info.textContent = 'Simulation läuft!';
     info.classList.add('visible');
     setTimeout(() => info.classList.remove('visible'), 2000);
   }
