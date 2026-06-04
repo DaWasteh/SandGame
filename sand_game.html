@@ -5176,7 +5176,7 @@ function simulate() {
   // aufgebaut, aber von keiner Funktion abgefragt (spatialHashQuery/CountInRadius
   // werden nirgends genutzt). Dieser Voll-Scan + die Map-Allokationen waren der
   // größte Kostenpunkt pro Tick und wurden ersatzlos entfernt.
-
+ 
   // Wind direction changes with persistence (Trägheit)
   if (windActive) {
     windDirTimer++;
@@ -5318,7 +5318,7 @@ function simulate() {
       }
     }
   }
-
+  
   // === GLOBALE WIND-ADVEKTION: weht leichte Partikel (Sporen, Pollen, Samen,
   //     Rauch, Dampf, abgelöste Blätter) horizontal – und über die offene Seite hinaus.
   if (windActive) {
@@ -5332,7 +5332,7 @@ function simulate() {
       }
     }
   }
-
+  
   // === PASS 1: Bottom-Up (Powder, Liquid, Gas, Fireball, TNT) ===
   // PERF: Counting-Sort der aktiven Zellen nach Y in wiederverwendete Puffer.
   ensureSortBuffers();
@@ -5356,7 +5356,7 @@ function simulate() {
   for (let y = H - 1; y >= 0; y--) {
     const s0 = __rowStart[y], s1 = __rowStart[y + 1];
     if (s1 === s0) continue;
-
+  
     const rowForward = ((tick + y) & 1) === 0; // reduziert Links-/Rechts-Bias
     const cStart = rowForward ? s0 : s1 - 1;
     const cEnd = rowForward ? s1 : s0 - 1;
@@ -5365,15 +5365,15 @@ function simulate() {
       const idx = __sortedCells[c];
       const x = idx % W;
       const matId = grid[idx];
-
+      
       if (matId === EMPTY) continue;
-
+      
       // Thermal physics
       updateThermal(x, y, matId);
-
+      
       // Chemical reactions
       checkChemicalReactions(x, y, matId);
-
+      
       // Material-specific physics
       if (matId === CLOUD) {
         updateCloud(x, y, matId);
@@ -5508,6 +5508,8 @@ function simulate() {
               plantTypeGrid[(gy - 1) * W + ex] = 1 + (rng() * 2 | 0);
               ageGrid[(gy - 1) * W + ex] = 0;
               plantStageGrid[(gy - 1) * W + ex] = 0;
+              plantHealthGrid[(gy - 1) * W + ex] = 50;
+              plantIdGrid[(gy - 1) * W + ex] = nextPlantId++;
               aclAddNeighbors(ex, gy - 1, 1);
             }
           }
@@ -5515,7 +5517,7 @@ function simulate() {
       }
     }
   }
-
+  
   // === Sonnenzyklus-Simulation ===
   if (sunCycleEnabled) {
     sunCycleTime += sunCycleSpeed;
