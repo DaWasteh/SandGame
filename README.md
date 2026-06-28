@@ -1,8 +1,10 @@
 # Sand Game Pro · Advanced Simulation v2.1
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![GitHub Pages](https://img.shields.io/badge/Pages-Deployed-success.svg)](https://github.com/)
-[![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/)](https://github.com/)
+[![GitHub Pages](https://img.shields.io/badge/Pages-Live-success.svg)](https://dawasteh.github.io/SandGame/)
+[![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/DaWasteh/SandGame/build.yml)](https://github.com/DaWasteh/SandGame/actions/workflows/build.yml)
+
+🎮 **Live spielen:** <https://dawasteh.github.io/SandGame/>
 
 Ein interaktives **Zellulares Automaten-Spiel** mit physikalisch, chemisch und biologisch fundierter Simulation. Erstelle Sand, Wasser, Feuer, Pflanzen, Pilze und mehr – und beobachte, wie sie interagieren.
 

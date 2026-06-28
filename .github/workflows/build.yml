@@ -7,8 +7,7 @@ on:
       - '**.md'
   pull_request:
     branches: [main, master]
-  release:
-    types: [published]
+  workflow_dispatch:
 
 # Erlaubt nur einen gleichzeitigen Deploy-Lauf pro Ref.
 concurrency:
@@ -83,13 +82,21 @@ jobs:
           if-no-files-found: error
 
   release:
-    name: Attach Release Asset
+    name: Auto Release
     runs-on: ubuntu-latest
     needs: [build]
-    if: github.event_name == 'release'
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     permissions:
       contents: write
+    concurrency:
+      group: release-${{ github.ref }}
+      cancel-in-progress: false
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Download build artifact
         uses: actions/download-artifact@v4
         with:
@@ -97,19 +104,32 @@ jobs:
           path: release-artifacts/
 
       - name: Create release archive
-        run: |
-          cd release-artifacts
-          zip -r ../sand-game-pro-${{ github.event.release.tag_name }}.zip .
-
-      # Ersetzt das archivierte actions/upload-release-asset@v1 durch die
-      # offizielle GitHub-CLI, die den Asset zuverlässig an das Release hängt.
-      - name: Upload release asset
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: v${{ env.GAME_VERSION }}.${{ github.run_number }}
         run: |
-          gh release upload "${{ github.event.release.tag_name }}" \
-            "sand-game-pro-${{ github.event.release.tag_name }}.zip" \
-            --repo "${{ github.repository }}" --clobber
+          set -eu
+          archive="sand-game-pro-${RELEASE_TAG}.zip"
+          cd release-artifacts
+          zip -r "../$archive" .
+          printf 'ARCHIVE=%s\n' "../$archive" >> "$GITHUB_ENV"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: v${{ env.GAME_VERSION }}.${{ github.run_number }}
+        run: |
+          set -eu
+          if gh release view "$RELEASE_TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            echo "Release $RELEASE_TAG already exists – skipping."
+            exit 0
+          fi
+          gh release create "$RELEASE_TAG" \
+            "$ARCHIVE" \
+            --repo "${{ github.repository }}" \
+            --target "${{ github.event.repository.default_branch }}" \
+            --title "Sand Game Pro $RELEASE_TAG" \
+            --generate-notes \
+            --latest
 
   pages:
     name: Deploy to GitHub Pages
