@@ -101,6 +101,29 @@ Die Simulation wurde ohne Funktionsverlust spürbar beschleunigt:
   Wärmeleitung nutzt Reservoir-Sampling über die Nachbarn.
 - **Saison-/Sonnenwerte gepuffert**: pro Frame statt pro Zelle berechnet.
 
+### 🖥️ Hardware-Beschleunigung (WebGL2)
+
+Das Rendering kann über **WebGL2 auf der GPU** laufen – die gesamte Farb-Logik
+(Temperatur-Glühen, pH, Herbstfärbung, Salz-Tönung, Pilz-Hut/Stiel, HSV-Blumen,
+dynamische Materialien) wird in einen Fragment-Shader portiert. Pro Frame werden
+nur die Simulations-Grids als 3 gepackte RGBA8-Texturen zur GPU hochgeladen
+(reiner Byte-Schub); die GPU berechnet alle Pixel parallel.
+
+- **Automatische Erkennung**: Ist WebGL2 verfügbar und kompiliert der Shader,
+  läuft die GPU-Variante. Schlägt beides fehl, springt das Spiel automatisch auf
+  den bewährten CPU-Renderpfad (`putImageData`) – die Farben bleiben in jedem
+  Fall korrekt.
+- **GPU-Rendering-Toggle** (Werkzeugleiste): Per Checkbox an/abschaltbar. Da der
+  Canvas-Kontext-Typ (WebGL2 vs. 2D) einmalig beim Laden festgelegt wird, führt
+  der Wechsel ein Neuladen herbei (Einstellung wird in `localStorage` gespeichert).
+  Status-Anzeige: „WebGL2 ✓“ bzw. „CPU“.
+- **Hinweis zur Simulation**: Die Partikel-Simulation selbst bleibt auf der CPU
+  (sie ist über eine Active-Cell-List + Look-up-Tabellen bereits stark optimiert).
+  Eine vollständige Portierung der Simulation auf WebGPU-Compute-Shader wäre ein
+  massiver Eingriff in die gesamte Physik-/Chemie-/Biologie-Logik und wird
+  bewusst nicht automatisch vorgenommen – das Risiko, das sorgfältig abgestimmte
+  Verhalten zu verändern, wäre zu hoch.
+
 ### 🐞 Fehlerbehebungen (v2.1)
 
 - **Auto-Zuordnung (Bild-Import)** funktioniert wieder: Die Material-IDs sind `const`
@@ -180,6 +203,7 @@ Das Spiel kann über [GitHub Pages](https://yourusername.github.io/sand-game/) g
 | **Simulations-Ticks pro Frame** | 1–15 (effektiv auf max. 8/Frame begrenzt) | 5 |
 | **Photosynthese-Aktivität** | 0–100 % | 70 |
 | **Zyklus-Geschwindigkeit** | 1–100 | 30 |
+| **GPU-Rendering** | An/Aus (WebGL2, Wechsel lädt neu) | An |
 
 ## 📸 Bild-Import
 

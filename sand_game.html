@@ -402,6 +402,11 @@
       <input type="range" id="sunSpeedR" min="1" max="100" value="30">
       <output class="range-value" id="sunSpeedVal" for="sunSpeedR">30</output>
     </div>
+    <div class="control-row">
+      <label for="gpuToggle">GPU-Rendering</label>
+      <input type="checkbox" id="gpuToggle" checked title="WebGL2-Hardwarebeschleunigung für das Rendering. Wechsel benötigt ein Neuladen (Kontext-Typ ändert sich). Bei Aus schaltet die exakte CPU-Darstellung.">
+      <span class="range-value" id="gpuStatus">WebGL2</span>
+    </div>
   </section>
   
   <section id="mappingPanel" class="mapping-panel" aria-labelledby="mappingTitle">
@@ -5690,7 +5695,266 @@ function simulate() {
 /**
  * RENDERING
  */
+// =====================================================================
+// WEBGL2 GPU RENDERER (Hardware-Beschleunigung) — optional, mit CPU-Fallback
+// ---------------------------------------------------------------------
+// Die gesamte Farb-Logik aus renderCPU() wird 1:1 in einen Fragment-Shader
+// portiert. Pro Frame werden nur die Simulations-Grids als 3 gepackte RGBA8-
+// Texturen hochgeladen (reiner memcpy, keine Farb-Berechnung auf der CPU);
+// die GPU berechnet alle Pixel parallel. Schlägt WebGL2 fehl oder kompiliert
+// der Shader nicht, läuft automatisch der bewährte CPU-Pfad (renderCPU) —
+// garantiert korrekte Farben & keine Ästhetik-Regression.
+//
+// Textur-Packung (pro Zelle, alle aus bestehenden Typed-Arrays, Quantisierung
+// verlustarm):
+//   t0: R=matId  G=tempByte  B=phByte  A=csLow
+//   t1: R=ageLow G=ageHigh   B=health  A=stage
+//   t2: R=csHigh G=salinity  B=radByte A=0
+// =====================================================================
+let gl = null, glProgram = null, glU = {};
+let glTex0 = null, glTex1 = null, glTex2 = null, glQuad = null;
+let glPacked0 = null, glPacked1 = null, glPacked2 = null;
+let useGL = false;          // GPU-Pfad aktiv (Adapter+Shader OK)
+let gpuEnabled = true;      // Nutzer-Wunsch (Toggle/localStorage)
+
+const GL_VS = `#version 300 es
+in vec2 a_pos;
+out vec2 v_uv;
+void main(){ v_uv = vec2(a_pos.x*0.5+0.5, -a_pos.y*0.5+0.5); gl_Position = vec4(a_pos,0.0,1.0); }`;
+
+const GL_FS = `#version 300 es
+precision highp float;
+precision highp int;
+in vec2 v_uv;
+out vec4 frag;
+uniform sampler2D u_t0; // matId,temp,ph,csLow
+uniform sampler2D u_t1; // ageLow,ageHigh,health,stage
+uniform sampler2D u_t2; // csHigh,salinity,rad,_
+uniform vec4 u_colors[77];  // rgb(0..1) + phFlag
+uniform float u_dyn[77];    // DYNAMIC_COLOR-Flag
+uniform int u_tick;
+uniform float u_sunNow, u_nightFactor, u_autumnF;
+uniform int u_nightDim, u_sunOn; // booleans
+const float PI = 3.14159265;
+void main(){
+  ivec2 sz = textureSize(u_t0, 0);
+  ivec2 c = ivec2(v_uv * vec2(sz));
+  c = clamp(c, ivec2(0), sz - 1);
+  vec4 t0 = texelFetch(u_t0, c, 0);
+  vec4 t1 = texelFetch(u_t1, c, 0);
+  vec4 t2 = texelFetch(u_t2, c, 0);
+  int matId = int(t0.r*255.0 + 0.5);
+  if (matId == 0){
+    float er=12.0, eg=12.0, eb=15.0;
+    if (u_nightFactor > 0.0){ er=max(0.0,er-u_nightFactor*10.0); eg=max(0.0,eg-u_nightFactor*10.0); eb=max(0.0,eb+u_nightFactor*5.0); }
+    frag = vec4(er/255.0, eg/255.0, eb/255.0, 1.0); return;
+  }
+  vec4 mdef = (matId < 77) ? u_colors[matId] : vec4(0.0);
+  float r = mdef.r*255.0, g = mdef.g*255.0, b = mdef.b*255.0;
+  float temp = t0.g*750.0 - 50.0;
+  int cs = int(t0.a*255.0+0.5) + int(t2.r*255.0+0.5)*256;
+  float baseNoise = float(cs % 25 - 12);
+  float agef = float(int(t1.r*255.0+0.5) + int(t1.g*255.0+0.5)*256);
+  float hraw = t1.b*255.0;
+  int stage = int(t1.a*255.0+0.5);
+  float salinity = t2.g*255.0;
+  float ph = t0.b*14.0;
+  float rad = t2.b*100.0;
+  float seedf = float(cs);
+
+  if (temp > 30.0){
+    float hf = clamp((temp-30.0)/600.0, 0.0, 1.0);
+    r += hf*150.0;
+    g += hf*(hf>0.5?100.0:40.0);
+    b += hf*(hf>0.8?80.0:0.0);
+    if (temp > 400.0){ float glow=(hf-0.5)*60.0; r+=glow; g+=glow*0.7; b+=glow*0.3; }
+  }
+  if (temp < 0.0){ float cf=clamp(abs(temp)/50.0,0.0,1.0); b=min(255.0,b+cf*40.0); r=max(0.0,r-cf*20.0); }
+  r += baseNoise; g += baseNoise; b += baseNoise;
+
+  if (matId == 2 && salinity > 0.0){
+    float f=min(1.0,salinity/200.0);
+    r=r*(1.0-f*0.45)+205.0*(f*0.45); g=g*(1.0-f*0.45)+210.0*(f*0.45); b=b*(1.0-f*0.35)+215.0*(f*0.35);
+  }
+  if (mdef.a > 0.5){
+    if (ph < 4.0) r=min(255.0,r+(4.0-ph)*15.0);
+    else if (ph > 10.0) b=min(255.0,b+(ph-10.0)*15.0);
+  }
+  if (u_nightDim != 0 && (matId == 7 || matId == 56)){ g*=0.7; r*=0.8; }
+  if (rad > 0.0){ float rr=min(1.0,rad/50.0); r=r*(1.0-rr)+50.0*rr; g=g*(1.0-rr)+255.0*rr; b=b*(1.0-rr)+50.0*rr; }
+
+  float dyn = (matId < 77) ? u_dyn[matId] : 0.0;
+  if (dyn > 0.5){
+    float hlt = (hraw == 0.0) ? 0.5 : hraw/100.0;
+    if (matId == 5){ float fl=sin(float(u_tick)*0.3+seedf)*40.0; r=255.0; g=120.0+fl; b=20.0+fl*0.3; }
+    if (matId == 9){ float bb=sin(float(u_tick)*0.05+seedf*0.1)*30.0; r=255.0; g=60.0+bb; b=10.0+bb*0.2; }
+    if (matId == 7){ float hh=clamp(1.0-abs(temp-25.0)/50.0,0.0,1.0); g=184.0+hh*40.0+sin(agef*0.1)*15.0; }
+    if (matId == 58){ r=139.0+baseNoise; g=90.0+baseNoise; b=43.0+baseNoise; }
+    if (matId == 59){ r=120.0*hlt+50.0; g=200.0*hlt+55.0; b=80.0*hlt+30.0; }
+    if (matId == 60){ r=34.0*hlt+20.0; g=139.0*hlt+45.0; b=34.0*hlt+10.0;
+      if (u_autumnF>0.0){ r=r*(1.0-u_autumnF*0.5)+180.0*u_autumnF*0.5; g=g*(1.0-u_autumnF*0.7)+100.0*u_autumnF*0.7; } }
+    if (matId == 61){ r=20.0; g=100.0*hlt+84.0; b=20.0;
+      if (u_autumnF>0.0){ r=r*(1.0-u_autumnF*0.6)+160.0*u_autumnF*0.6; g=g*(1.0-u_autumnF*0.5)+80.0*u_autumnF*0.5; } }
+    if (matId == 62){ r=255.0; g=255.0; b=100.0+baseNoise; }
+    if (matId == 65 || matId == 66){ bool mp=(matId==66);
+      if (mp){ r=40.0*hlt+30.0; g=140.0*hlt+50.0; b=40.0*hlt+20.0; } else { r=34.0*hlt+25.0; g=120.0*hlt+40.0; b=34.0*hlt+20.0; }
+      if (u_autumnF>0.0){ float ar=mp?220.0:180.0; float ag=mp?60.0:100.0; r=r*(1.0-u_autumnF)+ar*u_autumnF; g=g*(1.0-u_autumnF)+ag*u_autumnF; b=b*(1.0-u_autumnF)+20.0*u_autumnF; } }
+    if (matId == 67){ r=160.0+baseNoise; g=120.0+baseNoise; b=60.0+baseNoise; }
+    if (matId == 41){ r=139.0+baseNoise; g=115.0+baseNoise; b=55.0+baseNoise; }
+    if (matId == 69){ r=255.0; g=255.0; b=150.0+baseNoise; }
+    if (matId == 70){ r=60.0+baseNoise; g=40.0+baseNoise; b=20.0+baseNoise; }
+    if (matId == 71){ r=218.0+baseNoise; g=165.0+baseNoise; b=32.0+baseNoise; }
+    if (matId == 72){ r=180.0+baseNoise; g=120.0+baseNoise; b=60.0+baseNoise; }
+    if (matId == 73){ if (stage >= 2){ bool reddish=((cs % 5)==0);
+        if (reddish){ r=178.0+baseNoise; g=52.0+baseNoise*0.5; b=42.0+baseNoise*0.4; } else { r=150.0+baseNoise; g=104.0+baseNoise*0.6; b=68.0+baseNoise*0.4; } }
+      else { r=234.0+baseNoise*0.5; g=224.0+baseNoise*0.5; b=204.0+baseNoise*0.5; } }
+    if (matId == 43){ float m=float(cs%100); float mature=min(1.0,agef/200.0);
+      r=(212.0-mature*92.0)+(m-50.0)*0.25+baseNoise; g=(216.0-mature*48.0)+(m-50.0)*0.30+baseNoise; b=(192.0-mature*70.0)+(m-50.0)*0.20+baseNoise; }
+    if (matId == 54){ int tt=cs%60; float fil=(tt>42)?26.0:((tt>20)?6.0:-12.0);
+      r=226.0+fil+baseNoise*0.4; g=222.0+fil+baseNoise*0.4; b=210.0+fil+baseNoise*0.4; }
+    if (matId == 42){ float m=float(cs%40);
+      r=168.0+m*0.3+baseNoise*0.5; g=192.0+m*0.2+baseNoise*0.5; b=150.0+m*0.3+baseNoise*0.5; }
+    if (matId == 74){ float ring=float(cs%90)/90.0; float rm=sin(ring*PI*2.0)*18.0; float ad=min(20.0,agef/60.0);
+      r=120.0-ad+rm+baseNoise*0.5; g=80.0-ad*0.7+rm*0.7+baseNoise*0.5; b=46.0-ad*0.4+rm*0.4+baseNoise*0.5;
+      if (u_autumnF>0.3){ r+=u_autumnF*20.0; } }
+    if (matId == 75){ float fade=min(1.0,agef/1200.0);
+      r=228.0-fade*30.0+baseNoise*0.4; g=232.0-fade*28.0+baseNoise*0.4; b=240.0-fade*20.0+baseNoise*0.4;
+      if (u_sunOn!=0){ float k=1.0-u_sunNow; r*=(1.0-0.25*k); g*=(1.0-0.25*k); b*=(1.0-0.2*k); } }
+    if (matId == 76){ float hs=(hraw==0.0)?0.6:hraw/100.0; float sw=sin(float(u_tick)*0.06+float(cs%100)*0.1)*12.0;
+      r=30.0+sw*0.3+baseNoise*0.5; g=120.0*hs+40.0+sw+baseNoise*0.5; b=70.0+sw*0.4+baseNoise*0.5; }
+    if (matId == 63){ r=225.0+baseNoise; g=40.0+baseNoise; b=60.0+baseNoise*0.5; }
+    if (matId == 64){ r=235.0+baseNoise; g=70.0+baseNoise; b=30.0+baseNoise*0.5; }
+    if (matId == 40){ float hue=float(cs%360); float sat=0.8, val=0.9; float cc=val*sat; float xv=cc*(1.0-abs(mod(hue/60.0,2.0)-1.0)); float mm=val-cc;
+      float fr,fg,fb;
+      if (hue<60.0){fr=cc;fg=xv;fb=0.0;} else if(hue<120.0){fr=xv;fg=cc;fb=0.0;} else if(hue<180.0){fr=0.0;fg=cc;fb=xv;} else if(hue<240.0){fr=0.0;fg=xv;fb=cc;} else if(hue<300.0){fr=xv;fg=0.0;fb=cc;} else {fr=cc;fg=0.0;fb=xv;}
+      r=fr*255.0+mm*255.0; g=fg*255.0+mm*255.0; b=fb*255.0+mm*255.0; }
+    if (matId == 16){ float al=max(0.3,1.0-agef/100.0); r=200.0+(1.0-al)*55.0; g=210.0+(1.0-al)*45.0; b=225.0+(1.0-al)*30.0; }
+    if (matId == 6){ float al=max(0.2,1.0-agef/120.0); float v=70.0+(1.0-al)*40.0; r=v; g=v; b=v; }
+    if (matId == 48){ g=180.0+sin(float(u_tick)*0.05+seedf)*30.0; }
+    if (matId == 24){ float pu=sin(float(u_tick)*0.08)*40.0; r=255.0; g=pu; b=255.0; }
+    if (matId == 29){ r=80.0+sin(float(u_tick)*0.1+seedf*0.5)*20.0; g=255.0; }
+  }
+
+  if (u_nightFactor > 0.0){ r=max(0.0,r-u_nightFactor*60.0); g=max(0.0,g-u_nightFactor*60.0); b=max(0.0,b-u_nightFactor*40.0); }
+  frag = vec4(clamp(r,0.0,255.0)/255.0, clamp(g,0.0,255.0)/255.0, clamp(b,0.0,255.0)/255.0, 1.0);
+}`;
+
+function glCompileShader(type, src){
+  const s = gl.createShader(type);
+  gl.shaderSource(s, src); gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)){ console.warn('SandGame: Shader-Kompilierung fehlgeschlagen', gl.getShaderInfoLog(s)); return null; }
+  return s;
+}
+
+function glLoc(name){
+  let l = gl.getUniformLocation(glProgram, name);
+  if (l === null) l = gl.getUniformLocation(glProgram, name + '[0]');
+  return l;
+}
+
+function initGL(){
+  try {
+    gl = canvas.getContext('webgl2', { alpha:false, antialias:false, depth:false, stencil:false, premultipliedAlpha:false });
+    if (!gl) return false;
+    const vs = glCompileShader(gl.VERTEX_SHADER, GL_VS);
+    const fs = glCompileShader(gl.FRAGMENT_SHADER, GL_FS);
+    if (!vs || !fs) return false;
+    glProgram = gl.createProgram();
+    gl.attachShader(glProgram, vs); gl.attachShader(glProgram, fs); gl.linkProgram(glProgram);
+    if (!gl.getProgramParameter(glProgram, gl.LINK_STATUS)){ console.warn('SandGame: Shader-Link fehlgeschlagen', gl.getProgramInfoLog(glProgram)); return false; }
+    gl.useProgram(glProgram);
+    // Fullscreen-Quad
+    glQuad = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, glQuad);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, -1,1, 1,-1, 1,1]), gl.STATIC_DRAW);
+    const aPos = gl.getAttribLocation(glProgram, 'a_pos');
+    if (aPos >= 0){ gl.enableVertexAttribArray(aPos); gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0); }
+    // Texturen
+    glTex0 = gl.createTexture(); glTex1 = gl.createTexture(); glTex2 = gl.createTexture();
+    gl.uniform1i(glLoc('u_t0'), 0);
+    gl.uniform1i(glLoc('u_t1'), 1);
+    gl.uniform1i(glLoc('u_t2'), 2);
+    // Statische Material-Tabellen aus MATS generieren
+    const colors = new Float32Array(77 * 4), dyn = new Float32Array(77);
+    for (let id = 0; id < 77; id++){
+      const m = MATS[id];
+      if (m){ colors[id*4]=m.color[0]/255; colors[id*4+1]=m.color[1]/255; colors[id*4+2]=m.color[2]/255; colors[id*4+3]=(m.ph!==7.0)?1:0; }
+      dyn[id] = DYNAMIC_COLOR[id] || 0;
+    }
+    gl.uniform4fv(glLoc('u_colors'), colors);
+    gl.uniform1fv(glLoc('u_dyn'), dyn);
+    glU = {
+      tick: glLoc('u_tick'), sunNow: glLoc('u_sunNow'),
+      nightFactor: glLoc('u_nightFactor'), autumnF: glLoc('u_autumnF'),
+      nightDim: glLoc('u_nightDim'), sunOn: glLoc('u_sunOn')
+    };
+    useGL = true;
+    return true;
+  } catch (e){
+    console.warn('SandGame: WebGL2 nicht verfügbar/fehlerhaft — CPU-Fallback aktiv', e);
+    useGL = false; gl = null; glProgram = null;
+    return false;
+  }
+}
+
+function glResizeTextures(){
+  if (!useGL || !gl) return;
+  glPacked0 = new Uint8Array(N * 4);
+  glPacked1 = new Uint8Array(N * 4);
+  glPacked2 = new Uint8Array(N * 4);
+  for (const tex of [glTex0, glTex1, glTex2]){
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, W, H, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+  }
+  gl.viewport(0, 0, W, H);
+}
+
+function renderGL(){
+  const sunNow = sunCycleEnabled ? getSunlightIntensity() : 1;
+  const nightFactor = sunCycleEnabled ? (1.0 - sunNow) * 0.25 : 0;
+  const autumnF = getAutumnColorFactor();
+  const nightDim = sunCycleEnabled && !isDaytime;
+
+  // Packen (reiner Byte-Schub, keine Farb-Logik)
+  const p0 = glPacked0, p1 = glPacked1, p2 = glPacked2;
+  for (let i = 0, j = 0; i < N; i++, j += 4){
+    let tb = (tempGrid[i] + 50) / 750 * 255; if (tb < 0) tb = 0; else if (tb > 255) tb = 255;
+    let pb = phGrid[i] / 14 * 255;          if (pb < 0) pb = 0; else if (pb > 255) pb = 255;
+    let rb = radiationGrid[i] / 100 * 255;  if (rb < 0) rb = 0; else if (rb > 255) rb = 255;
+    const cs = colorSeedGrid[i], age = ageGrid[i];
+    p0[j] = grid[i]; p0[j+1] = tb; p0[j+2] = pb; p0[j+3] = cs & 0xFF;
+    p1[j] = age & 0xFF; p1[j+1] = (age >> 8) & 0xFF; p1[j+2] = plantHealthGrid[i]; p1[j+3] = plantStageGrid[i];
+    p2[j] = (cs >> 8) & 0xFF; p2[j+1] = salinityGrid[i]; p2[j+2] = rb; p2[j+3] = 0;
+  }
+
+  gl.useProgram(glProgram);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, glTex0); gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, p0);
+  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, glTex1); gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, p1);
+  gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, glTex2); gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, p2);
+
+  gl.uniform1i(glU.tick, tick | 0);
+  gl.uniform1f(glU.sunNow, sunNow);
+  gl.uniform1f(glU.nightFactor, nightFactor);
+  gl.uniform1f(glU.autumnF, autumnF);
+  gl.uniform1i(glU.nightDim, nightDim ? 1 : 0);
+  gl.uniform1i(glU.sunOn, sunCycleEnabled ? 1 : 0);
+
+  gl.viewport(0, 0, W, H);
+  gl.clearColor(0, 0, 0, 1);
+  gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.drawArrays(gl.TRIANGLES, 0, 6);
+}
+
 function render() {
+  if (useGL && gl && glProgram && gpuEnabled){ renderGL(); return; }
+  renderCPU();
+}
+
+function renderCPU() {
   // Global brightness based on sun cycle
   const sunNow = sunCycleEnabled ? getSunlightIntensity() : 1;
   const nightFactor = sunCycleEnabled ? (1.0 - sunNow) * 0.25 : 0;
@@ -6212,8 +6476,14 @@ function resize() {
   // BUGFIX: nach Resize alle übernommenen Partikel reaktivieren.
   aclSeedAllOccupied();
 
-  img = ctx.createImageData(W, H);
-  pix = img.data;
+  // Rendering-Ressourcen je nach aktivem Pfad: WebGL2-Texturen (GPU) oder
+  // ImageData-Puffer (CPU-Fallback).
+  if (useGL && gl) {
+    glResizeTextures();
+  } else if (ctx) {
+    img = ctx.createImageData(W, H);
+    pix = img.data;
+  }
 }
 
 function buildUI() {
@@ -6675,6 +6945,11 @@ function syncControlOutputs() {
   setOutput("photoVal", `${Math.round(photoActivity * 100)}%`);
   const sunSlider = document.getElementById("sunSpeedR");
   setOutput("sunSpeedVal", sunSlider ? sunSlider.value : "30");
+  // GPU-Status anzeigen (tatsächlich aktiv vs. nur gewünscht)
+  const gpuCb = document.getElementById("gpuToggle");
+  const gpuLbl = document.getElementById("gpuStatus");
+  if (gpuCb) gpuCb.checked = gpuEnabled;
+  if (gpuLbl) gpuLbl.textContent = useGL ? "WebGL2 ✓" : "CPU";
 }
 
 function clearWorld() {
@@ -6741,6 +7016,18 @@ function initUI() {
   // Initialize speed from default slider value
   sunCycleSpeed = 0.05 + (30 / 100) * 2.0;
   syncControlOutputs();
+
+  // GPU-Rendering-Toggle: Wechsel des Canvas-Kontext-Typs benötigt ein Neuladen.
+  // Persistenz über localStorage, damit init() den richtigen Kontext wählt.
+  const gpuCb = document.getElementById("gpuToggle");
+  if (gpuCb) {
+    gpuCb.checked = gpuEnabled;
+    gpuCb.onchange = function () {
+      const want = gpuCb.checked;
+      try { localStorage.setItem('sandgame_gpu', want ? '1' : '0'); } catch (e) {}
+      location.reload();
+    };
+  }
   
   const pauseBtn = document.getElementById("pauseBtn");
   if (pauseBtn) {
@@ -6920,7 +7207,14 @@ function loop(timestamp) {
 
 function init() {
   canvas = document.getElementById("c");
-  ctx = canvas.getContext("2d", { alpha: false });
+
+  // Hardware-Beschleunigung: WebGL2 versuchen (Nutzer-Wunsch aus localStorage).
+  // gpuEnabled ist der Vorgabewert; schlägt WebGL2 fehl/kompiliert der Shader
+  // nicht, läuft automatisch der bewährte CPU-Pfad (renderCPU).
+  try { gpuEnabled = (localStorage.getItem('sandgame_gpu') !== '0'); } catch (e) { gpuEnabled = true; }
+  let glOK = false;
+  if (gpuEnabled && typeof WebGL2RenderingContext !== 'undefined') glOK = initGL();
+  if (!glOK) ctx = canvas.getContext("2d", { alpha: false });
 
   // Default-Grid = Bildschirmauflösung (capped auf das Performance-Max von 1080).
   // Höhe folgt aus dem Seitenverhältnis in resize(). Der Slider bleibt manuelle
@@ -6934,7 +7228,7 @@ function init() {
   initInput();
   initUI();
   initImageImport();
-  
+
   requestAnimationFrame(loop);
 }
 
