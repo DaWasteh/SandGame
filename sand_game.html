@@ -515,8 +515,8 @@ const MATS = {
   [BLOOD]:      { id: BLOOD,     name: "Blut", type: TYPE.LIQUID, color: [160,25,25], density: 10.5, melting: -5, boiling: 100, heatCapacity: 3.8, conductivity: 0.6, flammability: 0, ph: 7.4, electrical: 0.5, radioactivity: 0, viscosity: 1.5, surfaceTension: 0.65, organic: true },
   [EGGS]:       { id: EGGS,      name: "Eier", type: TYPE.LIQUID, color: [245,245,230], density: 9, melting: 62, boiling: 100, heatCapacity: 3.5, conductivity: 0.4, flammability: 0, ph: 8.0, electrical: 0.2, radioactivity: 0, viscosity: 2.0, surfaceTension: 0.55, organic: true, coagulationTemp: 62, raw: true },
   [BLOOD_ALKALI]: { id: BLOOD_ALKALI, name: "Lauge", type: TYPE.LIQUID, color: [180,100,200], density: 11, melting: -10, boiling: 110, heatCapacity: 3.8, conductivity: 0.9, flammability: 0, ph: 13.0, electrical: 0.7, radioactivity: 0, viscosity: 1.2, surfaceTension: 0.6 },
-  [HONEY]:      { id: HONEY,     name: "Honig", type: TYPE.LIQUID, color: [240,180,40], density: 1.2, melting: 50, boiling: 140, heatCapacity: 2.5, conductivity: 0.1, flammability: 0.2, ph: 3.9, electrical: 0.1, radioactivity: 0, viscosity: 10.0, surfaceTension: 0.5, organic: true, sugar: true },
-  [ALCOHOL]:    { id: ALCOHOL,   name: "Alkohol", type: TYPE.LIQUID, color: [200,220,255], density: 5, melting: -114, boiling: 78, heatCapacity: 2.5, conductivity: 0.1, flammability: 1.0, ph: 7.0, electrical: 0, radioactivity: 0, viscosity: 1.2, surfaceTension: 0.22 },
+  [HONEY]:      { id: HONEY,     name: "Honig", type: TYPE.LIQUID, color: [240,180,40], density: 14, melting: 50, boiling: 140, heatCapacity: 2.5, conductivity: 0.1, flammability: 0.2, ph: 3.9, electrical: 0.1, radioactivity: 0, viscosity: 10.0, surfaceTension: 0.5, organic: true, sugar: true },
+  [ALCOHOL]:    { id: ALCOHOL,   name: "Alkohol", type: TYPE.LIQUID, color: [200,220,255], density: 8, melting: -114, boiling: 78, heatCapacity: 2.5, conductivity: 0.1, flammability: 1.0, ph: 7.0, electrical: 0, radioactivity: 0, viscosity: 1.2, surfaceTension: 0.22 },
   [MERCURY]:    { id: MERCURY,   name: "Quecksilber", type: TYPE.LIQUID, color: [180,190,200], density: 135, melting: -39, boiling: 357, heatCapacity: 0.14, conductivity: 1.5, flammability: 0, ph: 7.0, electrical: 3.0, radioactivity: 0, viscosity: 1.5, surfaceTension: 1.5 },
   [SODA]:       { id: SODA,      name: "Natronlauge", type: TYPE.LIQUID, color: [200,255,200], density: 12, melting: -10, boiling: 140, heatCapacity: 3.5, conductivity: 1.0, flammability: 0, ph: 13.5, electrical: 1.0, radioactivity: 0, viscosity: 1.0, surfaceTension: 0.6 },
   [FIRE_EXTINGUISHER]: { id: FIRE_EXTINGUISHER, name: "CO2-Schaum", type: TYPE.LIQUID, color: [230,240,255], density: 3, melting: -50, boiling: 0, heatCapacity: 2.0, conductivity: 0.1, flammability: 0, ph: 5.5, electrical: 0, radioactivity: 0, viscosity: 2.0, surfaceTension: 0.4, extinguish: true },
@@ -711,10 +711,11 @@ const KEY_MAP = {
 let W, H, N;
 let grid, tempGrid, ageGrid, colorSeedGrid;
 let phGrid, radiationGrid;
+let salinityGrid; // Uint8Array: gelöstes Salz (0-255) im Wasser — Brine-Tracking
 // REMOVED: soluteGrid, electricalGrid, myceliumGrid (unbenutzt)
 let canvas, ctx, img, pix;
 let curMat = SAND, bsz = 5, spd = 5, paused = false;
-let targetGridWidth = 200; // Start moderat; Slider erlaubt bis 1080 für High-End-Systeme
+let targetGridWidth = 200; // Fallback; init() setzt Default auf Bildschirmauflösung (capped 1080)
 let rainActive = false, fireActive = false, windActive = false, windDir = 1;
 let windDirTimer = 0;
 let windDirDuration = 300;
@@ -1140,7 +1141,7 @@ const DYNAMIC_COLOR = new Uint8Array(256);
  FLOWER_DANDELION, FLOWER_TULIP, FLOWER_POPPY, LEAF_OAK, LEAF_MAPLE,
  ROOT_SYSTEM, PLANT_DEAD, POLLEN, SEED_SUNFLOWER, SEED_WHEAT, FLOWER_SEED,
  MUSHROOM, TREE_WOOD, CLOUD, SEAWEED, PLANT_FLOWER, STEAM, SMOKE, URANIUM,
- CLONE, BACTERIA].forEach(id => { if (id !== undefined) DYNAMIC_COLOR[id] = 1; });
+ CLONE, BACTERIA, MOLD, MYCELIUM, SPORE].forEach(id => { if (id !== undefined) DYNAMIC_COLOR[id] = 1; });
 
 /**
  * DENSITY & BUOYANCY
@@ -1211,7 +1212,10 @@ function canDisplaceDirectional(target, source, dy) {
     const densityDelta = s.density - t.density;
     if (dy < 0) return densityDelta < -0.05;
     if (dy > 0) return densityDelta > 0.05;
-    return Math.abs(densityDelta) > 0.25; // horizontale Diffusion nur bei klarem Unterschied
+    // Horizontal: Diffusion — verschiedene Gase mischen sich (Brownian mixing),
+    // unabhängig von der Dichte. Ohne das blieben nebeneinander liegende Gase
+    // (z. B. O₂/N₂) streng getrennt und es entsteht keine echte Atmosphäre.
+    return true;
   }
 
   return canDisplace(target, source);
@@ -1245,6 +1249,9 @@ function swap(x1, y1, x2, y2) {
   
   // Mykorrhiza-Grid tauschen
   tmp = myceliumGrid[i2]; myceliumGrid[i2] = myceliumGrid[i1]; myceliumGrid[i1] = tmp;
+
+  // Salinität wandert mit dem Wasser (Brine bleibt beim Lösungsmittel)
+  tmp = salinityGrid[i2]; salinityGrid[i2] = salinityGrid[i1]; salinityGrid[i1] = tmp;
   
   // Impuls-Felder tauschen (Phase 3.3)
   tmp = velXGrid[i2]; velXGrid[i2] = velXGrid[i1]; velXGrid[i1] = tmp;
@@ -1486,9 +1493,21 @@ function updateLiquid(x, y, matId) {
   }
   
   // === TEMPERATUR-PRÜFUNG: Bei Siedetemperatur wird Flüssigkeit zu Dampf ===
-  const boilTemp = mat.boiling || 100;
+  let boilTemp = mat.boiling || 100;
+  // Salzwasser siedet bei höherer Temperatur (Siedepunkterhöhung)
+  if (matId === WATER) {
+    const sal = salinityGrid[i] || 0;
+    if (sal > 0) boilTemp += sal / 255 * 20;
+  }
   if (tempGrid[i] >= boilTemp) {
-    grid[i] = STEAM;
+    // Beim Verdampfen von Salzwasser bleibt das Salz als Kruste zurück
+    if (matId === WATER) {
+      const sal = salinityGrid[i] || 0;
+      if (sal > 100) grid[i] = SALT; else grid[i] = STEAM;
+      if (sal > 0) salinityGrid[i] = 0;
+    } else {
+      grid[i] = STEAM;
+    }
     tempGrid[i] = boilTemp + 10;
     aclAddNeighbors(x, y, 2);
     return true;
@@ -1623,17 +1642,28 @@ function updateGas(x, y, matId) {
     // sich lange; ohne Brennstoff erlischt es zügig. Dadurch breiten sich
     // Brände realistisch aus, statt sofort zu verlöschen.
     let fuelNear = 0;
+    let o2Pos = -1;   // Index eines Sauerstoff-Nachbarn
     for (let d = 0; d < 4; d++) {
       const nx = x + (d === 0 ? -1 : d === 1 ? 1 : 0);
       const ny = y + (d === 2 ? -1 : d === 3 ? 1 : 0);
       if (nx >= 0 && nx < W && ny >= 0 && ny < H) {
-        const fm = MATS[grid[ny * W + nx]];
+        const nm4 = grid[ny * W + nx];
+        const fm = MATS[nm4];
         if (fm && fm.flammability > 0) fuelNear += fm.flammability;
+        if (nm4 === OXYGEN && o2Pos < 0) o2Pos = ny * W + nx;
       }
+    }
+    // === VERBRENNUNGSGASE: O₂ verbrauchen, CO₂ + Rauch produzieren ===
+    if (o2Pos >= 0 && rng() < 0.15) {
+      if (rng() < 0.8) { grid[o2Pos] = CO2; tempGrid[o2Pos] = Math.max(tempGrid[o2Pos], 120); }
+      else { grid[o2Pos] = SMOKE; ageGrid[o2Pos] = 0; }
+      aclAddNeighbors(o2Pos % W, (o2Pos / W) | 0, 1);
     }
     const selfExtinct = fuelNear > 0.3 ? 0.004 : 0.06; // mit Brennstoff zäh, ohne schnell aus
     if (rng() < selfExtinct) {
-      grid[i] = rng() < 0.4 ? SMOKE : EMPTY;
+      // Mit Brennstoff: Asche-Rückstand + Rauch. Ohne: nur Rauch/leer.
+      if (fuelNear > 0.3) grid[i] = rng() < 0.6 ? ASH : SMOKE;
+      else grid[i] = rng() < 0.4 ? SMOKE : EMPTY;
       if (grid[i] === SMOKE) ageGrid[i] = 0;
       aclAddNeighbors(x, y, 1);
       return true;
@@ -2343,6 +2373,18 @@ function updatePlant(x, y, matId) {
         }
       }
       
+      // === EINSEITIGE SYMBIOSE: Myzel hilft bereits EINER Wurzel ===
+      // Auch ohne zweite Pflanze profitiert eine Wurzel vom Myzel-Netzwerk:
+      // bessere Wasser-/Nährstoffaufnahme -> Health-Boost. Macht Myzel in der
+      // Nähe von Pflanzen sichtbar nützlich (Symbiose statt nur Zersetzer).
+      if (rootConnections.length >= 1 && rng() < 0.5) {
+        for (const rc of rootConnections) {
+          plantHealthGrid[rc.ni] = Math.min(100, plantHealthGrid[rc.ni] + 1);
+          plantWaterGrid[rc.ni] = Math.min(100, (plantWaterGrid[rc.ni] || 0) + 2);
+          myceliumGrid[i] = Math.min(100, myceliumGrid[i] + 1); // Myzel gedelht durch Symbiose
+        }
+      }
+
       // Nährstofftransfer zwischen verbundenen Pflanzen
       if (rootConnections.length >= 2) {
         for (let a = 0; a < rootConnections.length; a++) {
@@ -2820,21 +2862,23 @@ function updatePlantSeed(x, y, matId) {
   
   // Keimung: Samen wird zum Keimling — stark reduziert (0.002 statt 0.03)
   if (onSuitableGround && moistureLevel >= 1) {
-    const germinationChance = 0.002 * getSeasonGrowthFactor();
+    const germinationChance = 0.004 * getSeasonGrowthFactor();
     const temp = tempGrid[i];
     if (temp >= 5 && temp <= 40 && ageGrid[i] > 10 && rng() < germinationChance) {
       grid[i] = PLANT_SPROUT;
       plantTypeGrid[i] = rng() < 0.5 ? 1 : 2;
       plantStageGrid[i] = 1;
       plantHealthGrid[i] = 60;
+      plantWaterGrid[i] = 55;   // hydratisierter Start (sonst Health-Strafe)
+      plantSapGrid[i] = 60;
       plantIdGrid[i] = nextPlantId++;
       ageGrid[i] = 0;
       return;
     }
   }
   
-  // Samen verdirbt bei Stauwasser (sehr langsam)
-  if (moistureLevel >= 6 && ageGrid[i] > 100 && rng() < 0.005) {
+  // Samen verdirbt nur bei echtem Stauwasser (>=3 Wasserzellen, sehr langsam)
+  if (moistureLevel >= 9 && ageGrid[i] > 100 && rng() < 0.005) {
     grid[i] = DIRT;
     return;
   }
@@ -2891,8 +2935,8 @@ function updatePlantSprout(x, y, matId) {
       }
     }
   }
-  // Wenn > 2 Pflanzen-Nachbarn: kein Wachstum (Konkurrenz)
-  if (plantNeighbors > 2) {
+  // Bei starker Konkurrenz (>3 Nachbarn) kein Wachstum — aber nicht sofort tot
+  if (plantNeighbors > 3) {
     // Sehr langsam altern wenn zu viel Konkurrenz
     if (ageGrid[i] > 200 && rng() < 0.001) {
       grid[i] = PLANT_DEAD;
@@ -2908,6 +2952,8 @@ function updatePlantSprout(x, y, matId) {
     plantTypeGrid[ti] = plantTypeGrid[i];
     plantStageGrid[ti] = 2;
     plantHealthGrid[ti] = plantHealthGrid[i];
+    plantWaterGrid[ti] = plantWaterGrid[i];   // Wasser/Saft vererben -> gesunde Spitze
+    plantSapGrid[ti] = plantSapGrid[i];
     plantIdGrid[ti] = plantIdGrid[i];
     ageGrid[ti] = 0;
     aclAddNeighbors(x, y - 1, 1);
@@ -3019,13 +3065,12 @@ function growCanopy(x, y, i) {
   if (depth > 6) return; // Zu tief im Stamm → keine Krone hier
   // Radius basierend auf Baumgröße (max 3, reduziert)
   const radius = Math.min(3, 1 + Math.floor(age / 150));
-  // Sehr selten - reduzierte Frequenz
+  // Ausgewogene Frequenz: genug Blätter für eine sichtbare Krone
   if (age % 20 !== 0) return;
-  if (rng() > 0.004 * getSeasonGrowthFactor()) return;
+  if (rng() > 0.015 * getSeasonGrowthFactor()) return;
 
-  // Blätter nur in einem Halbkreis über dem Stamm (nicht seitlich)
-  // Reduziert von 2 auf 1 Versuch
-  for (let attempt = 0; attempt < 1; attempt++) {
+  // Blätter in einem Halbkreis über dem Stamm (2 Versuche für dichtere Krone)
+  for (let attempt = 0; attempt < 2; attempt++) {
     const angle = -Math.PI + rng() * Math.PI; // Oben
     const dist = 1 + Math.floor(rng() * radius);
     const lx = x + Math.round(Math.cos(angle) * dist);
@@ -3072,8 +3117,8 @@ function updatePlantStem(x, y, matId) {
       }
     }
   }
-  // Wenn > 2 Pflanzen-Nachbarn: kein Wachstum (Konkurrenz)
-  if (stemNeighbors > 2) {
+  // Bei starker Konkurrenz (>3 Nachbarn) kein Wachstum
+  if (stemNeighbors > 3) {
     if (ageGrid[i] > 300 && rng() < 0.001) {
       grid[i] = PLANT_DEAD;
       plantHealthGrid[i] = 0;
@@ -3091,6 +3136,8 @@ function updatePlantStem(x, y, matId) {
       plantTypeGrid[ti] = plantTypeGrid[i];
       plantStageGrid[ti] = plantStageGrid[i];
       plantHealthGrid[ti] = plantHealthGrid[i];
+      plantWaterGrid[ti] = plantWaterGrid[i];   // Wasser/Saft vererben -> gesunde Spitze
+      plantSapGrid[ti] = plantSapGrid[i];
       plantIdGrid[ti] = plantIdGrid[i];
       ageGrid[ti] = 0;
       aclAddNeighbors(x, y - 1, 1);
@@ -3465,11 +3512,13 @@ function updateTree(x, y, matId) {
 
   const seasonNow = getCurrentSeason(); // 0=Frühling,1=Sommer,2=Herbst,3=Winter
   const growLeaves = (seasonNow === 0 || seasonNow === 1);
-  const leafRate = growLeaves ? 0.003 * season : 0.001 * season; // EXTREM reduziertes Blattwachstum
+  // Ausgewogene Kronendichte: genug Blätter für eine sichtbare Krone, aber kein
+  // flächendeckendes Wuchern. Sommer dichter als Frühling.
+  const leafRate = growLeaves ? 0.012 * season : 0.001 * season;
   if (inUpperQuarter && plantStageGrid[i] >= 2 && health > 0.3 && rng() < leafRate) {
-    for (let a = 0; a < 1; a++) { // Nur 1 Blatt pro Tick max
-      const lx = x + Math.round((rng() - 0.5) * 4); // Reduziert von 6 auf 4
-      const ly = y - Math.floor(rng() * 3); // Reduziert von 4 auf 3
+    for (let a = 0; a < 2; a++) { // bis zu 2 Blätter pro Tick
+      const lx = x + Math.round((rng() - 0.5) * 5);
+      const ly = y - Math.floor(rng() * 4);
       if (lx >= 0 && lx < W && ly >= 0 && grid[ly * W + lx] === EMPTY) {
         // nur in der Nähe von Holz/Blättern (an der Krone), nicht im freien Raum
         let nearWood = false;
@@ -3730,46 +3779,66 @@ function updateLeaf(x, y, matId) {
   // Gesundheit
   plantHealthGrid[i] = calculatePlantHealth(x, y, i);
   
-  // Aktive Photosynthese
+  // Aktive Photosynthese / Atmung
   const sunlight = getSunlightIntensity();
   const lightFactor = hasUnobstructedLight(x, y);
   const effectiveLight = sunlight * lightFactor;
-  
-  if (effectiveLight > 0.1 && photoActivity > 0) {
+  const isNight = sunCycleEnabled && !isDaytime;
+
+  if (photoActivity > 0) {
     const temp = tempGrid[i];
     const tempFactor = (temp >= 10 && temp <= 35) ? 1.0 :
                        (temp >= 0 && temp <= 45) ? 0.5 : 0.1;
-    
-    // CO2 aufnehmen und O2 produzieren
-    let co2Nearby = false;
-    for (let dy = -3; dy <= 3; dy++) {
-      for (let dx = -3; dx <= 3; dx++) {
-        const nx = x + dx, ny = y + dy;
-        if (nx >= 0 && nx < W && ny >= 0 && ny < H) {
-          if (grid[ny * W + nx] === CO2) {
-            co2Nearby = true;
-            if (rng() < 0.003) {
-              grid[ny * W + nx] = EMPTY;
-            }
+
+    // === TAGSÜBER: Photosynthese CO₂ + H₂O -> O₂ + Biomasse ===
+    if (effectiveLight > 0.1 && !isNight) {
+      // CO₂ aus der Nachbarschaft aufnehmen (5x5, höhere Rate -> spürbarer Effekt)
+      let co2Found = -1;
+      for (let dy = -2; dy <= 2 && co2Found < 0; dy++) {
+        for (let dx = -2; dx <= 2; dx++) {
+          const nx = x + dx, ny = y + dy;
+          if (nx >= 0 && nx < W && ny >= 0 && ny < H && grid[ny * W + nx] === CO2) {
+            co2Found = ny * W + nx;
+            break;
           }
         }
       }
-    }
-    
-    const photoRate = 0.0003 * photoActivity * effectiveLight * tempFactor;
-    if (rng() < photoRate) {
-      const dir = Math.floor(rng() * 4);
-      const dx = [0, 0, -1, 1][dir];
-      const dy = [-1, 1, 0, 0][dir];
-      const nx = x + dx, ny = y + dy;
-      if (nx >= 0 && nx < W && ny >= 0 && ny < H && grid[ny * W + nx] === EMPTY) {
-        if (sunCycleEnabled && !isDaytime) {
-          grid[ny * W + nx] = CO2; // Nachts: Atmung
-        } else {
-          grid[ny * W + nx] = OXYGEN; // Tags: Photosynthese
+      if (co2Found >= 0 && rng() < 0.03 * photoActivity * tempFactor) {
+        grid[co2Found] = EMPTY;
+        aclAddNeighbors(co2Found % W, (co2Found / W) | 0, 1);
+        // Gesundheit/Stoffwechsel profitiert
+        plantHealthGrid[i] = Math.min(100, plantHealthGrid[i] + 1);
+      }
+      // O₂ produzieren (sichtbarer, stetiger Output im Tageslicht)
+      const photoRate = 0.002 * photoActivity * effectiveLight * tempFactor;
+      if (rng() < photoRate) {
+        const dir = Math.floor(rng() * 4);
+        const dx = [0, 0, -1, 1][dir];
+        const dy = [-1, 1, 0, 0][dir];
+        const nx = x + dx, ny = y + dy;
+        if (nx >= 0 && nx < W && ny >= 0 && ny < H && grid[ny * W + nx] === EMPTY) {
+          grid[ny * W + nx] = OXYGEN;
+          aclAddNeighbors(nx, ny, 1);
         }
       }
+    } else if (isNight) {
+      // === NACHTS: Atmung O₂ -> CO₂ (Pflanzen atmen immer) ===
+      let o2Found = -1;
+      for (let dy = -2; dy <= 2 && o2Found < 0; dy++) {
+        for (let dx = -2; dx <= 2; dx++) {
+          const nx = x + dx, ny = y + dy;
+          if (nx >= 0 && nx < W && ny >= 0 && ny < H && grid[ny * W + nx] === OXYGEN) {
+            o2Found = ny * W + nx;
+            break;
+          }
+        }
+      }
+      if (o2Found >= 0 && rng() < 0.01 * tempFactor) {
+        grid[o2Found] = CO2;
+        aclAddNeighbors(o2Found % W, (o2Found / W) | 0, 1);
+      }
     }
+
   }
   
   // Transpiration: Gibt Wasser ab — EXTREM reduziert (0.005 → 0.0005)
@@ -4114,14 +4183,51 @@ function checkChemicalReactions(x, y, matId) {
         grid[ni] = WATER;
         tempGrid[ni] = Math.max(tempGrid[i], 0);
       }
-      // Salz löst sich in Wasser
-      if (nId === SALT && matId === WATER && rng() < 0.02) {
-        grid[ni] = EMPTY;
-        // Salzwasser ist leicht sauer
-        phGrid[i] = Math.max(phGrid[i] - 0.1, 5.5);
+    }
+
+    // === LÖSLICHKEIT (Dissolution) — temperaturabhängig, mit Brine-Tracking ===
+    // BUGFIX: Salzlösung sass früher INSIDE des Feuer/>300°C-Guards und lief
+    // daher nie. Jetzt lösen sich lösliche Feststoffe in angrenzendem Wasser
+    // bei jeder Temperatur (warmes Wasser schneller). Gelöstes Salz wird im
+    // salinityGrid geführt und treibt Siedepunkt↑, Gefrierpunkt↓, Leitfähigkeit↑.
+    if (matId === WATER && nMat.soluble && tempGrid[i] < (mat.boiling || 100)) {
+      const T = Math.max(0, tempGrid[i]);
+      const dissolveRate = 0.008 * (1 + T / 30); // warmes Wasser löst schneller
+      if (salinityGrid[i] < 240 && rng() < dissolveRate) {
+        grid[ni] = EMPTY;                        // Feststoff geht in Lösung
+        salinityGrid[i] = Math.min(255, salinityGrid[i] + 28);
+        phGrid[i] = Math.max(phGrid[i] - 0.02, 5.5); // NaCl-Lsg. schwach sauer
+        aclAddNeighbors(nx, ny, 1);
       }
     }
-    
+    // Honig/Zucker löst sich in Wasser (verdünnt, nicht flüchtig)
+    if (matId === WATER && nMat.sugar && rng() < 0.01) {
+      grid[ni] = WATER;
+      aclAddNeighbors(nx, ny, 1);
+    }
+
+    // === ZEMENT-HYDRATATION (Betonbildung) ===
+    // Zement + Wasser -> erhärtet zu STONE (Zementstein), stark exotherm.
+    // Das entspricht dem realen Abbinden von Beton (exotherme Hydratation).
+    if (matId === WATER && nId === CEMENT && rng() < 0.04) {
+      grid[ni] = STONE;                      // Zementstein (baurfähig)
+      grid[i] = EMPTY;                       // Wasser wird chemisch gebunden
+      tempGrid[ni] = Math.min(tempGrid[ni] + 35, 90); // exotherm (~Auf Abbindewärme)
+      phGrid[ni] = 12.0;                     // Beton bleibt stark basisch
+      aclAddNeighbors(nx, ny, 1);
+      aclAddNeighbors(x, y, 1);
+    }
+
+    // === ALKOHOL/SÄURE MISCHBARKEIT mit Wasser ===
+    // Alkohol und Säure sind vollständig mit Wasser mischbar -> vereinigen
+    // sich benachbart zu Wasser (vereinfacht), anstatt getrennt zu schichten.
+    if (matId === WATER && (nId === ALCOHOL || nId === ACID) && rng() < 0.05) {
+      // Mischung behält die Säure-/Alkohol-Identität der konzentrierteren Phase,
+      // aber Wasser wird absorbiert -> Volumenabbau durch Durchmischung.
+      if (rng() < 0.4) grid[i] = nId;        // Wasser nimmt Lösungsmittel-Eigenschaft an
+      aclAddNeighbors(x, y, 1);
+    }
+
     // === ELEKTROLYSE-SYSTEM Phase 4.2 ===
     // Elektrische Leitfähigkeit ermöglicht Elektrolyse von Wasser
     // 2H₂O → 2H₂ + O₂ (bei Stromfluss)
@@ -4188,61 +4294,67 @@ function checkChemicalReactions(x, y, matId) {
     
     // === ACID REACTIONS (Säure-Reaktionen) ===
     if (matId === ACID) {
-      // Säure + Metall -> Salz + Wasserstoff (korrekte Chemie!)
-      // 2HCl + Fe -> FeCl₂ + H₂
-      if (nId === METAL && rng() < 0.03) {
-        grid[ni] = RUST; // Metall wird zu Metallionen (vereinfacht: Rost)
-        if (rng() < 0.4) {
-          grid[i] = EMPTY; // Säure verbraucht
-        }
-        // Wasserstoffgas produzieren (steigt auf)
-        if (y > 0 && grid[(y-1) * W + x] === EMPTY && rng() < 0.5) {
-          grid[(y-1) * W + x] = HYDROGEN;
+      // Säure + Metall -> Metallsalz (in Lösung) + Wasserstoff (H₂↑)
+      // 2HCl + Fe -> FeCl₂ + H₂. Säure LÖST das Metall, kein Rost
+      // (Rost = Oxidation Fe₂O₃, siehe OXIDATION-Block unten).
+      if (nId === METAL && rng() < 0.02) {
+        grid[ni] = EMPTY;              // Metall geht in Lösung
+        if (rng() < 0.5) grid[i] = EMPTY; // Säure verbraucht
+        phGrid[i] = Math.min(7, phGrid[i] + 0.2); // Säure verbraucht -> pH steigt
+        if (y > 0 && grid[(y-1) * W + x] === EMPTY && rng() < 0.6) {
+          grid[(y-1) * W + x] = HYDROGEN; // H₂ steigt auf
+          aclAddNeighbors(x, y-1, 1);
         }
       }
       // Säure + Base (Neutralisation) - exotherm!
-      // HCl + NaOH -> NaCl + H₂O
+      // HCl + NaOH -> NaCl + H₂O  (Salz, nicht Erde)
       if (nId === SODA || nId === BLOOD_ALKALI) {
-        grid[ni] = DIRT; // Salz entsteht (vereinfacht: Erde)
+        grid[ni] = SALT;               // Neutralisationssalz (NaCl)
         grid[i] = WATER;
-        tempGrid[i] = 80; // Stark exotherm!
+        tempGrid[i] = 80;              // stark exotherm
         tempGrid[ni] = 80;
-        phGrid[i] = 7.0; // Neutral
+        phGrid[i] = 7.0;               // neutral
+        aclAddNeighbors(nx, ny, 1);
       }
       // Säure + Schwefel -> Schwefeldioxid (SO₂)
       if (nId === SULFUR && rng() < 0.02) {
         grid[ni] = SMOKE; // SO₂
         if (rng() < 0.3) grid[i] = EMPTY;
       }
-      // Säure + Carbonat (Kalkstein) -> CO₂
-      // 2HCl + CaCO₃ -> CaCl₂ + H₂O + CO₂
+      // Säure + Carbonat (Kalkstein) -> CO₂ + CaCl₂ (in Lösung) + H₂O
+      // 2HCl + CaCO₃ -> CaCl₂ + H₂O + CO₂↑  (echtes CO₂-Material, nicht Rauch)
       if (nId === STONE && rng() < 0.015) {
-        grid[i] = EMPTY; // Säure verbraucht
-        // CO₂-Gas entsteht (steigt nicht auf, ist schwerer als Luft)
-        if (y < H-1 && grid[(y+1) * W + x] === EMPTY) {
-          grid[(y+1) * W + x] = SMOKE; // CO₂ (als Smoke simuliert)
-        }
+        grid[ni] = CO2;                // Carbonat zersetzt sich -> CO₂ (sinkt, schwer)
+        if (rng() < 0.6) grid[i] = EMPTY; // Säure verbraucht
+        aclAddNeighbors(nx, ny, 1);
       }
-      // Säure zerstört organische Materie
-      if (isPlant(nId) || nId === PLANT_DEAD || nId === WOOD || nId === OIL) {
-        grid[ni] = ASH;
-        if (rng() < 0.3) grid[i] = EMPTY;
+      // Säure zersetzt organische Materie (Dehydration/Auflösung, keine Verbrennung
+      // -> kein Asche). Öl ist unpolare und reagiert kaum (Base verseift, nicht Säure).
+      if ((isPlant(nId) || nId === PLANT_DEAD || nId === WOOD) && rng() < 0.015) {
+        grid[ni] = EMPTY;              // organische Materie wird aufgelöst
+        if (rng() < 0.5) grid[i] = EMPTY; // Säure verbraucht
+        aclAddNeighbors(nx, ny, 1);
       }
-      // Säure frisst sich durch Materialien
-      if (nMat.id !== ACID && nMat.id !== GLASS && nMat.id !== PLASTIC && rng() < 0.005) {
-        grid[ni] = ASH;
+      // Säure frisst sich langsam durch die meisten Materialien — löst auf (EMPTY),
+      // erzeugt KEINE Asche. Glas/Kunststoff/Wand/Klon sind säurebeständig.
+      if (nMat.id !== ACID && nMat.id !== GLASS && nMat.id !== PLASTIC &&
+          nMat.id !== WALL && nMat.id !== CLONE && rng() < 0.003) {
+        grid[ni] = EMPTY;
+        if (rng() < 0.6) grid[i] = EMPTY;
+        aclAddNeighbors(nx, ny, 1);
       }
     }
     
     // === BASE (ALKALI) REACTIONS (Lauge-Reaktionen) ===
     if (matId === SODA || matId === BLOOD_ALKALI) {
-      // Base + Säure (Neutralisation)
+      // Base + Säure (Neutralisation) -> Salz + Wasser, exotherm
       if (nId === ACID) {
         grid[i] = WATER;
-        grid[ni] = DIRT; // Salz
+        grid[ni] = SALT;               // NaCl
         tempGrid[i] = 80;
         tempGrid[ni] = 80;
         phGrid[i] = 7.0;
+        aclAddNeighbors(nx, ny, 1);
       }
       // Lauge + Öl -> Seife (Verseifung!)
       // Triglycerid + 3NaOH -> Glycerin + 3 Seifenmoleküle
@@ -4987,19 +5099,31 @@ function updateThermal(x, y, matId) {
   
   // Freezing
   if (mat.melting > 0 && tempGrid[i] <= mat.melting && isLiquid(matId)) {
-    if (matId === WATER) grid[i] = ICE;
+    if (matId === WATER) {
+      // Salzwasser gefriert erst bei tieferen Temperaturen (Gefrierpunkterniedrigung)
+      const sal = salinityGrid[i] || 0;
+      if (tempGrid[i] <= -(sal / 255 * 15)) grid[i] = ICE;
+    }
     else if (matId === LAVA) { grid[i] = STONE; tempGrid[i] = 100; }
   }
   
-  // Boiling
-  if (mat.boiling > 0 && tempGrid[i] >= mat.boiling) {
-    if (matId === WATER || matId === BLOOD) grid[i] = STEAM;
-    else if (matId === OIL) { grid[i] = FIRE; tempGrid[i] = 500; }
-    else if (matId === ACID) grid[i] = SMOKE;
-    else if (matId === COOKED_EGG) { grid[i] = ASH; } // Cooked egg chars
-    else if (matId === HONEY) { grid[i] = ASH; }
-    else if (matId === ALCOHOL) { grid[i] = FIRE; tempGrid[i] = 600; }
-    else if (matId === MERCURY) grid[i] = STEAM;
+  // Boiling (mit Siedepunkterhöhung für Salzwasser)
+  {
+    const salBoil = (matId === WATER) ? (salinityGrid[i] || 0) / 255 * 20 : 0;
+    if (mat.boiling > 0 && tempGrid[i] >= mat.boiling + salBoil) {
+      if (matId === WATER) {
+        const sal = salinityGrid[i] || 0;
+        if (sal > 100) grid[i] = SALT; else grid[i] = STEAM; // Salz krustet aus
+        if (sal > 0) salinityGrid[i] = 0;
+      }
+      else if (matId === BLOOD) grid[i] = STEAM;
+      else if (matId === OIL) { grid[i] = FIRE; tempGrid[i] = 500; }
+      else if (matId === ACID) grid[i] = SMOKE;
+      else if (matId === COOKED_EGG) { grid[i] = ASH; } // Cooked egg chars
+      else if (matId === HONEY) { grid[i] = ASH; }
+      else if (matId === ALCOHOL) { grid[i] = FIRE; tempGrid[i] = 600; }
+      else if (matId === MERCURY) grid[i] = STEAM;
+    }
   }
   
   // === LAVA PHYSICS - Realistic cooling and crystallization ===
@@ -5627,6 +5751,17 @@ function render() {
     g += baseNoise;
     b += baseNoise;
 
+    // Salzwasser-Tönung: gelöstes Salz macht Wasser heller/trüber (milchig)
+    if (matId === WATER) {
+      const sal = salinityGrid[i];
+      if (sal > 0) {
+        const f = Math.min(1, sal / 200);
+        r = r * (1 - f * 0.45) + 205 * (f * 0.45);
+        g = g * (1 - f * 0.45) + 210 * (f * 0.45);
+        b = b * (1 - f * 0.35) + 215 * (f * 0.35);
+      }
+    }
+
     // pH visualization
     const ph = phGrid[i];
     if (ph !== undefined && ph !== null && mat.ph !== 7.0) {
@@ -5796,17 +5931,46 @@ function render() {
       }
 
       if (matId === MUSHROOM) {
-        // Pilz: cremefarben mit Variation
-        const age = ageGrid[i];
-        if (age < 30) {
-          r = 230 + baseNoise;
-          g = 220 + baseNoise;
-          b = 200 + baseNoise;
+        // Pilz mit Hut vs. Stiel (plantStageGrid): Stage>=2 = Hut (gefärbt),
+        // Stage<2 = Stiel (cremeweiß). Variiert Hutfarbe für Artenvielfalt
+        // (~20% rote Fliegenpilz-Hüte, Rest braune Steinpilz-Töne).
+        if (plantStageGrid[i] >= 2) {
+          const reddish = (colorSeedGrid[i] % 5) === 0;
+          if (reddish) {
+            r = 178 + baseNoise; g = 52 + baseNoise * 0.5; b = 42 + baseNoise * 0.4;
+          } else {
+            r = 150 + baseNoise; g = 104 + baseNoise * 0.6; b = 68 + baseNoise * 0.4;
+          }
         } else {
-          r = 200 + baseNoise;
-          g = 180 + baseNoise;
-          b = 150 + baseNoise;
+          // Stiel: cremeweiß, leicht texturiert
+          r = 234 + baseNoise * 0.5;
+          g = 224 + baseNoise * 0.5;
+          b = 204 + baseNoise * 0.5;
         }
+      }
+      if (matId === MOLD) {
+        // Flaumiger Schimmel: gesprenkelte weiß/grau/grüne Flecken,
+        // mit dem Alter von weißlichem Flaum zu grünem Schimmel reifend.
+        const m = colorSeedGrid[i] % 100;
+        const mature = Math.min(1, ageGrid[i] / 200);
+        r = (212 - mature * 92) + (m - 50) * 0.25 + baseNoise;
+        g = (216 - mature * 48) + (m - 50) * 0.30 + baseNoise;
+        b = (192 - mature * 70) + (m - 50) * 0.20 + baseNoise;
+      }
+      if (matId === MYCELIUM) {
+        // Myzel: helles Fadennetz — Knoten heller, Zwischenräume dunkler.
+        const t = colorSeedGrid[i] % 60;
+        const fil = t > 42 ? 26 : (t > 20 ? 6 : -12);
+        r = 226 + fil + baseNoise * 0.4;
+        g = 222 + fil + baseNoise * 0.4;
+        b = 210 + fil + baseNoise * 0.4;
+      }
+      if (matId === SPORE) {
+        // Sporen: zarter gräulich-grüner Staubwölkchen
+        const m = colorSeedGrid[i] % 40;
+        r = 168 + m * 0.3 + baseNoise * 0.5;
+        g = 192 + m * 0.2 + baseNoise * 0.5;
+        b = 150 + m * 0.3 + baseNoise * 0.5;
       }
 
       if (matId === TREE_WOOD) {
@@ -5940,6 +6104,7 @@ function resize() {
   const oldElectrical = electricalGrid, oldNitrogen = nitrogenGrid;
   const oldPhosphorus = phosphorusGrid, oldPotassium = potassiumGrid;
   const oldMycelium = myceliumGrid;
+  const oldSalinity = salinityGrid;
   const oldColorSeed = colorSeedGrid;
   const oldW = W, oldH = H;
   
@@ -5980,6 +6145,9 @@ function resize() {
   
   // === MYKORRIZA-GRID Phase 5.3 ===
   myceliumGrid = new Uint8Array(N);
+
+  // === SALINITÄT (Brine-Tracking) ===
+  salinityGrid = new Uint8Array(N);
   
   // Grid-Größe in UI aktualisieren
   const gridSlider = document.getElementById("gridR");
@@ -6030,6 +6198,7 @@ function resize() {
         phosphorusGrid[newIdx] = oldPhosphorus ? oldPhosphorus[oldIdx] : 0;
         potassiumGrid[newIdx] = oldPotassium ? oldPotassium[oldIdx] : 0;
         myceliumGrid[newIdx] = oldMycelium ? oldMycelium[oldIdx] : 0;
+        salinityGrid[newIdx] = oldSalinity ? oldSalinity[oldIdx] : 0;
       }
     }
   }
@@ -6752,7 +6921,13 @@ function loop(timestamp) {
 function init() {
   canvas = document.getElementById("c");
   ctx = canvas.getContext("2d", { alpha: false });
-  
+
+  // Default-Grid = Bildschirmauflösung (capped auf das Performance-Max von 1080).
+  // Höhe folgt aus dem Seitenverhältnis in resize(). Der Slider bleibt manuelle
+  // Override-Quelle; kleine Bildschirme bekommen automatisch kleinere Grids.
+  if (typeof window !== 'undefined' && window.innerWidth) {
+    targetGridWidth = Math.max(50, Math.min(1080, Math.round(window.innerWidth)));
+  }
   seedRng(12345);
   resize();
   buildUI();
